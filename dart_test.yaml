@@ -1,0 +1,4 @@
+tags:
+  # Тесты против живого локального Supabase (test/integration). Сами пропускаются,
+  # если не заданы LIVE_SUPABASE_* (см. шапку test/integration/catalog_live_test.dart).
+  live:

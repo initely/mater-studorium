@@ -25,7 +25,9 @@ class DecksDao extends DatabaseAccessor<AppDatabase> with _$DecksDaoMixin {
   /// исчезнувшие у оставшегося знания, удаляются.
   ///
   /// Бросает [ItemIdCollisionError], если `id` знания уже принадлежит другой
-  /// колоде (ADR-21); тогда не записывается ничего.
+  /// колоде (ADR-21), и [QuestionIdCollisionError], если так же совпал `id`
+  /// вопроса (иначе upsert перезаписал бы вопрос чужой колоды; валидатор
+  /// колоды это не ловит, он видит одну колоду); тогда не записывается ничего.
   Future<void> replaceDeck(Deck deck, {required DateTime downloadedAt}) {
     return transaction(() async {
       final itemIds = [for (final i in deck.items) i.id];
@@ -38,6 +40,27 @@ class DecksDao extends DatabaseAccessor<AppDatabase> with _$DecksDaoMixin {
                 ..limit(1))
               .getSingleOrNull();
       if (clash != null) throw ItemIdCollisionError(clash.id, clash.deckId);
+
+      final allQuestionIds = [
+        for (final i in deck.items)
+          for (final q in i.questions) q.id,
+      ];
+      final qClash =
+          await (select(
+                  questions,
+                ).join([innerJoin(items, items.id.equalsExp(questions.itemId))])
+                ..where(
+                  questions.id.isIn(allQuestionIds) &
+                      items.deckId.equals(deck.id).not(),
+                )
+                ..limit(1))
+              .getSingleOrNull();
+      if (qClash != null) {
+        throw QuestionIdCollisionError(
+          qClash.readTable(questions).id,
+          qClash.readTable(items).deckId,
+        );
+      }
 
       await into(decks).insertOnConflictUpdate(
         DecksCompanion.insert(

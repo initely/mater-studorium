@@ -13,9 +13,19 @@ class HomePlaceholder extends StatelessWidget {
       appBar: AppBar(title: Text(l10n.homeTitle)),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: FilledButton(
-          onPressed: () => context.go('/settings'),
-          child: Text(l10n.settingsTitle),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: 12,
+          children: [
+            FilledButton(
+              onPressed: () => context.push('/decks'),
+              child: Text(l10n.decksTitle),
+            ),
+            FilledButton(
+              onPressed: () => context.go('/settings'),
+              child: Text(l10n.settingsTitle),
+            ),
+          ],
         ),
       ),
     );

@@ -44,6 +44,9 @@ dependencies:
   drift: ^2.35.2
   drift_flutter: ^0.3.1
   supabase_flutter: ^2.18.2
+  # Уже в дереве через supabase_flutter; прямая зависимость нужна, чтобы
+  # ловить ClientException (сетевые сбои) в catalog/data.
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mater_studorium/core/errors/app_error.dart';
+import 'package:mater_studorium/features/catalog/domain/deck_validator.dart';
 import 'package:mater_studorium/features/catalog/domain/question_type.dart';
 
 import '../../helpers/db_fixtures.dart';
@@ -108,6 +109,50 @@ void main() {
       expect(await db.decksDao.getDeck('other'), isNull);
       expect(await db.decksDao.getItem('o.new'), isNull);
       expect((await db.decksDao.getItem('t.b'))!.deckId, 'fixture-good');
+    },
+  );
+
+  test(
+    'replaceDeck: id вопроса другой колоды — ошибка, чужой вопрос не тронут',
+    () async {
+      final db = memoryDb();
+      final deck = goodDeck();
+      await db.decksDao.replaceDeck(deck, downloadedAt: t0);
+      final original = await db.decksDao.getQuestion('t.a.q1');
+
+      // Колода Y: знание `t` свободно, а вопрос `t.a.q1` принадлежит
+      // fixture-good. Валидатор одной колоды такое пропускает (id вопроса
+      // начинается с `t.`), поэтому последний рубеж — DAO.
+      final y = deck.copyWith(
+        id: 'y',
+        items: [
+          deck.items[0].copyWith(
+            id: 't',
+            questions: [
+              deck.items[0].questions[0].copyWith(prompt: 'подменённый вопрос'),
+            ],
+          ),
+        ],
+      );
+      expect(validateDeck(y), isEmpty);
+
+      await expectLater(
+        db.decksDao.replaceDeck(y, downloadedAt: t0),
+        throwsA(
+          isA<QuestionIdCollisionError>()
+              .having((e) => e.questionId, 'questionId', 't.a.q1')
+              .having((e) => e.otherDeckId, 'otherDeckId', 'fixture-good'),
+        ),
+      );
+
+      // Вопрос первой колоды не изменился и всё ещё привязан к t.a.
+      expect(await db.decksDao.getQuestion('t.a.q1'), original);
+      final row = await (db.select(
+        db.questions,
+      )..where((q) => q.id.equals('t.a.q1'))).getSingle();
+      expect(row.itemId, 't.a');
+      expect(await db.decksDao.getDeck('y'), isNull);
+      expect(await db.decksDao.getItem('t'), isNull);
     },
   );
 

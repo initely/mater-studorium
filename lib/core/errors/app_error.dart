@@ -35,6 +35,43 @@ final class ItemIdCollisionError extends AppError {
   final String otherDeckId;
 }
 
+/// Вопрос с таким `id` уже принадлежит знанию другой колоды. Как и `item_id`,
+/// id вопроса глобально уникален (PK `questions.id`): запись перезаписала бы
+/// чужой вопрос. Колоду записывать нельзя.
+final class QuestionIdCollisionError extends AppError {
+  const QuestionIdCollisionError(this.questionId, this.otherDeckId)
+    : super('question_id $questionId уже принадлежит колоде $otherDeckId');
+
+  final String questionId;
+  final String otherDeckId;
+}
+
+/// Файл колоды не разбирается или нарушает правила формата (ТЗ M2, AC2.3).
+/// Ничего не записано, прежняя версия колоды остаётся на месте.
+final class DeckFormatError extends AppError {
+  const DeckFormatError(super.message, {super.cause});
+}
+
+/// `schema_version` колоды выше поддерживаемой клиентом: нужно обновить
+/// приложение (ADR-19). Прежняя версия колоды остаётся на месте.
+final class DeckSchemaTooNewError extends AppError {
+  const DeckSchemaTooNewError(this.schemaVersion, this.supportedVersion)
+    : super(
+        'schema_version колоды $schemaVersion, клиент понимает до '
+        '$supportedVersion',
+      );
+
+  final int schemaVersion;
+  final int supportedVersion;
+}
+
+/// Колоды нет в каталоге сервера (или она недоступна этому пользователю).
+final class DeckNotFoundError extends AppError {
+  const DeckNotFoundError(this.deckId) : super('колода $deckId не найдена');
+
+  final String deckId;
+}
+
 /// Всё остальное, чего мы не ожидали.
 final class UnexpectedError extends AppError {
   const UnexpectedError(super.message, {super.cause});

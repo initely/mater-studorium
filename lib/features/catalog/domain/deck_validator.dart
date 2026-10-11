@@ -47,6 +47,15 @@ List<DeckIssue> validateDeck(Deck deck, {bool release = false}) {
     if (!sourceIds.add(source.id)) {
       report('/sources/$i/id', 'id "${source.id}" повторяется');
     }
+    // Ссылки открываются пользователю: только абсолютный https (не file:,
+    // javascript:, http:). Формат колоды не меняется, ужесточена только проверка.
+    final uri = Uri.tryParse(source.url);
+    if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
+      report(
+        '/sources/$i/url',
+        'нужен абсолютный https-URL, сейчас "${source.url}"',
+      );
+    }
     if (source.license.trim().isEmpty) {
       report('/sources/$i/license', 'не указана лицензия источника');
     }
