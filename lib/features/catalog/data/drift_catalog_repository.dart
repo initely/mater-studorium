@@ -47,7 +47,18 @@ class DriftCatalogRepository implements CatalogRepository {
     if (local != null && local.version >= remote.version) return local;
 
     final bytes = await _remote.downloadDeckFile(remote.storagePath);
-    final deck = _checked(await _parse(bytes), remote);
+    final DeckParseResult parsed;
+    try {
+      parsed = await _parse(bytes);
+    } catch (e) {
+      // Изолят упал (нехватка памяти, переполнение стека и т. п.): файл
+      // не принят, как повреждённый; прежняя версия остаётся.
+      throw DeckFormatError(
+        'Колода $deckId: файл не удалось разобрать (${e.runtimeType})',
+        cause: e,
+      );
+    }
+    final deck = _checked(parsed, remote);
 
     // Запись одной транзакцией: при ошибке (в том числе коллизии item_id)
     // локальная БД остаётся как была, то есть со старой версией.

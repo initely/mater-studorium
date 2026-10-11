@@ -51,6 +51,8 @@ Future<void> main(List<String> args) async {
 bool isLocalSupabaseUrl(String url) {
   final uri = Uri.tryParse(url);
   if (uri == null || !uri.hasAuthority) return false;
+  // file://localhost, ws://localhost и т. п. локальным Supabase не считаются.
+  if (uri.scheme != 'http' && uri.scheme != 'https') return false;
   return const {'localhost', '127.0.0.1', '::1'}.contains(uri.host);
 }
 
@@ -193,26 +195,40 @@ Future<int> runImportDeck(
     serviceKey,
   );
   try {
-    // 3. Версия строго больше текущей.
-    final current = await backend.currentVersion(deck.id);
-    if (current != null && deck.version <= current) {
+    // 3. Колода должна быть колодой куратора (public, без владельца), а версия
+    // строго больше текущей. Колоду пользователя (v1) импорт не перезаписывает.
+    final current = await backend.existingDeck(deck.id);
+    if (current != null &&
+        (current.ownerId != null || current.visibility != 'public')) {
+      err.writeln(
+        '${deck.id}: на сервере колода с таким id не публичная колода '
+        'куратора (owner_id = ${current.ownerId ?? 'null'}, '
+        'visibility = ${current.visibility}). Импорт её не перезаписывает.',
+      );
+      return importRejected;
+    }
+    if (current != null && deck.version <= current.version) {
       err.writeln(
         '${deck.id}: версия ${deck.version} не больше текущей на сервере '
-        '($current). Увеличьте "version" в $file и повторите импорт.',
+        '(${current.version}). Увеличьте "version" в $file и повторите импорт.',
       );
       return importRejected;
     }
 
-    // 4. item_id глобально уникальны между колодами (ADR-21).
+    // 4. id знаний и вопросов глобально уникальны между колодами (ADR-21).
     final owners = await backend.itemOwners(excludeDeckId: deck.id);
     final clashes = [
-      for (final item in deck.items)
-        if (owners[item.id] case final other?) '${item.id} (колода $other)',
+      for (final item in deck.items) ...[
+        if (owners[item.id] case final other?)
+          'знание ${item.id} (колода $other)',
+        for (final q in item.questions)
+          if (owners[q.id] case final other?) 'вопрос ${q.id} (колода $other)',
+      ],
     ];
     if (clashes.isNotEmpty) {
       err.writeln(
-        '${deck.id}: id знаний уже принадлежат другим колодам '
-        '(ADR-21: item_id уникален между колодами):',
+        '${deck.id}: id знаний или вопросов уже принадлежат другим колодам '
+        '(ADR-21: id уникальны между колодами):',
       );
       for (final c in clashes) {
         err.writeln('  - $c');

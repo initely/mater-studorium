@@ -15,6 +15,7 @@ void main() {
       NetworkError() => 'network',
       AuthError() => 'auth',
       ItemIdCollisionError() => 'collision',
+      QuestionIdCollisionError() => 'question_collision',
       DeckFormatError() => 'format',
       DeckSchemaTooNewError() => 'schema',
       DeckNotFoundError() => 'not_found',

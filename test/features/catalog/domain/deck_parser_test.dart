@@ -54,6 +54,11 @@ void main() {
     });
   }
 
+  test('патологически вложенный файл: DeckParseCorrupt, без исключения', () {
+    final nested = Uint8List.fromList(utf8.encode('[' * 2000000));
+    expect(parseDeckBytes(nested), isA<DeckParseCorrupt>());
+  });
+
   test('нарушение семантики: сообщение называет правило', () {
     final json = readJsonFile(goodDeckPath);
     (json['items'] as List<dynamic>).add(

@@ -37,6 +37,9 @@ DeckParseResult parseDeckBytes(Uint8List bytes) {
     json = jsonDecode(utf8.decode(bytes));
   } on FormatException catch (e) {
     return DeckParseCorrupt('не JSON: ${e.message}');
+  } on Object catch (e) {
+    // Например, StackOverflowError на патологически вложенном файле.
+    return DeckParseCorrupt('файл не разбирается: ${e.runtimeType}');
   }
   if (json is! Map<String, dynamic>) {
     return const DeckParseCorrupt('корень файла не объект');

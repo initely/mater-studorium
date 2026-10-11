@@ -161,7 +161,8 @@ String _errorText(AppLocalizations l10n, AppError error) => switch (error) {
   NetworkError() => l10n.decksErrorNetwork,
   DeckFormatError() => l10n.decksErrorCorrupt,
   DeckSchemaTooNewError() => l10n.decksErrorSchemaTooNew,
-  ItemIdCollisionError() => l10n.decksErrorCollision,
+  ItemIdCollisionError() ||
+  QuestionIdCollisionError() => l10n.decksErrorCollision,
   DeckNotFoundError() => l10n.decksErrorNotFound,
   AuthError() || UnexpectedError() => l10n.decksErrorGeneric,
 };

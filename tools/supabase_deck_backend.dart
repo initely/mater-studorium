@@ -38,13 +38,29 @@ final class DeckRow {
   };
 }
 
+/// Колода, уже лежащая на сервере.
+final class ExistingDeck {
+  const ExistingDeck({
+    required this.version,
+    this.ownerId,
+    this.visibility = 'public',
+  });
+
+  final int version;
+
+  /// null — колода куратора.
+  final String? ownerId;
+  final String visibility;
+}
+
 /// Доступ к серверу, нужный импорту. В тестах заменяется фейком.
 abstract interface class DeckImportBackend {
-  /// Текущая версия колоды на сервере или null, если колоды нет.
-  Future<int?> currentVersion(String deckId);
+  /// Колода на сервере или null, если её нет.
+  Future<ExistingDeck?> existingDeck(String deckId);
 
-  /// `item_id` → id колоды для знаний всех колод, кроме [excludeDeckId]
-  /// (текущие версии их файлов).
+  /// id знаний и id вопросов → id колоды для всех колод, кроме [excludeDeckId]
+  /// (текущие версии их файлов). И знания, и вопросы глобально уникальны
+  /// между колодами (ADR-21: общий PK `questions.id` в локальной БД).
   Future<Map<String, String>> itemOwners({required String excludeDeckId});
 
   /// Кладёт файл в bucket `decks`.
@@ -92,6 +108,9 @@ final class SupabaseDeckBackend implements DeckImportBackend {
     final client = HttpClient()..connectionTimeout = _timeout;
     try {
       final request = await client.openUrl(method, uri).timeout(_timeout);
+      // Редиректы не идём: HttpClient переслал бы apikey и Authorization (ключ
+      // service role) на другой хост. Любой 3xx — ошибка (см. ниже).
+      request.followRedirects = false;
       _auth.forEach(request.headers.set);
       headers.forEach(request.headers.set);
       if (body != null) request.add(body);
@@ -99,6 +118,13 @@ final class SupabaseDeckBackend implements DeckImportBackend {
       final bytes = await response
           .fold<List<int>>(<int>[], (all, chunk) => all..addAll(chunk))
           .timeout(_timeout);
+      if (response.statusCode >= 300 && response.statusCode < 400) {
+        throw ImportBackendException(
+          'сервер ответил редиректом (HTTP ${response.statusCode}) на '
+          '$method ${uri.replace(query: '')}: редиректы не поддерживаются, '
+          'проверь SUPABASE_URL',
+        );
+      }
       return (response.statusCode, bytes);
     } on SocketException catch (e) {
       throw ImportBackendException('нет соединения с $baseUrl: ${e.message}');
@@ -118,15 +144,23 @@ final class SupabaseDeckBackend implements DeckImportBackend {
   }
 
   @override
-  Future<int?> currentVersion(String deckId) async {
+  Future<ExistingDeck?> existingDeck(String deckId) async {
     final (status, body) = await _send(
       'GET',
-      _uri('/rest/v1/decks', {'select': 'version', 'id': 'eq.$deckId'}),
+      _uri('/rest/v1/decks', {
+        'select': 'version,owner_id,visibility',
+        'id': 'eq.$deckId',
+      }),
     );
     if (status != 200) _fail('чтение decks', status, body);
     final rows = jsonDecode(utf8.decode(body)) as List<dynamic>;
     if (rows.isEmpty) return null;
-    return (rows.single as Map<String, dynamic>)['version'] as int;
+    final row = rows.single as Map<String, dynamic>;
+    return ExistingDeck(
+      version: row['version'] as int,
+      ownerId: row['owner_id'] as String?,
+      visibility: row['visibility'] as String,
+    );
   }
 
   @override
@@ -155,7 +189,11 @@ final class SupabaseDeckBackend implements DeckImportBackend {
       if (fileStatus != 200) _fail('чтение файла $path', fileStatus, fileBody);
       final json = jsonDecode(utf8.decode(fileBody)) as Map<String, dynamic>;
       for (final item in json['items'] as List<dynamic>) {
-        owners[(item as Map<String, dynamic>)['id'] as String] = deckId;
+        final map = item as Map<String, dynamic>;
+        owners[map['id'] as String] = deckId;
+        for (final q in map['questions'] as List<dynamic>) {
+          owners[(q as Map<String, dynamic>)['id'] as String] = deckId;
+        }
       }
     }
     return owners;

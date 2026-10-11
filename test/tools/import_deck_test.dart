@@ -9,9 +9,21 @@ import '../helpers/deck_fixtures.dart';
 
 /// Фейковый сервер: колоды в памяти, журнал вызовов.
 class _FakeBackend implements DeckImportBackend {
-  _FakeBackend({this.version, this.owners = const {}, this.failUpload = false});
+  _FakeBackend({
+    int? version,
+    String? ownerId,
+    String visibility = 'public',
+    this.owners = const {},
+    this.failUpload = false,
+  }) : existing = version == null
+           ? null
+           : ExistingDeck(
+               version: version,
+               ownerId: ownerId,
+               visibility: visibility,
+             );
 
-  final int? version;
+  final ExistingDeck? existing;
   final Map<String, String> owners;
   final bool failUpload;
   final calls = <String>[];
@@ -19,9 +31,9 @@ class _FakeBackend implements DeckImportBackend {
   final rows = <DeckRow>[];
 
   @override
-  Future<int?> currentVersion(String deckId) async {
-    calls.add('currentVersion $deckId');
-    return version;
+  Future<ExistingDeck?> existingDeck(String deckId) async {
+    calls.add('existingDeck $deckId');
+    return existing;
   }
 
   @override
@@ -92,7 +104,7 @@ void main() {
       expect(r.out, contains('импортирована версия 2'));
       // Сначала файл, потом строка: клиент не увидит колоду без файла.
       expect(backend.calls, [
-        'currentVersion fixture-good',
+        'existingDeck fixture-good',
         'itemOwners',
         'upload fixture-good/v2.json',
         'upsertRow fixture-good',
@@ -202,7 +214,7 @@ void main() {
           final r = await run([goodDeckPath], backend: backend);
           expect(r.code, 1);
           expect(r.err, contains('не больше текущей'));
-          expect(backend.calls, ['currentVersion fixture-good']);
+          expect(backend.calls, ['existingDeck fixture-good']);
         },
       );
     }
@@ -211,11 +223,45 @@ void main() {
       final backend = _FakeBackend(owners: {'t.b': 'other-deck', 'zzz': 'x'});
       final r = await run([goodDeckPath], backend: backend);
       expect(r.code, 1);
-      expect(r.err, contains('t.b (колода other-deck)'));
+      expect(r.err, contains('знание t.b (колода other-deck)'));
       expect(r.err, isNot(contains('zzz')));
       expect(backend.uploads, isEmpty);
       expect(backend.rows, isEmpty);
     });
+
+    test(
+      'id вопроса уже есть в другой колоде: отказ (перехват вопроса)',
+      () async {
+        // Знания t.a, t.b, t.c свободны, но вопрос t.a.q1 принадлежит другой колоде.
+        final backend = _FakeBackend(owners: {'t.a.q1': 'other-deck'});
+        final r = await run([goodDeckPath], backend: backend);
+        expect(r.code, 1);
+        expect(r.err, contains('вопрос t.a.q1 (колода other-deck)'));
+        expect(backend.uploads, isEmpty);
+        expect(backend.rows, isEmpty);
+      },
+    );
+
+    for (final (label, owner, visibility) in [
+      ('чужая колода пользователя', 'user-1', 'public'),
+      ('колода куратора, но не public', null, 'private'),
+      ('unlisted', null, 'unlisted'),
+    ]) {
+      test(
+        'на сервере $label с тем же id: отказ, ничего не записано',
+        () async {
+          final backend = _FakeBackend(
+            version: 1,
+            ownerId: owner,
+            visibility: visibility,
+          );
+          final r = await run([goodDeckPath], backend: backend);
+          expect(r.code, 1);
+          expect(r.err, contains('не публичная колода куратора'));
+          expect(backend.calls, ['existingDeck fixture-good']);
+        },
+      );
+    }
 
     test('item_id из прошлой версии той же колоды — не коллизия', () async {
       // itemOwners исключает саму колоду; фейк возвращает чужое: пусто.
@@ -281,6 +327,10 @@ BROKEN
       expect(isLocalSupabaseUrl('http://localhost'), isTrue);
       expect(isLocalSupabaseUrl('https://x.supabase.co'), isFalse);
       expect(isLocalSupabaseUrl('not a url'), isFalse);
+      // Схема должна быть http(s): иначе host = localhost ничего не значит.
+      expect(isLocalSupabaseUrl('file://localhost/etc'), isFalse);
+      expect(isLocalSupabaseUrl('ws://localhost:54321'), isFalse);
+      expect(isLocalSupabaseUrl('ftp://127.0.0.1'), isFalse);
       expect(isLocalSupabaseUrl(''), isFalse);
     });
   });
@@ -297,6 +347,9 @@ BROKEN
           })
         >[];
     late Map<String, ({int status, String body})> responses;
+    // Второй сервер: цель редиректа, где ключ оказаться не должен.
+    late HttpServer evil;
+    final evilSeen = <Map<String, String>>[];
 
     setUp(() async {
       seen.clear();
@@ -316,6 +369,12 @@ BROKEN
         final r =
             responses['${req.method} ${req.uri.path}'] ??
             (status: 404, body: 'нет заглушки');
+        if (r.status >= 300 && r.status < 400) {
+          req.response.headers.set(
+            'location',
+            'http://127.0.0.1:${evil.port}/steal',
+          );
+        }
         req.response
           ..statusCode = r.status
           ..write(r.body);
@@ -323,11 +382,28 @@ BROKEN
       });
     });
 
+    setUp(() async {
+      evilSeen.clear();
+      evil = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => evil.close(force: true));
+      evil.listen((req) async {
+        final headers = <String, String>{};
+        req.headers.forEach((k, v) => headers[k] = v.join(','));
+        evilSeen.add(headers);
+        req.response.statusCode = 200;
+        req.response.write('[]');
+        await req.response.close();
+      });
+    });
+
     SupabaseDeckBackend backend(String key) =>
         SupabaseDeckBackend(Uri.parse('http://127.0.0.1:${server.port}'), key);
 
-    test('currentVersion, upload, upsertRow: пути, заголовки, тело', () async {
-      responses['GET /rest/v1/decks'] = (status: 200, body: '[{"version": 4}]');
+    test('existingDeck, upload, upsertRow: пути, заголовки, тело', () async {
+      responses['GET /rest/v1/decks'] = (
+        status: 200,
+        body: '[{"version": 4, "owner_id": "u1", "visibility": "private"}]',
+      );
       responses['POST /storage/v1/object/decks/d/v5.json'] = (
         status: 200,
         body: '{}',
@@ -335,7 +411,10 @@ BROKEN
       responses['POST /rest/v1/decks'] = (status: 201, body: '');
       final b = backend('jwt-key');
 
-      expect(await b.currentVersion('d'), 4);
+      final existing = (await b.existingDeck('d'))!;
+      expect(existing.version, 4);
+      expect(existing.ownerId, 'u1');
+      expect(existing.visibility, 'private');
       await b.upload('d/v5.json', utf8.encode('{"x":1}'));
       await b.upsertRow(
         const DeckRow(
@@ -349,6 +428,7 @@ BROKEN
       );
 
       expect(seen[0].uri, contains('id=eq.d'));
+      expect(seen[0].uri, contains('select=version%2Cowner_id%2Cvisibility'));
       expect(seen[0].headers['apikey'], 'jwt-key');
       expect(seen[0].headers['authorization'], 'Bearer jwt-key');
       expect(seen[1].headers['x-upsert'], 'true');
@@ -370,7 +450,7 @@ BROKEN
 
     test('ключ sb_secret_… уходит только в apikey', () async {
       responses['GET /rest/v1/decks'] = (status: 200, body: '[]');
-      expect(await backend('sb_secret_abc').currentVersion('d'), isNull);
+      expect(await backend('sb_secret_abc').existingDeck('d'), isNull);
       expect(seen.single.headers['apikey'], 'sb_secret_abc');
       expect(seen.single.headers.containsKey('authorization'), isFalse);
     });
@@ -382,11 +462,16 @@ BROKEN
       );
       responses['GET /storage/v1/object/decks/other/v3.json'] = (
         status: 200,
-        body: '{"items":[{"id":"a.b"},{"id":"a.c"}]}',
+        body:
+            '{"items":[{"id":"a.b","questions":[{"id":"a.b.q1"}]},'
+            '{"id":"a.c","questions":[{"id":"a.c.q1"},{"id":"a.c.q2"}]}]}',
       );
       expect(await backend('k').itemOwners(excludeDeckId: 'd'), {
         'a.b': 'other',
+        'a.b.q1': 'other',
         'a.c': 'other',
+        'a.c.q1': 'other',
+        'a.c.q2': 'other',
       });
       expect(seen.first.uri, contains('id=neq.d'));
     });
@@ -429,9 +514,52 @@ BROKEN
       final b = backend('k');
       await server.close(force: true);
       await expectLater(
-        b.currentVersion('d'),
+        b.existingDeck('d'),
         throwsA(isA<ImportBackendException>()),
       );
     });
+
+    for (final status in [301, 302, 303, 307, 308]) {
+      test('редирект $status не пересылает ключ на другой хост', () async {
+        for (final key in ['jwt-key', 'sb_secret_abc']) {
+          responses['GET /rest/v1/decks'] = (status: status, body: '');
+          responses['POST /storage/v1/object/decks/d/v1.json'] = (
+            status: status,
+            body: '',
+          );
+          responses['POST /rest/v1/decks'] = (status: status, body: '');
+          final b = backend(key);
+
+          for (final call in <Future<void> Function()>[
+            () => b.existingDeck('d'),
+            () => b.itemOwners(excludeDeckId: 'x'),
+            () => b.upload('d/v1.json', utf8.encode('{}')),
+            () => b.upsertRow(
+              const DeckRow(
+                id: 'd',
+                title: 'T',
+                topic: 'k',
+                lang: 'ru',
+                version: 1,
+                itemCount: 0,
+              ),
+            ),
+          ]) {
+            await expectLater(
+              call(),
+              throwsA(
+                isA<ImportBackendException>().having(
+                  (e) => e.message,
+                  'message',
+                  contains('редирект'),
+                ),
+              ),
+            );
+          }
+        }
+        // Второй сервер не получил ни запроса, ни заголовков apikey.
+        expect(evilSeen, isEmpty);
+      });
+    }
   });
 }

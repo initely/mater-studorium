@@ -39,6 +39,22 @@ List<DeckIssue> _validate(Map<String, dynamic> json, {bool release = false}) =>
     validateDeck(Deck.fromJson(json), release: release);
 
 final _badCases = <_BadCase>[
+  // Ссылки источников: только абсолютный https.
+  for (final url in [
+    'http://example.org/a',
+    'javascript:alert(1)',
+    'file:///etc/passwd',
+    '/относительный/путь',
+    'example.org/a',
+    'https://',
+    '',
+  ])
+    _bad(
+      'url источника "$url" не абсолютный https',
+      (d) => nodeAt(d, '/sources/0')['url'] = url,
+      path: '/sources/0/url',
+      message: 'абсолютный https-URL',
+    ),
   // Уникальность id.
   _bad(
     'повтор id источника',

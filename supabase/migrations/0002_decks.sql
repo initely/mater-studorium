@@ -60,6 +60,29 @@ create trigger decks_set_updated_at
   before update on public.decks
   for each row execute function private.set_updated_at();
 
+-- Версия колоды не понижается ни при каких записях (в том числе от service
+-- role): защита от ошибки в import_deck и от гонки двух импортов.
+create function private.decks_version_no_downgrade()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.version < old.version then
+    raise exception 'версия колоды % нельзя понизить (% -> %)',
+      old.id, old.version, new.version
+      using errcode = '23514';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function private.decks_version_no_downgrade() from public, anon, authenticated;
+
+create trigger decks_version_no_downgrade
+  before update of version on public.decks
+  for each row execute function private.decks_version_no_downgrade();
+
 -- ---------- Storage: bucket decks ----------
 -- Bucket закрытый (public = false): файлы отдаются только по JWT пользователя
 -- через политику ниже. ТЗ §6.3 («публичное чтение для public») выполняется для

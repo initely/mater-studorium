@@ -374,6 +374,55 @@ void main() {
       },
     );
 
+    test(
+      'разбор в изоляте упал: DeckFormatError, старая версия на месте',
+      () async {
+        remote.publish('catalog-fixture', 1, path: _v1Path);
+        await repo.download('catalog-fixture');
+        remote.publish('catalog-fixture', 2, path: _v2Path);
+        final crashing = DriftCatalogRepository(
+          remote: remote,
+          decks: db.decksDao,
+          clock: () => now,
+          parser: (_) => Future.error(StateError('isolate crashed')),
+        );
+
+        await expectLater(
+          crashing.download('catalog-fixture'),
+          throwsA(isA<DeckFormatError>()),
+        );
+
+        expect((await db.decksDao.getDeck('catalog-fixture'))!.version, 1);
+      },
+    );
+
+    test(
+      'коллизия id вопроса: QuestionIdCollisionError, чужой вопрос цел',
+      () async {
+        remote.publish('catalog-fixture', 1, path: _v1Path);
+        await repo.download('catalog-fixture');
+        // Колода Y: знание `c` свободно, вопрос `c.a.q1` принадлежит catalog-fixture.
+        final y = readJsonFile(_v1Path)
+          ..['id'] = 'y'
+          ..['version'] = 1;
+        final item =
+            (y['items'] as List<dynamic>).first as Map<String, dynamic>;
+        item['id'] = 'c';
+        item['questions'] = [(item['questions'] as List<dynamic>).first];
+        y['items'] = [item];
+        remote.publish('y', 1, bytes: _bytes(y));
+        final before = await db.decksDao.getQuestion('c.a.q1');
+
+        await expectLater(
+          repo.download('y'),
+          throwsA(isA<QuestionIdCollisionError>()),
+        );
+
+        expect(await db.decksDao.getQuestion('c.a.q1'), before);
+        expect(await db.decksDao.getDeck('y'), isNull);
+      },
+    );
+
     test('колоды нет в каталоге: DeckNotFoundError', () async {
       await expectLater(
         repo.download('нет-такой'),

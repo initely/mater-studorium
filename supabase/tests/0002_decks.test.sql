@@ -3,7 +3,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(50);
+select plan(57);
 
 insert into auth.users (id, aud, role, email, is_anonymous)
 values
@@ -18,7 +18,12 @@ values
   ('own-a',  'Приватная A', 'infosec', 'ru', 2, 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'private',  'own-a/v2.json',  1),
   ('unl-a',  'По ссылке A', 'infosec', 'ru', 1, 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'unlisted', 'unl-a/v1.json',  1),
   ('priv-b', 'Приватная B', 'infosec', 'ru', 1, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'private',  'priv-b/v1.json', 1),
-  ('unl-b',  'По ссылке B', 'infosec', 'ru', 1, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'unlisted', 'unl-b/v1.json',  1);
+  ('unl-b',  'По ссылке B', 'infosec', 'ru', 1, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'unlisted', 'unl-b/v1.json',  1),
+  -- Приватная колода, id которой расширяет id публичной `pub`: ловит политику
+  -- по префиксу имени (starts_with(name, d.id)).
+  ('pub-x',  'Приватная B2', 'infosec', 'ru', 1, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'private',  'pub-x/v1.json',  1),
+  -- Приватная колода куратора (owner_id null): не видна никому из клиентов.
+  ('cur-priv', 'Приватная куратора', 'infosec', 'ru', 1, null,                           'private',  'cur-priv/v1.json', 1);
 
 -- Файлы в Storage (от владельца: в обход RLS).
 insert into storage.buckets (id, name) values ('other', 'other');
@@ -28,8 +33,14 @@ values
   ('decks', 'own-a/v2.json'),
   ('decks', 'priv-b/v1.json'),
   ('decks', 'unl-b/v1.json'),
+  ('decks', 'pub-x/v1.json'),
+  ('decks', 'cur-priv/v1.json'),
   ('decks', 'ghost/v1.json'),        -- колоды ghost в decks нет
   ('other', 'pub/v1.json');          -- другой bucket с тем же путём
+-- Объект, владельцем (storage.objects.owner) которого записан A, но лежит он в
+-- приватной колоде B: чтение по owner_id не должно его открывать.
+insert into storage.objects (bucket_id, name, owner)
+values ('decks', 'priv-b/owned-by-a.json', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
 
 -- ---------- структура decks: RLS, политики, привилегии ----------
 select ok(
@@ -44,7 +55,7 @@ select policy_roles_are('public', 'decks', 'decks_select_visible', array['authen
   'decks_select_visible только для authenticated');
 select matches(
   (select qual from pg_policies where tablename = 'decks' and policyname = 'decks_select_visible'),
-  'visibility = ''public''::text\) OR \(owner_id = \(\s*SELECT auth\.uid\(\) AS uid\)\)',
+  '^\(\(visibility = ''public''::text\) OR \(owner_id = \(\s*SELECT auth\.uid\(\) AS uid\)\)\)$',
   'SELECT-политика: public или owner_id = auth.uid()'
 );
 select table_privs_are('public', 'decks', 'authenticated', array['SELECT'],
@@ -81,6 +92,14 @@ select throws_ok(
      values ('Bad Id', 't', 'k', 'ru', 1, 'Bad Id/v1.json', 1) $$,
   '23514', null, 'id вне формата отклоняется');
 
+-- ---------- версия не понижается ----------
+select throws_ok(
+  $$ update public.decks set version = 1, storage_path = 'own-a/v1.json' where id = 'own-a' $$,
+  '23514', null, 'понижение версии колоды отклоняется триггером');
+select lives_ok(
+  $$ update public.decks set version = 2, storage_path = 'unl-a/v2.json' where id = 'unl-a' $$,
+  'повышение версии колоды допускается');
+
 -- ---------- updated_at ----------
 update public.decks set updated_at = '2020-01-01 00:00:00+00' where id = 'pub';
 update public.decks set title = 'Публичная 2' where id = 'pub';
@@ -99,8 +118,12 @@ select results_eq(
   'A видит публичные и свои (private, unlisted)'
 );
 select is_empty(
-  $$ select 1 from public.decks where id in ('priv-b', 'unl-b') $$,
+  $$ select 1 from public.decks where id in ('priv-b', 'unl-b', 'pub-x') $$,
   'A не видит private и unlisted колоды B'
+);
+select is_empty(
+  $$ select 1 from public.decks where id = 'cur-priv' $$,
+  'A не видит приватную колоду куратора (owner_id null)'
 );
 
 select throws_ok(
@@ -130,6 +153,15 @@ select results_eq(
 select is_empty(
   $$ select 1 from storage.objects where name = 'priv-b/v1.json' $$,
   'A не читает файл private колоды B'
+);
+select is_empty(
+  $$ select 1 from storage.objects
+      where name in ('pub-x/v1.json', 'cur-priv/v1.json') $$,
+  'A не читает файлы колод pub-x (префикс id публичной) и cur-priv (приватная куратора)'
+);
+select is_empty(
+  $$ select 1 from storage.objects where name = 'priv-b/owned-by-a.json' $$,
+  'A не читает объект приватной колоды B, даже если он записан на A (owner)'
 );
 select is_empty(
   $$ select 1 from storage.objects where name = 'ghost/v1.json' $$,
@@ -207,7 +239,7 @@ set local role service_role;
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
 select is(
-  (select count(*)::int from public.decks), 5,
+  (select count(*)::int from public.decks), 7,
   'service_role читает все колоды (в обход RLS)');
 select lives_ok(
   $$ insert into public.decks (id, title, topic, lang, version, storage_path, item_count)
@@ -216,6 +248,9 @@ select lives_ok(
 select lives_ok(
   $$ update public.decks set version = 2, storage_path = 'new/v2.json' where id = 'new' $$,
   'service_role обновляет версию колоды');
+select throws_ok(
+  $$ update public.decks set version = 1, storage_path = 'new/v1.json' where id = 'new' $$,
+  '23514', null, 'service_role не понижает версию колоды (триггер)');
 select lives_ok(
   $$ insert into storage.objects (bucket_id, name) values ('decks', 'new/v1.json') $$,
   'service_role загружает файл в bucket decks');
@@ -238,6 +273,15 @@ select ok(
 select ok(
   (select relrowsecurity from pg_class where oid = 'storage.objects'::regclass),
   'RLS включён на storage.objects');
+-- Клиентские роли не могут завести или изменить bucket (иначе public = true
+-- или другие allowed_mime_types открыли бы запись/чтение): политик на
+-- storage.buckets для них быть не должно.
+select is_empty(
+  $$ select policyname from pg_policies
+      where schemaname = 'storage' and tablename = 'buckets'
+        and roles && array['anon', 'authenticated', 'public']::name[] $$,
+  'нет клиентских политик на storage.buckets'
+);
 select policy_cmd_is('storage', 'objects', 'decks_objects_select_visible', 'select',
   'decks_objects_select_visible только для SELECT');
 select policy_roles_are('storage', 'objects', 'decks_objects_select_visible', array['authenticated'],
