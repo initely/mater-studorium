@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import '../../catalog/domain/question_type.dart';
 import '../../srs/domain/item_state.dart';
 import '../../srs/domain/scheduler.dart';
 import '../../srs/domain/variant_picker.dart';
@@ -21,7 +22,10 @@ import 'session_settings.dart';
 ///    локальные сутки пользователя (по `review_logs`), плюс `extraNew`
 ///    («Взять новые» по просьбе пользователя, ТЗ AC3.3, §8.5).
 /// 3. Всего не больше `sessionSize`: повторения занимают места первыми.
-/// 4. Одно знание — не больше одного раза за сессию, один вопрос на знание:
+/// 4. Только форматы из `supportedTypes` (реестр `features/questions`): у
+///    знания без поддерживаемого варианта вопроса нет, оно пропускается и
+///    не ломает сессию; `null` — все типы.
+/// 5. Одно знание — не больше одного раза за сессию, один вопрос на знание:
 ///    вариант выбирает [VariantPicker] (скрытые вопросы не попадают).
 ///
 /// Время, [math.Random] и часовой пояс приходят снаружи, поэтому результат
@@ -31,6 +35,7 @@ class SessionQueueBuilder {
     required this._repository,
     required math.Random random,
     required this._utcOffsetAt,
+    this._supportedTypes,
   }) : _random = random,
        _picker = VariantPicker(random);
 
@@ -38,6 +43,7 @@ class SessionQueueBuilder {
   final math.Random _random;
   final VariantPicker _picker;
   final UtcOffsetAt _utcOffsetAt;
+  final Set<QuestionType>? _supportedTypes;
 
   /// [extraNew] — сверх дневного лимита (по умолчанию 0).
   Future<SessionQueue> build({
@@ -83,7 +89,10 @@ class SessionQueueBuilder {
       final c = content[itemId];
       if (c == null) return null;
       final question = _picker.pick(
-        questions: c.questions,
+        questions: [
+          for (final q in c.questions)
+            if (_supportedTypes?.contains(q.type) ?? true) q,
+        ],
         state: state,
         hiddenQuestionIds: const {},
         lastShownAt: lastShownAt,

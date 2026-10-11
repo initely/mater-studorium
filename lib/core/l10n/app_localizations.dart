@@ -219,6 +219,300 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Не удалось скачать колоду. Попробуйте ещё раз.'**
   String get decksErrorGeneric;
+
+  /// Кнопка запуска сессии повторения на главном экране
+  ///
+  /// In ru, this message translates to:
+  /// **'Начать сессию'**
+  String get sessionStart;
+
+  /// Заголовок экрана сессии
+  ///
+  /// In ru, this message translates to:
+  /// **'Сессия'**
+  String get sessionTitle;
+
+  /// Подсказка кнопки-крестика на экране сессии
+  ///
+  /// In ru, this message translates to:
+  /// **'Выйти из сессии'**
+  String get sessionExit;
+
+  /// Заголовок диалога подтверждения выхода
+  ///
+  /// In ru, this message translates to:
+  /// **'Выйти из сессии?'**
+  String get sessionExitConfirmTitle;
+
+  /// Текст диалога выхода: прогресс не теряется (AC3.2)
+  ///
+  /// In ru, this message translates to:
+  /// **'Уже данные ответы сохранены.'**
+  String get sessionExitConfirmBody;
+
+  /// Кнопка диалога выхода: продолжить сессию
+  ///
+  /// In ru, this message translates to:
+  /// **'Остаться'**
+  String get sessionExitStay;
+
+  /// Кнопка диалога выхода: покинуть сессию
+  ///
+  /// In ru, this message translates to:
+  /// **'Выйти'**
+  String get sessionExitLeave;
+
+  /// Прогресс сессии
+  ///
+  /// In ru, this message translates to:
+  /// **'Вопрос {current} из {total}'**
+  String sessionProgress(int current, int total);
+
+  /// Подпись таймера сессии (время в формате м:сс)
+  ///
+  /// In ru, this message translates to:
+  /// **'Осталось {time}'**
+  String sessionTimeLeft(String time);
+
+  /// Таймер дошёл до нуля, начатый вопрос можно дописать (ТЗ M3)
+  ///
+  /// In ru, this message translates to:
+  /// **'Время вышло: дайте ответ на этот вопрос'**
+  String get sessionTimeUp;
+
+  /// Подпись под индикатором, пока строится очередь
+  ///
+  /// In ru, this message translates to:
+  /// **'Готовим вопросы…'**
+  String get sessionLoading;
+
+  /// Очередь не построилась (ошибка локальной БД)
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось подготовить сессию. Попробуйте ещё раз.'**
+  String get sessionStartError;
+
+  /// Кнопка повтора запуска сессии
+  ///
+  /// In ru, this message translates to:
+  /// **'Повторить'**
+  String get sessionRetry;
+
+  /// Запись ответа в локальную БД не удалась; вопрос остался текущим
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось сохранить ответ. Нажмите оценку ещё раз.'**
+  String get sessionSaveError;
+
+  /// Модуля формата нет в реестре (защитный запасной экран)
+  ///
+  /// In ru, this message translates to:
+  /// **'Этот формат вопроса пока не поддерживается.'**
+  String get sessionUnsupported;
+
+  /// Кнопка на запасном экране неподдерживаемого формата
+  ///
+  /// In ru, this message translates to:
+  /// **'Закончить сессию'**
+  String get sessionFinishNow;
+
+  /// Кнопка возврата на главный экран с итогов и пустых состояний
+  ///
+  /// In ru, this message translates to:
+  /// **'На главную'**
+  String get sessionHome;
+
+  /// Заглушка итогов (полные итоги — T14)
+  ///
+  /// In ru, this message translates to:
+  /// **'Сессия завершена'**
+  String get sessionSummaryTitle;
+
+  /// Сколько вопросов отвечено за сессию
+  ///
+  /// In ru, this message translates to:
+  /// **'Повторено: {count}'**
+  String sessionSummaryReviewed(int count);
+
+  /// Нечего повторять (ТЗ §8.5)
+  ///
+  /// In ru, this message translates to:
+  /// **'Всё повторено 🎉'**
+  String get sessionEmptyTitle;
+
+  /// Когда следующее повторение
+  ///
+  /// In ru, this message translates to:
+  /// **'Следующее повторение — {when}'**
+  String sessionEmptyNext(String when);
+
+  /// Новые есть, но дневной лимит выбран (AC3.3)
+  ///
+  /// In ru, this message translates to:
+  /// **'На сегодня лимит новых знаний исчерпан.'**
+  String get sessionEmptyNewLimit;
+
+  /// Кнопка «Взять новые» на пустом состоянии (AC3.3)
+  ///
+  /// In ru, this message translates to:
+  /// **'Взять {count} новых'**
+  String sessionTakeNew(int count);
+
+  /// Нет скачанных знаний
+  ///
+  /// In ru, this message translates to:
+  /// **'Пока нечего повторять'**
+  String get sessionNoContentTitle;
+
+  /// Подсказка при отсутствии скачанных колод (ТЗ §8.5)
+  ///
+  /// In ru, this message translates to:
+  /// **'Скачайте колоду, чтобы начать.'**
+  String get sessionNoContentBody;
+
+  /// Кнопка перехода к каталогу колод с пустого состояния сессии
+  ///
+  /// In ru, this message translates to:
+  /// **'К колодам'**
+  String get sessionToDecks;
+
+  /// Следующее повторение совсем скоро
+  ///
+  /// In ru, this message translates to:
+  /// **'меньше чем через минуту'**
+  String get durationLessThanMinute;
+
+  /// Следующее повторение через n минут
+  ///
+  /// In ru, this message translates to:
+  /// **'через {n} мин'**
+  String durationMinutes(int n);
+
+  /// Следующее повторение через n часов
+  ///
+  /// In ru, this message translates to:
+  /// **'через {n} ч'**
+  String durationHours(int n);
+
+  /// Следующее повторение через n дней
+  ///
+  /// In ru, this message translates to:
+  /// **'через {n} дн.'**
+  String durationDays(int n);
+
+  /// Вердикт автопроверки: ответ верный
+  ///
+  /// In ru, this message translates to:
+  /// **'Верно'**
+  String get verdictCorrect;
+
+  /// Вердикт: частично верно (опечатка, перестановка соседних шагов)
+  ///
+  /// In ru, this message translates to:
+  /// **'Почти верно'**
+  String get verdictPartial;
+
+  /// Вердикт автопроверки: ответ неверный
+  ///
+  /// In ru, this message translates to:
+  /// **'Неверно'**
+  String get verdictIncorrect;
+
+  /// Заголовок панели оценки
+  ///
+  /// In ru, this message translates to:
+  /// **'Как хорошо вы это помнили?'**
+  String get ratingPrompt;
+
+  /// Оценка Again (1)
+  ///
+  /// In ru, this message translates to:
+  /// **'Снова'**
+  String get ratingAgain;
+
+  /// Оценка Hard (2)
+  ///
+  /// In ru, this message translates to:
+  /// **'Трудно'**
+  String get ratingHard;
+
+  /// Оценка Good (3)
+  ///
+  /// In ru, this message translates to:
+  /// **'Хорошо'**
+  String get ratingGood;
+
+  /// Оценка Easy (4)
+  ///
+  /// In ru, this message translates to:
+  /// **'Легко'**
+  String get ratingEasy;
+
+  /// Пометка предложенной оценки (текст и семантика, не только цвет)
+  ///
+  /// In ru, this message translates to:
+  /// **'предложено'**
+  String get ratingSuggested;
+
+  /// Подсказка над кнопкой «Дальше»
+  ///
+  /// In ru, this message translates to:
+  /// **'Предложенная оценка: {rating}'**
+  String ratingSuggestedHint(String rating);
+
+  /// Подсказка, когда оценку не предлагаем (flip, самооценка)
+  ///
+  /// In ru, this message translates to:
+  /// **'Выберите оценку сами'**
+  String get ratingChooseHint;
+
+  /// Кнопка «Дальше» принимает предложенную оценку
+  ///
+  /// In ru, this message translates to:
+  /// **'Дальше'**
+  String get ratingNext;
+
+  /// Подсказка над вариантами, когда верных ответов несколько
+  ///
+  /// In ru, this message translates to:
+  /// **'Выберите все верные варианты'**
+  String get mcqHintMultiple;
+
+  /// Кнопка подтверждения выбора в mcq с несколькими ответами
+  ///
+  /// In ru, this message translates to:
+  /// **'Ответить'**
+  String get mcqAnswer;
+
+  /// Подпись выбранного верного варианта
+  ///
+  /// In ru, this message translates to:
+  /// **'Верно'**
+  String get mcqOptionCorrect;
+
+  /// Подпись выбранного неверного варианта
+  ///
+  /// In ru, this message translates to:
+  /// **'Неверно'**
+  String get mcqOptionWrong;
+
+  /// Подпись верного варианта, который не выбрали
+  ///
+  /// In ru, this message translates to:
+  /// **'Верный ответ'**
+  String get mcqOptionMissed;
+
+  /// Кнопка формата flip
+  ///
+  /// In ru, this message translates to:
+  /// **'Показать ответ'**
+  String get flipShowAnswer;
+
+  /// Заголовок обратной стороны карточки
+  ///
+  /// In ru, this message translates to:
+  /// **'Ответ'**
+  String get flipAnswerLabel;
 }
 
 class _AppLocalizationsDelegate

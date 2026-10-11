@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:mater_studorium/features/catalog/data/catalog_providers.dart';
+import 'package:mater_studorium/features/session/data/session_providers.dart';
 
 import '../helpers/fake_catalog_repository.dart';
+import '../helpers/fake_session_repository.dart';
 import '../helpers/pump_app.dart';
 import '../helpers/unmount_app.dart';
 
@@ -35,5 +37,25 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Главная'), findsOneWidget);
     await tester.unmountApp();
+  });
+
+  testWidgets('Home -> Начать сессию -> экран сессии -> крестик -> Home', (
+    tester,
+  ) async {
+    await tester.pumpRouterApp(
+      overrides: [
+        sessionRepositoryProvider.overrideWithValue(FakeSessionRepository()),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Начать сессию'));
+    await tester.pumpAndSettle();
+    // Колод нет: пустое состояние сессии.
+    expect(find.text('Пока нечего повторять'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('session-close')));
+    await tester.pumpAndSettle();
+    expect(find.text('Главная'), findsOneWidget);
   });
 }

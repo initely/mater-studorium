@@ -722,6 +722,66 @@ void main() {
       expect(repo.countTo, DateTime.utc(2018, 11, 5, 2));
     });
   });
+
+  group('поддерживаемые форматы (реестр, T13)', () {
+    // У знаний по умолчанию варианты mcq и open.
+    SessionQueueBuilder withTypes(
+      FakeSessionRepository repo,
+      Set<QuestionType>? types,
+    ) => SessionQueueBuilder(
+      repository: repo,
+      random: math.Random(1),
+      utcOffsetAt: fixedOffset(Duration.zero),
+      supportedTypes: types,
+    );
+
+    test('вариант неподдерживаемого типа не выбирается', () async {
+      // Состояние review со стабильностью 5 дней: open разрешён по §4.1,
+      // но реестр его не знает — остаётся mcq.
+      final repo = FakeSessionRepository(
+        contents: items('r', 5),
+        states: {
+          for (var i = 1; i <= 5; i++)
+            'r$i': fakeState('r$i', now.subtract(h(i))),
+        },
+      );
+      final queue = await withTypes(repo, {QuestionType.mcq}).build(now: now);
+
+      expect(queue.items, hasLength(5));
+      expect(queue.items.map((i) => i.question.type).toSet(), {
+        QuestionType.mcq,
+      });
+    });
+
+    test('знание без поддерживаемого варианта пропускается', () async {
+      final repo = FakeSessionRepository(
+        contents: [
+          fakeContent(
+            'only-open',
+            questions: [fakeQuestion('only-open.open', QuestionType.open)],
+          ),
+          fakeContent('n1'),
+        ],
+      );
+      final queue = await withTypes(repo, {QuestionType.mcq}).build(now: now);
+
+      expect(ids(queue), ['n1']);
+      expect(queue.newCount, 1);
+    });
+
+    test('null — поддерживаются все типы', () async {
+      final repo = FakeSessionRepository(
+        contents: [
+          fakeContent(
+            'only-open',
+            questions: [fakeQuestion('only-open.open', QuestionType.open)],
+          ),
+        ],
+      );
+      final queue = await withTypes(repo, null).build(now: now);
+      expect(ids(queue), ['only-open']);
+    });
+  });
 }
 
 /// Репозиторий, который отдаёт знания с вопросами, но picker не находит

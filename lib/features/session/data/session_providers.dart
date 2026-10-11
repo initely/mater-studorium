@@ -4,6 +4,7 @@ import '../../../core/db/database_providers.dart';
 import '../../../core/errors/app_error.dart';
 import '../../../core/supabase/supabase_init.dart';
 import '../../../core/utils/uuid.dart';
+import '../../questions/registry.dart';
 import '../domain/local_day.dart';
 import '../domain/session_queue_builder.dart';
 import '../domain/session_repository.dart';
@@ -51,5 +52,7 @@ final sessionQueueBuilderProvider = Provider<SessionQueueBuilder>(
     repository: ref.watch(sessionRepositoryProvider),
     random: ref.watch(randomProvider),
     utcOffsetAt: ref.watch(utcOffsetProvider),
+    // Форматы без модуля в реестре в очередь не попадают (T13).
+    supportedTypes: ref.watch(supportedQuestionTypesProvider),
   ),
 );

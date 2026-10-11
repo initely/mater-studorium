@@ -17,6 +17,12 @@ class HomePlaceholder extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           spacing: 12,
           children: [
+            // Минимум до T18 (главный экран): запуск сессии.
+            FilledButton(
+              key: const Key('home-start-session'),
+              onPressed: () => context.push('/session'),
+              child: Text(l10n.sessionStart),
+            ),
             FilledButton(
               onPressed: () => context.push('/decks'),
               child: Text(l10n.decksTitle),
