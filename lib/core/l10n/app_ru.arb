@@ -7,5 +7,52 @@
   "settingsTitle": "Настройки",
   "@settingsTitle": {"description": "Заголовок экрана настроек и подпись кнопки перехода"},
   "backToHome": "На главную",
-  "@backToHome": {"description": "Кнопка возврата с экрана настроек на главный"}
+  "@backToHome": {"description": "Кнопка возврата с экрана настроек на главный"},
+  "decksTitle": "Колоды",
+  "@decksTitle": {"description": "Заголовок экрана каталога колод и подпись кнопки перехода на него"},
+  "decksEmpty": "Колод пока нет",
+  "@decksEmpty": {"description": "Пустой каталог: на сервере нет доступных колод"},
+  "decksRetry": "Повторить",
+  "@decksRetry": {"description": "Кнопка повтора загрузки каталога"},
+  "decksDownload": "Скачать",
+  "@decksDownload": {"description": "Кнопка скачивания колоды, которой нет на устройстве"},
+  "decksUpdate": "Обновить",
+  "@decksUpdate": {"description": "Кнопка обновления скачанной колоды до новой версии"},
+  "decksDownloaded": "Скачано",
+  "@decksDownloaded": {"description": "Метка скачанной колоды без новой версии"},
+  "decksDownloading": "Загрузка…",
+  "@decksDownloading": {"description": "Подпись кнопки во время скачивания колоды"},
+  "decksSubtitle": "{topic} · версия {version} · {count, plural, one{{count} знание} few{{count} знания} many{{count} знаний} other{{count} знания}}",
+  "@decksSubtitle": {
+    "description": "Подпись колоды в каталоге: тема, версия, число знаний",
+    "placeholders": {
+      "topic": {"type": "String"},
+      "version": {"type": "int"},
+      "count": {"type": "int"}
+    }
+  },
+  "decksSubtitleLocal": "{topic} · версия {version}",
+  "@decksSubtitleLocal": {
+    "description": "Подпись скачанной колоды, которой нет в каталоге (число знаний неизвестно)",
+    "placeholders": {
+      "topic": {"type": "String"},
+      "version": {"type": "int"}
+    }
+  },
+  "decksListErrorNetwork": "Не удалось загрузить каталог: нужна сеть. Скачанные колоды доступны.",
+  "@decksListErrorNetwork": {"description": "Каталог не загрузился из-за сети"},
+  "decksListErrorGeneric": "Не удалось загрузить каталог. Попробуйте позже.",
+  "@decksListErrorGeneric": {"description": "Каталог не загрузился по другой причине"},
+  "decksErrorNetwork": "Нужна сеть, чтобы скачать колоду",
+  "@decksErrorNetwork": {"description": "Скачивание колоды не удалось: нет сети (ТЗ §8.5)"},
+  "decksErrorCorrupt": "Файл колоды повреждён, колода не изменена",
+  "@decksErrorCorrupt": {"description": "Файл колоды не прошёл проверку; прежняя версия осталась (AC2.3)"},
+  "decksErrorSchemaTooNew": "Колоде нужна более новая версия приложения. Обновите приложение.",
+  "@decksErrorSchemaTooNew": {"description": "Формат колоды новее, чем понимает приложение"},
+  "decksErrorCollision": "Колода конфликтует с уже скачанной: одно и то же знание есть в обеих",
+  "@decksErrorCollision": {"description": "Совпал id знания с другой колодой"},
+  "decksErrorNotFound": "Колода не найдена на сервере",
+  "@decksErrorNotFound": {"description": "Колоду сняли с публикации или она недоступна"},
+  "decksErrorGeneric": "Не удалось скачать колоду. Попробуйте ещё раз.",
+  "@decksErrorGeneric": {"description": "Скачивание колоды не удалось по неизвестной причине"}
 }

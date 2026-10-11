@@ -117,6 +117,108 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'На главную'**
   String get backToHome;
+
+  /// Заголовок экрана каталога колод и подпись кнопки перехода на него
+  ///
+  /// In ru, this message translates to:
+  /// **'Колоды'**
+  String get decksTitle;
+
+  /// Пустой каталог: на сервере нет доступных колод
+  ///
+  /// In ru, this message translates to:
+  /// **'Колод пока нет'**
+  String get decksEmpty;
+
+  /// Кнопка повтора загрузки каталога
+  ///
+  /// In ru, this message translates to:
+  /// **'Повторить'**
+  String get decksRetry;
+
+  /// Кнопка скачивания колоды, которой нет на устройстве
+  ///
+  /// In ru, this message translates to:
+  /// **'Скачать'**
+  String get decksDownload;
+
+  /// Кнопка обновления скачанной колоды до новой версии
+  ///
+  /// In ru, this message translates to:
+  /// **'Обновить'**
+  String get decksUpdate;
+
+  /// Метка скачанной колоды без новой версии
+  ///
+  /// In ru, this message translates to:
+  /// **'Скачано'**
+  String get decksDownloaded;
+
+  /// Подпись кнопки во время скачивания колоды
+  ///
+  /// In ru, this message translates to:
+  /// **'Загрузка…'**
+  String get decksDownloading;
+
+  /// Подпись колоды в каталоге: тема, версия, число знаний
+  ///
+  /// In ru, this message translates to:
+  /// **'{topic} · версия {version} · {count, plural, one{{count} знание} few{{count} знания} many{{count} знаний} other{{count} знания}}'**
+  String decksSubtitle(String topic, int version, int count);
+
+  /// Подпись скачанной колоды, которой нет в каталоге (число знаний неизвестно)
+  ///
+  /// In ru, this message translates to:
+  /// **'{topic} · версия {version}'**
+  String decksSubtitleLocal(String topic, int version);
+
+  /// Каталог не загрузился из-за сети
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось загрузить каталог: нужна сеть. Скачанные колоды доступны.'**
+  String get decksListErrorNetwork;
+
+  /// Каталог не загрузился по другой причине
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось загрузить каталог. Попробуйте позже.'**
+  String get decksListErrorGeneric;
+
+  /// Скачивание колоды не удалось: нет сети (ТЗ §8.5)
+  ///
+  /// In ru, this message translates to:
+  /// **'Нужна сеть, чтобы скачать колоду'**
+  String get decksErrorNetwork;
+
+  /// Файл колоды не прошёл проверку; прежняя версия осталась (AC2.3)
+  ///
+  /// In ru, this message translates to:
+  /// **'Файл колоды повреждён, колода не изменена'**
+  String get decksErrorCorrupt;
+
+  /// Формат колоды новее, чем понимает приложение
+  ///
+  /// In ru, this message translates to:
+  /// **'Колоде нужна более новая версия приложения. Обновите приложение.'**
+  String get decksErrorSchemaTooNew;
+
+  /// Совпал id знания с другой колодой
+  ///
+  /// In ru, this message translates to:
+  /// **'Колода конфликтует с уже скачанной: одно и то же знание есть в обеих'**
+  String get decksErrorCollision;
+
+  /// Колоду сняли с публикации или она недоступна
+  ///
+  /// In ru, this message translates to:
+  /// **'Колода не найдена на сервере'**
+  String get decksErrorNotFound;
+
+  /// Скачивание колоды не удалось по неизвестной причине
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось скачать колоду. Попробуйте ещё раз.'**
+  String get decksErrorGeneric;
 }
 
 class _AppLocalizationsDelegate

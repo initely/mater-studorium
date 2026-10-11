@@ -40,3 +40,29 @@ flutter run -d chrome --dart-define-from-file=.env.json
 Без сети вход повторяется в фоне, пользователю ошибка не показывается.
 
 В клиент попадают только `SUPABASE_URL` и `SUPABASE_ANON_KEY`. Service role и другие секреты в `.env.json` не кладём.
+
+### Колоды: импорт и каталог
+
+Колода хранится в Storage (bucket `decks`, файл `<id>/v<version>.json`), метаданные — в таблице `decks`. Читать их могут все вошедшие пользователи (в том числе анонимные), писать — только service role.
+
+```sh
+# .env в корне (не коммитится): URL проекта и ключ service role из `supabase status -o env`
+printf 'SUPABASE_URL=http://127.0.0.1:54321\nSUPABASE_SERVICE_ROLE_KEY=<SERVICE_ROLE_KEY>\n' > .env
+dart run tools/import_deck.dart content/decks/sample.json --allow-draft   # draft: только в локальный стек
+```
+
+Правила импорта (версия, коллизии `item_id`, запрет `--allow-draft` вне локального стека): [`content/PIPELINE.md`](content/PIPELINE.md), шаг 7. В приложении: Главная → «Колоды» → «Скачать».
+
+Ручная проверка (web, Android; в окружении разработки не выполнялась):
+1. `supabase start && supabase db reset`, импорт `sample.json` как выше.
+2. `flutter run -d chrome --dart-define-from-file=.env.json` (для Android-эмулятора URL `http://10.0.2.2:54321`).
+3. Главная → «Колоды»: «Пример колоды…» с кнопкой «Скачать». Нажать: кнопка «Загрузка…», затем «Скачано».
+4. Остановить Supabase (`supabase stop`), открыть «Колоды» заново: сообщение «нужна сеть», скачанная колода в списке.
+5. Поднять версию: `"version": 2` в копии `sample.json`, импорт с `--allow-draft`, потянуть список вниз: «Обновить» → «Скачано».
+6. AC2.1 на Android: колода на 500 знаний (сгенерировать копированием знаний) скачивается и распаковывается быстрее 3 с.
+
+Тест каталога против живого локального Supabase (по умолчанию пропускается):
+```sh
+LIVE_SUPABASE_URL=<API_URL> LIVE_SUPABASE_ANON_KEY=<ANON_KEY> LIVE_SUPABASE_SERVICE_KEY=<SERVICE_ROLE_KEY> \
+  flutter test --tags live test/integration
+```

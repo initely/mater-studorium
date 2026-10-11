@@ -51,7 +51,30 @@ dart run tools/validate_deck.dart content/decks/<deck>.json --release
 Падает, если хоть одно знание не `approved` (AC12.1). Перед этим ещё раз шаг 3.
 
 ## 7. Импорт
-`tools/import_deck.dart` (AC12.3) — пока не реализован (задача T10). До него шаг 7 не выполняется.
+```
+dart run tools/import_deck.dart content/decks/<deck>.json [--env=.env] [--allow-draft]
+```
+Что делает (AC12.3), по порядку; при любом отказе в Supabase ничего не записано:
+1. Читает env-файл (по умолчанию `.env` в корне репозитория, в системе контроля версий его нет): `SUPABASE_URL` и `SUPABASE_SERVICE_ROLE_KEY`. Ключ service role живёт только там и в клиент не попадает. Для настоящего проекта нужен `https`.
+2. Запускает `validate_deck --release` (все знания `approved`).
+3. Отказывает, если `version` не больше текущей на сервере (увеличь `version` в колоде) или если `id` знания уже есть в другой колоде (ADR-21; для этого читает файлы остальных колод из Storage).
+4. Загружает файл в bucket `decks`, объект `<id>/v<version>.json` (старые версии остаются), затем делает upsert строки `decks` (`visibility = public`, `item_count`). Файл идёт раньше строки: клиент не увидит колоду без файла.
+
+Коды выхода: 0 — готово; 1 — колода отклонена (валидация, версия, коллизия); 2 — неверные аргументы или env-файл; 3 — сбой сети или сервера.
+
+Пример `.env` для локального стека (`supabase status -o env`, поле `SERVICE_ROLE_KEY`):
+```
+SUPABASE_URL=http://127.0.0.1:54321
+SUPABASE_SERVICE_ROLE_KEY=<SERVICE_ROLE_KEY>
+```
+
+### Локальный импорт черновика (`--allow-draft`)
+Колоды со статусом `draft` (например, `sample.json`) `--release` не проходят. Для ручной проверки приложения на локальном Supabase:
+```
+supabase start
+dart run tools/import_deck.dart content/decks/sample.json --allow-draft
+```
+`--allow-draft` пропускает только проверку `approved` (схема и семантика проверяются). Флаг **запрещён для не-локальных проектов**: `SUPABASE_URL` должен указывать на `localhost`, `127.0.0.1` или `::1`, иначе импорт отклоняется (код 2) до чтения колоды и до обращения к сети. Повторный импорт той же `version` отклоняется: увеличь `version` в файле или сделай `supabase db reset`.
 
 ## Замеры времени (T08, риск R2)
 

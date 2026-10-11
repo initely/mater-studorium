@@ -9,6 +9,7 @@ void main() {
   ) async {
     await tester.pumpApp(const HomePlaceholder());
     expect(find.text('Главная'), findsOneWidget);
+    expect(find.text('Колоды'), findsOneWidget);
     expect(find.text('Настройки'), findsOneWidget);
   });
 }

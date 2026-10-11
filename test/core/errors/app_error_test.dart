@@ -15,6 +15,9 @@ void main() {
       NetworkError() => 'network',
       AuthError() => 'auth',
       ItemIdCollisionError() => 'collision',
+      DeckFormatError() => 'format',
+      DeckSchemaTooNewError() => 'schema',
+      DeckNotFoundError() => 'not_found',
       UnexpectedError() => 'unexpected',
     };
     expect(label, 'network');
