@@ -7,24 +7,5 @@
   "settingsTitle": "Настройки",
   "@settingsTitle": {"description": "Заголовок экрана настроек и подпись кнопки перехода"},
   "backToHome": "На главную",
-  "@backToHome": {"description": "Кнопка возврата с экрана настроек на главный"},
-  "spikeAddNote": "Добавить запись (spike)",
-  "@spikeAddNote": {"description": "ВРЕМЕННО (T05): кнопка добавления тестовой записи в drift"},
-  "spikeNoteText": "Запись {number}",
-  "@spikeNoteText": {
-    "description": "ВРЕМЕННО (T05): текст тестовой записи",
-    "placeholders": {"number": {"type": "int"}}
-  },
-  "spikeNoNotes": "Записей пока нет",
-  "@spikeNoNotes": {"description": "ВРЕМЕННО (T05): пустой список тестовых записей"},
-  "spikeStorage": "Хранилище на web: {impl}",
-  "@spikeStorage": {
-    "description": "ВРЕМЕННО (T05): какая реализация хранилища drift выбрана на web",
-    "placeholders": {"impl": {"type": "String"}}
-  },
-  "spikeNoteLine": "{text} — {time}",
-  "@spikeNoteLine": {
-    "description": "ВРЕМЕННО (T05): строка списка, текст и время создания (UTC)",
-    "placeholders": {"text": {"type": "String"}, "time": {"type": "String"}}
-  }
+  "@backToHome": {"description": "Кнопка возврата с экрана настроек на главный"}
 }

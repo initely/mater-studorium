@@ -24,6 +24,17 @@ final class AuthError extends AppError {
   const AuthError(super.message, {super.cause});
 }
 
+/// Знание с таким `id` уже принадлежит другой колоде (ADR-21: `item_id`
+/// глобально уникален). Колоду записывать нельзя: прогресс по знанию
+/// перепутался бы между колодами.
+final class ItemIdCollisionError extends AppError {
+  const ItemIdCollisionError(this.itemId, this.otherDeckId)
+    : super('item_id $itemId уже принадлежит колоде $otherDeckId');
+
+  final String itemId;
+  final String otherDeckId;
+}
+
 /// Всё остальное, чего мы не ожидали.
 final class UnexpectedError extends AppError {
   const UnexpectedError(super.message, {super.cause});

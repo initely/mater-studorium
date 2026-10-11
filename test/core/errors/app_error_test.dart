@@ -14,6 +14,7 @@ void main() {
     final label = switch (network) {
       NetworkError() => 'network',
       AuthError() => 'auth',
+      ItemIdCollisionError() => 'collision',
       UnexpectedError() => 'unexpected',
     };
     expect(label, 'network');
