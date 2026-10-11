@@ -34,7 +34,7 @@ docs/             # ТЗ, задачи, чек-листы
 ## Команды
 ```
 make get        # flutter pub get
-make gen        # dart run build_runner build --delete-conflicting-outputs
+make gen        # flutter pub run build_runner build (системный dart в PATH может быть старее Flutter-овского)
 make fmt        # dart format .
 make lint       # flutter analyze
 make test       # flutter test

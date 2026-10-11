@@ -20,7 +20,7 @@
 | T01 | Каркас Flutter | ✅ |
 | T02 | Линтеры и CI | ✅ |
 | T03 | Тестовая инфраструктура | ✅ |
-| T04 | Supabase + anonymous auth + RLS-тесты | ☐ |
+| T04 | Supabase + anonymous auth + RLS-тесты | ✅ |
 | T05 | Spike drift web + Pages | ⚠ код готов, ручная проверка нужна (Pages, Android; см. ТЗ §14) |
 | T06 | Формат колоды и валидатор | ✅ |
 | T07 | Eval оценки открытых ответов | ☐ |

@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Нужен релизной сборке для запросов к Supabase (в debug/profile добавляется Flutter-ом). -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="mater_studorium"
         android:name="${applicationName}"

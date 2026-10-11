@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 env:
   # Версия Flutter зафиксирована здесь, в одном месте (stable, как локально).
   FLUTTER_VERSION: "3.47.2"
@@ -25,3 +28,17 @@ jobs:
       - name: Validate decks (schema + semantics)
         run: dart run tools/validate_deck.dart content/decks/*.json
       - run: flutter build web
+
+  # pgTAP-тесты RLS на локальном Supabase (Docker есть на ubuntu-latest).
+  supabase-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: supabase/setup-cli@v3
+        with:
+          # Та же версия, что локально (supabase --version).
+          version: 2.120.0
+      # Только Postgres (без Auth, Studio и т. п.): pgTAP-тестам больше не нужно.
+      - run: supabase db start
+      - run: supabase db lint --fail-on error
+      - run: supabase test db
