@@ -54,3 +54,6 @@ app.*.map.json
 
 # Supabase local
 supabase/.temp
+
+# Claude Code worktrees
+.claude/worktrees/

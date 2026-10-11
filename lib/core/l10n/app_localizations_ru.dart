@@ -20,4 +20,25 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get backToHome => 'На главную';
+
+  @override
+  String get spikeAddNote => 'Добавить запись (spike)';
+
+  @override
+  String spikeNoteText(int number) {
+    return 'Запись $number';
+  }
+
+  @override
+  String get spikeNoNotes => 'Записей пока нет';
+
+  @override
+  String spikeStorage(String impl) {
+    return 'Хранилище на web: $impl';
+  }
+
+  @override
+  String spikeNoteLine(String text, String time) {
+    return '$text — $time';
+  }
 }

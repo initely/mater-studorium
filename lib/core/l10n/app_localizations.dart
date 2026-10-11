@@ -117,6 +117,36 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'На главную'**
   String get backToHome;
+
+  /// ВРЕМЕННО (T05): кнопка добавления тестовой записи в drift
+  ///
+  /// In ru, this message translates to:
+  /// **'Добавить запись (spike)'**
+  String get spikeAddNote;
+
+  /// ВРЕМЕННО (T05): текст тестовой записи
+  ///
+  /// In ru, this message translates to:
+  /// **'Запись {number}'**
+  String spikeNoteText(int number);
+
+  /// ВРЕМЕННО (T05): пустой список тестовых записей
+  ///
+  /// In ru, this message translates to:
+  /// **'Записей пока нет'**
+  String get spikeNoNotes;
+
+  /// ВРЕМЕННО (T05): какая реализация хранилища drift выбрана на web
+  ///
+  /// In ru, this message translates to:
+  /// **'Хранилище на web: {impl}'**
+  String spikeStorage(String impl);
+
+  /// ВРЕМЕННО (T05): строка списка, текст и время создания (UTC)
+  ///
+  /// In ru, this message translates to:
+  /// **'{text} — {time}'**
+  String spikeNoteLine(String text, String time);
 }
 
 class _AppLocalizationsDelegate
