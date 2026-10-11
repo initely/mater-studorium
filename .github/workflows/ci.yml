@@ -23,3 +23,15 @@ jobs:
       - run: flutter analyze
       - run: flutter test
       - run: flutter build web
+
+  # pgTAP-тесты RLS на локальном Supabase (Docker есть на ubuntu-latest).
+  supabase-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: supabase/setup-cli@v3
+        with:
+          # Та же версия, что локально (supabase --version).
+          version: 2.120.0
+      - run: supabase start
+      - run: supabase test db
