@@ -57,3 +57,6 @@ supabase/.temp
 
 # Claude Code worktrees
 .claude/worktrees/
+
+# Отчёты верификации колод (content/PIPELINE.md, шаг 4)
+content/reports/
