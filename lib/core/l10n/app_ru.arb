@@ -1,0 +1,11 @@
+{
+  "@@locale": "ru",
+  "appTitle": "Mater Studorium",
+  "@appTitle": {"description": "Название приложения"},
+  "homeTitle": "Главная",
+  "@homeTitle": {"description": "Заголовок главного экрана-заглушки"},
+  "settingsTitle": "Настройки",
+  "@settingsTitle": {"description": "Заголовок экрана настроек и подпись кнопки перехода"},
+  "backToHome": "На главную",
+  "@backToHome": {"description": "Кнопка возврата с экрана настроек на главный"}
+}
