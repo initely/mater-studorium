@@ -1,0 +1,235 @@
+{
+  "schema_version": 1,
+  "id": "sample",
+  "version": 1,
+  "lang": "ru",
+  "topic": "infosec",
+  "title": "Пример колоды: основы веб-безопасности",
+  "description": "Образец формата колоды (T06): три знания, все шесть типов вопросов. Не вычитан, в каталог не публикуется.",
+  "sources": [
+    {
+      "id": "owasp-xss",
+      "title": "OWASP: Cross Site Scripting (XSS)",
+      "url": "https://community.owasp.org/attacks/xss",
+      "license": "CC BY-SA 4.0"
+    },
+    {
+      "id": "owasp-sqli-prevention",
+      "title": "OWASP Cheat Sheet Series: SQL Injection Prevention",
+      "url": "https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html",
+      "license": "CC BY-SA 4.0"
+    },
+    {
+      "id": "rfc6797",
+      "title": "RFC 6797: HTTP Strict Transport Security (HSTS)",
+      "url": "https://www.rfc-editor.org/rfc/rfc6797.html",
+      "license": "IETF Trust Legal Provisions (BCP 78)"
+    }
+  ],
+  "items": [
+    {
+      "id": "infosec.xss.reflected",
+      "title": "Отражённая XSS",
+      "tags": ["web", "xss"],
+      "fact": "При отражённой XSS вредоносный скрипт приходит в запросе и сразу возвращается сервером в ответе, не сохраняясь на нём; браузер жертвы выполняет его от имени доверенного сайта.",
+      "explanation_short": "Отражённая XSS не хранится на сервере: скрипт приходит в параметре запроса (обычно по подготовленной ссылке) и «отражается» в ответе — в сообщении об ошибке или результатах поиска. Защита — контекстное экранирование вывода.",
+      "explanation_long": "**Как работает.** Злоумышленник готовит ссылку, в параметре которой лежит скрипт, и заманивает жертву перейти по ней. Сервер вставляет значение параметра в страницу без экранирования — например, в текст «Ничего не найдено по запросу …». Браузер жертвы не отличает этот скрипт от кода сайта и выполняет его с доступом к cookie, DOM и данным сессии.\n\n**Чем отличается от хранимой XSS.** Хранимая (stored) XSS сохраняется на сервере (комментарий, профиль) и срабатывает у всех, кто открыл страницу. Отражённая срабатывает только у того, кто перешёл по вредоносной ссылке.\n\n**Защита.**\n- экранировать (кодировать) вывод с учётом контекста: HTML, атрибут, JavaScript, URL;\n- проверять входные данные по белому списку;\n- Content Security Policy как дополнительный слой.",
+      "refs": [
+        {
+          "source_id": "owasp-xss",
+          "quote": "Reflected attacks are those where the injected script is reflected off the web server, such as in an error message, search result, or any other response that includes some or all of the input sent to the server as part of the request.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "owasp-xss",
+          "quote": "Cross-Site Scripting (XSS) attacks are a type of injection, in which malicious scripts are injected into otherwise benign and trusted websites.",
+          "quote_unverifiable": false
+        }
+      ],
+      "review": {
+        "status": "draft",
+        "notes": "Образец формата, человеком не вычитан."
+      },
+      "questions": [
+        {
+          "id": "infosec.xss.reflected.q1",
+          "type": "mcq",
+          "prompt": "Что отличает отражённую (reflected) XSS от хранимой (stored)?",
+          "payload": {
+            "options": [
+              {
+                "id": "a",
+                "text": "Скрипт приходит в запросе и сразу возвращается в ответе сервера, не сохраняясь на нём"
+              },
+              {
+                "id": "b",
+                "text": "Скрипт сохраняется в базе данных и срабатывает у всех посетителей страницы"
+              },
+              {
+                "id": "c",
+                "text": "Скрипт выполняется на сервере, а не в браузере"
+              },
+              {
+                "id": "d",
+                "text": "Атака возможна только на сайтах без HTTPS"
+              }
+            ],
+            "correct": ["a"],
+            "multiple": false
+          }
+        },
+        {
+          "id": "infosec.xss.reflected.q2",
+          "type": "open",
+          "prompt": "Объясните, как работает отражённая XSS-атака и как от неё защищаются.",
+          "explanation_short": "Главное — скрипт не хранится на сервере, а возвращается в ответе на запрос жертвы; базовая защита — экранирование вывода с учётом контекста.",
+          "payload": {
+            "reference_answer": "Злоумышленник передаёт скрипт в параметре запроса, обычно через подготовленную ссылку; сервер без экранирования вставляет его в ответ, и браузер жертвы выполняет скрипт от имени доверенного сайта. Защищаются контекстным экранированием вывода и проверкой входных данных.",
+            "rubric": [
+              {
+                "id": "p1",
+                "text": "Скрипт приходит в запросе (параметр, ссылка) и возвращается в ответе сервера без сохранения",
+                "weight": 3,
+                "required": true
+              },
+              {
+                "id": "p2",
+                "text": "Скрипт выполняется в браузере жертвы в контексте доверенного сайта",
+                "weight": 2,
+                "required": false
+              },
+              {
+                "id": "p3",
+                "text": "Защита: экранирование (кодирование) вывода с учётом контекста",
+                "weight": 2,
+                "required": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "infosec.sqli.parameterized",
+      "title": "Параметризованные запросы",
+      "tags": ["web", "sqli"],
+      "fact": "Параметризованные запросы (prepared statements) — основная защита от SQL-инъекций: код запроса задаётся заранее, а значения передаются отдельно и не могут изменить его смысл.",
+      "explanation_short": "В параметризованном запросе СУБД получает структуру запроса отдельно от значений, поэтому введённые пользователем данные остаются данными и не становятся частью SQL-кода.",
+      "explanation_long": "**Проблема.** SQL-инъекция возникает, когда приложение собирает запрос склейкой строк: `\"SELECT * FROM users WHERE name = '\" + name + \"'\"`. Значение вида `' OR '1'='1` меняет логику запроса.\n\n**Решение.** В параметризованном запросе разработчик сначала описывает весь SQL-код с плейсхолдерами (`WHERE name = ?`), а значения передаёт отдельно. СУБД отличает код от данных, и злоумышленник не может изменить смысл запроса, даже если вставит SQL-команды.\n\n**Важно.** Плейсхолдеры работают только для значений. Имена таблиц и столбцов, направление сортировки и т.п. параметризовать нельзя — для них нужен белый список.",
+      "refs": [
+        {
+          "source_id": "owasp-sqli-prevention",
+          "quote": "prepared statements ensure that an attacker cannot change the intent of a query, even if SQL commands are inserted by an attacker.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "owasp-sqli-prevention",
+          "quote": "parameterized queries force the developer to define all SQL code first and pass in each parameter to the query later.",
+          "quote_unverifiable": false
+        }
+      ],
+      "review": {
+        "status": "draft",
+        "notes": "Образец формата, человеком не вычитан."
+      },
+      "questions": [
+        {
+          "id": "infosec.sqli.parameterized.q1",
+          "type": "cloze",
+          "prompt": "Основная защита от SQL-инъекций — {{1}} запросы: SQL-код задаётся заранее, а значения передаются отдельно как {{2}}.",
+          "payload": {
+            "blanks": [
+              {
+                "id": "1",
+                "accepted": ["параметризованные", "подготовленные", "parameterized"]
+              },
+              {
+                "id": "2",
+                "accepted": ["параметры", "данные"]
+              }
+            ]
+          }
+        },
+        {
+          "id": "infosec.sqli.parameterized.q2",
+          "type": "order",
+          "prompt": "Расставьте шаги выполнения параметризованного запроса по порядку.",
+          "payload": {
+            "steps": [
+              {
+                "id": "s1",
+                "text": "Приложение описывает SQL-код с плейсхолдерами вместо значений"
+              },
+              {
+                "id": "s2",
+                "text": "СУБД разбирает запрос и фиксирует его структуру"
+              },
+              {
+                "id": "s3",
+                "text": "Приложение передаёт значения параметров отдельно от кода"
+              },
+              {
+                "id": "s4",
+                "text": "СУБД выполняет запрос, используя значения только как данные"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "infosec.http.hsts",
+      "title": "HSTS",
+      "tags": ["web", "https", "headers"],
+      "fact": "Заголовок Strict-Transport-Security (HSTS) велит браузеру в течение max-age секунд обращаться к сайту только по HTTPS; max-age=0 отменяет политику.",
+      "explanation_short": "HSTS защищает от понижения до HTTP и перехвата первого запроса: браузер сам переписывает http:// на https:// для хоста, пока не истёк max-age. Значение max-age=0 заставляет браузер забыть политику.",
+      "explanation_long": "**Что делает.** Сайт отдаёт заголовок `Strict-Transport-Security: max-age=31536000; includeSubDomains`. Браузер запоминает хост как HSTS-хост и следующие `max-age` секунд:\n- обращается к нему только по HTTPS, даже если пользователь ввёл `http://`;\n- не даёт пропустить ошибку сертификата.\n\n**`includeSubDomains`** распространяет политику на поддомены.\n\n**Частая ошибка.** `max-age=0` не «бесконечность», а команда забыть хост: по RFC 6797 браузер перестаёт считать его HSTS-хостом. Нулевое значение используют только чтобы намеренно отключить HSTS.",
+      "refs": [
+        {
+          "source_id": "rfc6797",
+          "quote": "This specification defines a mechanism enabling web sites to declare themselves accessible only via secure connections",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "rfc6797",
+          "quote": "A max-age value of zero (i.e., \"max-age=0\") signals the UA to cease regarding the host as a Known HSTS Host",
+          "quote_unverifiable": false
+        }
+      ],
+      "review": {
+        "status": "draft",
+        "notes": "Образец формата, человеком не вычитан."
+      },
+      "questions": [
+        {
+          "id": "infosec.http.hsts.q1",
+          "type": "flip",
+          "prompt": "Что сообщает браузеру заголовок Strict-Transport-Security?",
+          "payload": {
+            "back": "Что в течение max-age секунд к этому хосту (а с includeSubDomains — и к поддоменам) можно обращаться только по HTTPS."
+          }
+        },
+        {
+          "id": "infosec.http.hsts.q2",
+          "type": "find_error",
+          "prompt": "Администратор хотел включить HSTS на сайте. Какая строка конфигурации nginx делает это неправильно?",
+          "payload": {
+            "mode": "code",
+            "language": "nginx",
+            "lines": [
+              "server {",
+              "    listen 443 ssl;",
+              "    server_name example.com;",
+              "    add_header Strict-Transport-Security \"max-age=0; includeSubDomains\" always;",
+              "}"
+            ],
+            "error_lines": [4],
+            "line_explanations": {
+              "4": "max-age=0 не включает, а отменяет HSTS: браузер перестаёт считать хост HSTS-хостом (RFC 6797, §6.1.1). Нужно большое значение, например max-age=31536000 (год)."
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

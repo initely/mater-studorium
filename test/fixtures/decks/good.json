@@ -1,0 +1,134 @@
+{
+  "schema_version": 1,
+  "id": "fixture-good",
+  "version": 2,
+  "lang": "ru",
+  "topic": "infosec",
+  "title": "Фикстура: корректная колода",
+  "description": "Все шесть типов вопросов, все знания approved.",
+  "sources": [
+    {
+      "id": "src-a",
+      "title": "Источник A",
+      "url": "https://example.org/a",
+      "license": "CC BY-SA 4.0"
+    },
+    {
+      "id": "src-b",
+      "title": "Источник B",
+      "url": "https://example.org/b",
+      "license": "CC0"
+    }
+  ],
+  "items": [
+    {
+      "id": "t.a",
+      "title": "Знание A",
+      "tags": ["web"],
+      "fact": "Факт A.",
+      "explanation_short": "Коротко A.",
+      "explanation_long": "**Подробно** A.",
+      "refs": [
+        { "source_id": "src-a", "quote": "Цитата A.", "quote_unverifiable": false }
+      ],
+      "review": { "status": "approved", "by": "tel", "notes": "" },
+      "questions": [
+        {
+          "id": "t.a.q1",
+          "type": "mcq",
+          "prompt": "Выберите верные варианты.",
+          "payload": {
+            "options": [
+              { "id": "a", "text": "Первый" },
+              { "id": "b", "text": "Второй" },
+              { "id": "c", "text": "Третий" }
+            ],
+            "correct": ["a", "c"],
+            "multiple": true
+          }
+        },
+        {
+          "id": "t.a.q2",
+          "type": "open",
+          "prompt": "Объясните A.",
+          "explanation_short": "Переопределённый разбор.",
+          "payload": {
+            "reference_answer": "Эталон A.",
+            "rubric": [
+              { "id": "p1", "text": "Пункт 1", "weight": 3, "required": true },
+              { "id": "p2", "text": "Пункт 2", "weight": 1, "required": false }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "t.b",
+      "title": "Знание B",
+      "fact": "Факт B.",
+      "explanation_short": "Коротко B.",
+      "explanation_long": "Подробно B.",
+      "refs": [
+        { "source_id": "src-b", "quote": "Цитата B.", "quote_unverifiable": true }
+      ],
+      "review": { "status": "approved", "by": "tel" },
+      "questions": [
+        {
+          "id": "t.b.q1",
+          "type": "cloze",
+          "prompt": "{{x}} и {{y_2}}.",
+          "payload": {
+            "blanks": [
+              { "id": "x", "accepted": ["один", "1"] },
+              { "id": "y_2", "accepted": ["два"] }
+            ]
+          }
+        },
+        {
+          "id": "t.b.q2",
+          "type": "order",
+          "prompt": "Расставьте по порядку.",
+          "payload": {
+            "steps": [
+              { "id": "s1", "text": "Шаг 1" },
+              { "id": "s2", "text": "Шаг 2" },
+              { "id": "s3", "text": "Шаг 3" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "t.c",
+      "title": "Знание C",
+      "tags": [],
+      "fact": "Факт C.",
+      "explanation_short": "Коротко C.",
+      "explanation_long": "Подробно C.",
+      "refs": [
+        { "source_id": "src-a", "quote": "Цитата C." },
+        { "source_id": "src-b", "quote": "Цитата C2." }
+      ],
+      "review": { "status": "approved", "by": "tel", "notes": "ок" },
+      "questions": [
+        {
+          "id": "t.c.q1",
+          "type": "flip",
+          "prompt": "Лицевая сторона.",
+          "payload": { "back": "Оборот." }
+        },
+        {
+          "id": "t.c.q2",
+          "type": "find_error",
+          "prompt": "Найдите ошибочные строки.",
+          "payload": {
+            "mode": "text",
+            "lines": ["Верно.", "Ошибка.", "Верно.", "Тоже ошибка."],
+            "error_lines": [2, 4],
+            "line_explanations": { "2": "Потому что 2.", "4": "Потому что 4.", "1": "Строка 1 верна." }
+          }
+        }
+      ]
+    }
+  ]
+}

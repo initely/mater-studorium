@@ -22,4 +22,6 @@ jobs:
       - run: dart format --output=none --set-exit-if-changed .
       - run: flutter analyze
       - run: flutter test
+      - name: Validate decks (schema + semantics)
+        run: dart run tools/validate_deck.dart content/decks/*.json
       - run: flutter build web
