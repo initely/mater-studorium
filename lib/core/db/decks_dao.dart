@@ -171,6 +171,39 @@ class DecksDao extends DatabaseAccessor<AppDatabase> with _$DecksDaoMixin {
     return rows.map(questionFromRow).toList();
   }
 
+  /// Видимые вопросы нескольких знаний одним запросом: `item_id` -> вопросы
+  /// в порядке колоды. Знание без видимых вопросов в карте отсутствует.
+  Future<Map<String, List<Question>>> visibleQuestionsFor(
+    Set<String> itemIds,
+  ) async {
+    final result = <String, List<Question>>{};
+    final ids = itemIds.toList();
+    // Лимит переменных SQLite: порциями.
+    for (var i = 0; i < ids.length; i += 500) {
+      final chunk = ids.sublist(i, i + 500 > ids.length ? ids.length : i + 500);
+      final rows =
+          await (select(questions)
+                ..where(
+                  (q) =>
+                      q.itemId.isIn(chunk) &
+                      q.id.isNotInQuery(
+                        selectOnly(hiddenQuestions)
+                          ..addColumns([hiddenQuestions.questionId]),
+                      ),
+                )
+                ..orderBy([
+                  (q) => OrderingTerm.asc(
+                    const CustomExpression<int>('questions.rowid'),
+                  ),
+                ]))
+              .get();
+      for (final row in rows) {
+        (result[row.itemId] ??= []).add(questionFromRow(row));
+      }
+    }
+    return result;
+  }
+
   Future<void> hideQuestion(String questionId) => into(hiddenQuestions).insert(
     HiddenQuestionsCompanion.insert(questionId: questionId),
     mode: InsertMode.insertOrIgnore,

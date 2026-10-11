@@ -40,14 +40,20 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) => m.createAll(),
-    // TODO(schema v2): при первом изменении схемы поднять schemaVersion и
-    // добавить onUpgrade (m.addColumn / m.createTable). Тест миграции тогда
-    // строится на `drift_dev schema dump` + `schema steps`; пока не нужен.
+    // Каждое изменение схемы: поднять schemaVersion, `dart run drift_dev
+    // schema dump lib/core/db/database.dart drift_schemas/`, затем
+    // `schema generate drift_schemas/ test/generated/` и проверить миграцию
+    // в test/core/db/migration_test.dart.
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.createIndex(idxReviewLogsUserItemTime);
+      }
+    },
     beforeOpen: (details) async {
       // Внешние ключи в SQLite выключены по умолчанию.
       await customStatement('PRAGMA foreign_keys = ON');

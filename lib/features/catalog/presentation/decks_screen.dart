@@ -164,5 +164,7 @@ String _errorText(AppLocalizations l10n, AppError error) => switch (error) {
   ItemIdCollisionError() ||
   QuestionIdCollisionError() => l10n.decksErrorCollision,
   DeckNotFoundError() => l10n.decksErrorNotFound,
-  AuthError() || UnexpectedError() => l10n.decksErrorGeneric,
+  AuthError() ||
+  UnexpectedError() ||
+  LocalStorageError() => l10n.decksErrorGeneric,
 };

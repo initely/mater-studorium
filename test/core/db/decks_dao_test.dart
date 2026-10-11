@@ -176,6 +176,37 @@ void main() {
     expect(await db.decksDao.visibleQuestions('t.b'), isEmpty);
   });
 
+  test('visibleQuestionsFor: вопросы нескольких знаний без скрытых', () async {
+    final db = memoryDb();
+    await db.decksDao.replaceDeck(goodDeck(), downloadedAt: t0);
+    await db.decksDao.hideQuestion('t.a.q1');
+    await db.decksDao.replaceHiddenQuestions({'t.a.q1', 't.b.q1', 't.b.q2'});
+
+    final result = await db.decksDao.visibleQuestionsFor({
+      't.a',
+      't.b',
+      't.c',
+      'нет-такого',
+    });
+
+    // Порядок колоды; t.b полностью скрыто, значит ключа нет; неизвестное
+    // знание тоже отсутствует.
+    expect(result.keys.toSet(), {'t.a', 't.c'});
+    expect(result['t.a']!.map((q) => q.id), ['t.a.q2']);
+    expect(result['t.c']!.map((q) => q.id), ['t.c.q1', 't.c.q2']);
+    expect(await db.decksDao.visibleQuestionsFor({}), isEmpty);
+  });
+
+  test('visibleQuestionsFor: больше 500 знаний (порции запроса)', () async {
+    final db = memoryDb();
+    await db.decksDao.replaceDeck(goodDeck(), downloadedAt: t0);
+
+    final ids = {for (var i = 0; i < 1100; i++) 'x$i', 't.a', 't.c'};
+    final result = await db.decksDao.visibleQuestionsFor(ids);
+
+    expect(result.keys.toSet(), {'t.a', 't.c'});
+  });
+
   test('watchDecks отдаёт колоды по названию', () async {
     final db = memoryDb();
     final deck = goodDeck();

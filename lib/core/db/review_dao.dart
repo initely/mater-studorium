@@ -94,6 +94,88 @@ class ReviewDao extends DatabaseAccessor<AppDatabase> with _$ReviewDaoMixin {
     return (await query.get()).map(itemFromRow).toList();
   }
 
+  /// Ближайшее `due` строго после [after] среди показываемых знаний
+  /// (retired и знания без доступных вопросов не считаются), `null`, если
+  /// будущих повторений нет. Для пустого состояния «следующее — через …».
+  Future<DateTime?> nextDue(
+    String userId, {
+    required DateTime after,
+    Set<String>? deckIds,
+  }) async {
+    final minDue = userItemStates.due.min();
+    final query = selectOnly(userItemStates)
+      ..addColumns([minDue])
+      ..join([innerJoin(items, items.id.equalsExp(userItemStates.itemId))])
+      ..where(
+        userItemStates.userId.equals(userId) &
+            userItemStates.due.isBiggerThanValue(after.toUtc()) &
+            _showable() &
+            (deckIds == null
+                ? const Constant(true)
+                : items.deckId.isIn(deckIds)),
+      );
+    final due = await query.map((r) => r.read(minDue)).getSingle();
+    return due?.toUtc();
+  }
+
+  /// Сколько знаний впервые показаны в `[from, to)`: самый ранний лог знания
+  /// лежит в этом промежутке (раньше `from` логов нет). Так считается, сколько
+  /// новых уже взято за локальные сутки пользователя (границы — UTC, их
+  /// считает вызывающий по часовому поясу). Логи с других устройств до
+  /// синхронизации не видны (синхронизируются только `review_logs`, ADR-24).
+  Future<int> countNewItemsFirstShown(
+    String userId, {
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    final row = await customSelect(
+      'SELECT COUNT(*) AS c FROM user_item_state s '
+      'WHERE s.user_id = ?1 '
+      'AND EXISTS (SELECT 1 FROM review_logs l WHERE l.user_id = ?1 '
+      'AND l.item_id = s.item_id AND l.reviewed_at >= ?2 '
+      'AND l.reviewed_at < ?3) '
+      'AND NOT EXISTS (SELECT 1 FROM review_logs p WHERE p.user_id = ?1 '
+      'AND p.item_id = s.item_id AND p.reviewed_at < ?2)',
+      variables: [
+        Variable<String>(userId),
+        Variable<DateTime>(from.toUtc()),
+        Variable<DateTime>(to.toUtc()),
+      ],
+      readsFrom: {userItemStates, reviewLogs},
+    ).getSingle();
+    return row.read<int>('c');
+  }
+
+  /// Когда в последний раз показывался каждый вопрос этих знаний:
+  /// `question_id` -> `reviewed_at` (UTC). Вопроса нет в карте — не
+  /// показывался. Вход `VariantPicker.pick` (`lastShownAt`).
+  Future<Map<String, DateTime>> lastShownAt(
+    String userId,
+    Set<String> itemIds,
+  ) async {
+    final result = <String, DateTime>{};
+    // Лимит переменных SQLite: порциями.
+    for (final chunk in _chunks(itemIds.toList(), 500)) {
+      final lastShown = reviewLogs.reviewedAt.max();
+      final query = selectOnly(reviewLogs)
+        ..addColumns([reviewLogs.questionId, lastShown])
+        ..where(
+          reviewLogs.userId.equals(userId) & reviewLogs.itemId.isIn(chunk),
+        )
+        ..groupBy([reviewLogs.questionId]);
+      for (final row in await query.get()) {
+        result[row.read(reviewLogs.questionId)!] = row.read(lastShown)!.toUtc();
+      }
+    }
+    return result;
+  }
+
+  static Iterable<List<T>> _chunks<T>(List<T> list, int size) sync* {
+    for (var i = 0; i < list.length; i += size) {
+      yield list.sublist(i, i + size > list.length ? list.length : i + size);
+    }
+  }
+
   Future<ItemState?> getState(String userId, String itemId) async {
     final row =
         await (select(userItemStates)

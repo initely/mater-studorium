@@ -134,6 +134,162 @@ void main() {
     });
   });
 
+  group('nextDue', () {
+    test(
+      'ближайшее due строго после after; retired, чужие и скрытые не в счёт',
+      () async {
+        final db = await dbWithDeck();
+        expect(await db.reviewDao.nextDue(user, after: t0), isNull);
+
+        await save(db, 't.a', t0); // не в будущем: не считается
+        await save(db, 't.b', t0.add(const Duration(hours: 5)));
+        await save(db, 't.c', t0.add(const Duration(hours: 2)));
+        await save(db, 't.a', t0.add(const Duration(hours: 1)), u: 'u2');
+
+        final next = await db.reviewDao.nextDue(user, after: t0);
+        expect(next, t0.add(const Duration(hours: 2)));
+        expect(next!.isUtc, isTrue);
+        // Строго после: само значение не подходит.
+        expect(
+          await db.reviewDao.nextDue(
+            user,
+            after: t0.add(const Duration(hours: 2)),
+          ),
+          t0.add(const Duration(hours: 5)),
+        );
+
+        // Фильтр по колодам.
+        expect(
+          await db.reviewDao.nextDue(user, after: t0, deckIds: {'nope'}),
+          isNull,
+        );
+        expect(
+          await db.reviewDao.nextDue(
+            user,
+            after: t0,
+            deckIds: {'fixture-good'},
+          ),
+          t0.add(const Duration(hours: 2)),
+        );
+
+        // t.c скрыт целиком, значит следующий — t.b.
+        await db.decksDao.replaceHiddenQuestions({'t.c.q1', 't.c.q2'});
+        expect(
+          await db.reviewDao.nextDue(user, after: t0),
+          t0.add(const Duration(hours: 5)),
+        );
+      },
+    );
+  });
+
+  group('countNewItemsFirstShown', () {
+    final dayStart = DateTime.utc(2026, 10, 11);
+    final dayEnd = DateTime.utc(2026, 10, 12);
+
+    Future<void> answer(
+      AppDatabase db,
+      String itemId,
+      DateTime at, {
+      String id = '',
+      String u = user,
+    }) => db.reviewDao.recordReview(
+      userId: u,
+      log: logFor(
+        itemId,
+        id: id.isEmpty ? 'log-$u-$itemId-${at.millisecondsSinceEpoch}' : id,
+      ).copyWith(reviewedAt: at),
+      state: stateFor(itemId, due: at.add(const Duration(days: 3))),
+    );
+
+    Future<int> count(AppDatabase db, {String u = user}) =>
+        db.reviewDao.countNewItemsFirstShown(u, from: dayStart, to: dayEnd);
+
+    test('считает знания, у которых первый лог внутри суток', () async {
+      final db = await dbWithDeck();
+      expect(await count(db), 0);
+
+      await answer(db, 't.a', DateTime.utc(2026, 10, 11, 8));
+      await answer(db, 't.a', DateTime.utc(2026, 10, 11, 9)); // повтор того же
+      await answer(db, 't.b', DateTime.utc(2026, 10, 11, 10));
+
+      expect(await count(db), 2);
+    });
+
+    test(
+      'знание, впервые показанное раньше, новым сегодня не считается',
+      () async {
+        final db = await dbWithDeck();
+        await answer(
+          db,
+          't.a',
+          dayStart.subtract(const Duration(microseconds: 1)),
+        );
+        await answer(db, 't.a', DateTime.utc(2026, 10, 11, 8));
+        await answer(db, 't.b', DateTime.utc(2026, 10, 10, 1));
+
+        expect(await count(db), 0);
+      },
+    );
+
+    test('границы: from включается, to не включается', () async {
+      final db = await dbWithDeck();
+      await answer(db, 't.a', dayStart);
+      await answer(db, 't.b', dayEnd.subtract(const Duration(seconds: 1)));
+      await answer(db, 't.c', dayEnd);
+
+      expect(await count(db), 2);
+    });
+
+    test('чужой пользователь не мешает', () async {
+      final db = await dbWithDeck();
+      await answer(db, 't.a', DateTime.utc(2026, 10, 11, 8), u: 'u2');
+      // Свой лог уже вчера, чужой сегодня: у пользователя знание не новое.
+      await answer(db, 't.b', DateTime.utc(2026, 10, 10, 8));
+      await answer(db, 't.b', DateTime.utc(2026, 10, 11, 8), u: 'u2');
+
+      expect(await count(db), 0);
+      expect(await count(db, u: 'u2'), 2);
+    });
+  });
+
+  group('lastShownAt', () {
+    test('последний показ каждого вопроса выбранных знаний', () async {
+      final db = await dbWithDeck();
+      Future<void> log(String item, String q, DateTime at, {String u = user}) =>
+          db.reviewDao.recordReview(
+            userId: u,
+            log: logFor(
+              item,
+              id: 'l-$u-$q-${at.millisecondsSinceEpoch}',
+            ).copyWith(questionId: q, reviewedAt: at),
+            state: stateFor(item, due: at),
+          );
+      await log('t.a', 't.a.q1', DateTime.utc(2026, 10, 1));
+      await log('t.a', 't.a.q1', DateTime.utc(2026, 10, 5));
+      await log('t.a', 't.a.q2', DateTime.utc(2026, 10, 3));
+      await log('t.b', 't.b.q1', DateTime.utc(2026, 10, 4));
+      await log('t.a', 't.a.q2', DateTime.utc(2026, 10, 9), u: 'u2');
+
+      final shown = await db.reviewDao.lastShownAt(user, {'t.a', 't.c'});
+
+      expect(shown, {
+        't.a.q1': DateTime.utc(2026, 10, 5),
+        't.a.q2': DateTime.utc(2026, 10, 3),
+      });
+      expect(shown['t.a.q1']!.isUtc, isTrue);
+      expect(await db.reviewDao.lastShownAt(user, {}), isEmpty);
+    });
+
+    test('больше 500 знаний: порции запроса', () async {
+      final db = await dbWithDeck();
+      await save(db, 't.a', t0);
+
+      final ids = {for (var i = 0; i < 1100; i++) 'x$i', 't.a'};
+
+      expect(await db.reviewDao.lastShownAt(user, ids), {'t.a.q1': t0});
+    });
+  });
+
   group('recordReview', () {
     test('лог, состояние (dirty) и outbox пишутся вместе', () async {
       final db = await dbWithDeck();

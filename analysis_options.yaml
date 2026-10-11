@@ -13,6 +13,8 @@ analyzer:
     - "**/*.g.dart"
     - "**/*.freezed.dart"
     - lib/core/l10n/app_localizations*.dart
+    # Эталонные схемы для теста миграций (drift_dev schema generate)
+    - test/generated/**
 
 linter:
   rules:

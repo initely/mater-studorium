@@ -72,6 +72,12 @@ final class DeckNotFoundError extends AppError {
   final String deckId;
 }
 
+/// Локальная БД отказала при записи или чтении прогресса (диск, ограничение
+/// уникальности и т. п.). Транзакция откатена, ничего не записано.
+final class LocalStorageError extends AppError {
+  const LocalStorageError(super.message, {super.cause});
+}
+
 /// Всё остальное, чего мы не ожидали.
 final class UnexpectedError extends AppError {
   const UnexpectedError(super.message, {super.cause});

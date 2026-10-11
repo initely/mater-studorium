@@ -3597,6 +3597,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'idx_user_item_state_due',
     'CREATE INDEX idx_user_item_state_due ON user_item_state (due)',
   );
+  late final Index idxReviewLogsUserItemTime = Index(
+    'idx_review_logs_user_item_time',
+    'CREATE INDEX idx_review_logs_user_item_time ON review_logs (user_id, item_id, reviewed_at)',
+  );
   late final DecksDao decksDao = DecksDao(this as AppDatabase);
   late final ReviewDao reviewDao = ReviewDao(this as AppDatabase);
   @override
@@ -3613,6 +3617,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     hiddenQuestions,
     idxQuestionsItemId,
     idxUserItemStateDue,
+    idxReviewLogsUserItemTime,
   ];
 }
 

@@ -91,7 +91,15 @@ class UserItemStates extends Table {
 }
 
 /// Журнал ответов. `id` — клиентский uuid, синхронизация идемпотентна по нему.
+///
+/// Индекс (schema v2, ADR-24): запросы очереди ищут логи по знанию
+/// (`lastShownAt`, «показано ли знание раньше») и по времени внутри знания;
+/// без него это полные сканы журнала, который растёт без ограничений.
 @DataClassName('ReviewLogRow')
+@TableIndex(
+  name: 'idx_review_logs_user_item_time',
+  columns: {#userId, #itemId, #reviewedAt},
+)
 class ReviewLogs extends Table {
   TextColumn get id => text()();
   TextColumn get userId => text()();

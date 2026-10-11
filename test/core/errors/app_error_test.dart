@@ -19,6 +19,7 @@ void main() {
       DeckFormatError() => 'format',
       DeckSchemaTooNewError() => 'schema',
       DeckNotFoundError() => 'not_found',
+      LocalStorageError() => 'storage',
       UnexpectedError() => 'unexpected',
     };
     expect(label, 'network');
