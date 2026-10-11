@@ -638,6 +638,35 @@ FCM (Android и web; на web нужен `firebase-messaging-sw.js`). Табли
 | 16 | Дуэль и FSRS | влияет / не влияет | не влияет | Не ломаем расписание; проще | v1: неверные ответы в дуэли = lapse |
 | 17 | Сгенерированные файлы (`*.g.dart`, `*.freezed.dart`, l10n) | коммитить / генерировать в CI | коммитить | CI проще и быстрее (без build_runner), сборка воспроизводима, изменения генерации видны в ревью; исключены из анализа | Частые конфликты слияния в сгенерированных файлах или рассинхрон с источниками: перейти на генерацию в CI |
 
+### Результат spike T05 (ADR-4, drift на web и Android)
+
+**Вывод: drift на web технически работает, ADR-4 в силе. Остаётся ручная проверка на Pages и на реальном Android.**
+
+Версии: `drift` 2.35.2, `drift_flutter` 0.3.1, `drift_dev` 2.35.1, `build_runner` 2.16.2, `sqlite3` 3.5.2 (транзитивно), Flutter 3.47.2. Подключение: `driftDatabase(name:, web: DriftWebOptions(sqlite3Wasm: Uri.parse('sqlite3.wasm'), driftWorker: Uri.parse('drift_worker.js')))`; свериться с https://drift.simonbinder.eu/platforms/web/.
+Файлы `web/sqlite3.wasm` (sha256 `fbcd2e82…a1f`, 750 007 байт) и `web/drift_worker.js` (sha256 `191fc9db…90a`, 360 104 байта) скачаны из релиза https://github.com/simolus3/drift/releases/tag/drift-2.35.2 и лежат в git. При обновлении `drift` обновлять оба файла из релиза той же версии.
+
+**Проверено (в этой сессии):**
+- `make check` зелёный; unit-тесты на `NativeDatabase.memory()` и на файловой БД (закрыть и открыть заново: запись на месте); widget-тест кнопки на Home.
+- `flutter build web --release --base-href /mater_studorium/`: в `build/web` есть `sqlite3.wasm` и `drift_worker.js`.
+- Headless Chromium 155 (CDP-скрипт), сборка раздана статикой с подпути `/mater_studorium/` (имитация Pages), `.wasm` отдаётся как `application/wasm`: запись добавляется, переживает перезагрузку страницы и полный перезапуск браузера с тем же профилем. Без COOP/COEP drift выбрал `sharedIndexedDb`; с заголовками `COOP: same-origin` + `COEP: require-corp` выбрал `opfsLocks` (запись тоже пережила перезагрузку).
+- `flutter build apk --debug` собирается.
+
+**Не проверено:**
+- Реальный GitHub Pages: репозитория и remote пока нет, workflow `deploy-web.yml` не запускался. Не проверены Content-Type для `.wasm` на Pages и то, что `actions/*` версии v5/v6 работают у вас (версии взяты со страниц релизов 2026-10-11).
+- Android: запуска на устройстве или эмуляторе не было (в окружении нет). Персистентность на Android подтверждена только тестом на хосте (тот же sqlite3 через FFI, но не Android).
+- Firefox, Safari, Chrome на Android, режим приватного окна; `flutter build web --wasm` (dry run прошёл, сборка нет).
+
+**Грабли:**
+1. GitHub Pages не позволяет задавать заголовки, поэтому OPFS-режим на Pages недоступен, drift работает на IndexedDB (`sharedIndexedDb`, по документации медленнее OPFS; на скорость не мерили). На Chrome Android нет shared workers: без COOP/COEP возможны гонки между вкладками (документация drift), приложение держать в одной вкладке.
+2. URL `sqlite3.wasm`/`drift_worker.js` относительные: резолвятся от `<base href>`, поэтому `--base-href /<repo>/` обязателен и корректно работает на подпути.
+3. Колонка drift не может называться `text` (конфликт с `Table.text()`): назвали `body`.
+4. Системный `dart` в PATH может быть старше Dart из Flutter (здесь 3.12 против 3.13): `dart run build_runner` падает на constraint SDK. В `make gen` используется `flutter pub run build_runner build`. Флаг `--delete-conflicting-outputs` в build_runner 2.16 удалён (игнорируется с предупреждением), в Makefile убран; CLAUDE.md всё ещё упоминает старую команду.
+5. Widget-тесты, где экран читает drift-stream: при отмене подписки drift создаёт нулевой `Timer`, тест падает с «Pending timers» (и зависает в tearDown). Решение: в конце теста `await tester.unmountApp()` (`test/helpers/unmount_app.dart`). Провайдер БД в таких тестах подменять на `NativeDatabase.memory()`.
+6. `drift_worker.js` в документации drift называется то `drift_worker.js`, то `drift_worker.dart.js`; в релизе файл `drift_worker.js`, под этим именем и подключён.
+7. Workflow задаёт путь на Pages из `github.event.repository.name` в одной переменной `BASE_HREF`; в настройках репозитория нужно выбрать Pages → Source: GitHub Actions.
+
+**Ручная проверка (для закрытия T05):** (a) после первого пуша в `main` и деплоя открыть `https://<user>.github.io/<repo>/`, нажать «Добавить запись (spike)» 2 раза, обновить страницу (записи на месте), закрыть и открыть браузер (на месте), в DevTools → Network убедиться, что `sqlite3.wasm` и `drift_worker.js` отдаются 200; на экране видна строка «Хранилище на web: …». (b) `flutter run -d <android>`: добавить запись, убить приложение из списка недавних, открыть: запись на месте.
+
 ---
 
 ## 15. Предположения

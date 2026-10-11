@@ -1,0 +1,55 @@
+name: Deploy web
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Версия Flutter та же, что в ci.yml (меняется в двух местах, держать синхронно).
+env:
+  FLUTTER_VERSION: "3.47.2"
+  # Единственное место, где задан путь на Pages: https://<user>.github.io/<repo>/.
+  # Имя берётся из самого репозитория, переименование ничего не ломает.
+  BASE_HREF: /${{ github.event.repository.name }}/
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Один деплой за раз; незавершённый не отменяем, чтобы не оставить Pages в полу-состоянии.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter pub get
+      - run: flutter build web --release --base-href ${{ env.BASE_HREF }}
+      # drift на web: без этих файлов БД не откроется (T05, ADR-4).
+      - name: Check drift web files in build output
+        run: |
+          test -s build/web/sqlite3.wasm
+          test -s build/web/drift_worker.js
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
