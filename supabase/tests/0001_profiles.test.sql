@@ -3,7 +3,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(23);
+select plan(41);
 
 -- Три пользователя: A и B обычные, C анонимный (is_anonymous = true).
 insert into auth.users (id, aud, role, email, is_anonymous)
@@ -12,14 +12,55 @@ values
   ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'authenticated', 'authenticated', 'b@example.com', false),
   ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'authenticated', 'authenticated', null, true);
 
--- Нужен ли профиль B для проверки «A не меняет B»: задаём имя от владельца таблицы.
+-- Имя B задаём от владельца таблицы, чтобы проверять, что A его не затронет.
 update public.profiles set display_name = 'Bob' where id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 
--- ---------- структура ----------
+-- ---------- структура: RLS, политики, привилегии ----------
+-- Эти проверки не зависят от данных и ловят поломку политик, которую
+-- функциональные тесты могут не заметить (например, SELECT-политика
+-- маскирует лишнюю UPDATE-политику, пока в запросе есть WHERE).
 select ok(
   (select relrowsecurity from pg_class where oid = 'public.profiles'::regclass),
   'RLS включён на profiles'
 );
+select policies_are(
+  'public', 'profiles',
+  array['profiles_select_own', 'profiles_update_own'],
+  'на profiles ровно две политики'
+);
+select policy_cmd_is('public', 'profiles', 'profiles_select_own', 'select',
+  'profiles_select_own только для SELECT');
+select policy_cmd_is('public', 'profiles', 'profiles_update_own', 'update',
+  'profiles_update_own только для UPDATE');
+select policy_roles_are('public', 'profiles', 'profiles_select_own', array['authenticated'],
+  'profiles_select_own только для authenticated');
+select policy_roles_are('public', 'profiles', 'profiles_update_own', array['authenticated'],
+  'profiles_update_own только для authenticated');
+select matches(
+  (select qual from pg_policies where tablename = 'profiles' and policyname = 'profiles_select_own'),
+  '^\(id = \(\s*SELECT auth\.uid\(\) AS uid\)\)$',
+  'SELECT-политика: using (id = auth.uid())'
+);
+select matches(
+  (select qual from pg_policies where tablename = 'profiles' and policyname = 'profiles_update_own'),
+  '^\(id = \(\s*SELECT auth\.uid\(\) AS uid\)\)$',
+  'UPDATE-политика: using (id = auth.uid())'
+);
+select matches(
+  (select with_check from pg_policies where tablename = 'profiles' and policyname = 'profiles_update_own'),
+  '^\(id = \(\s*SELECT auth\.uid\(\) AS uid\)\)$',
+  'UPDATE-политика: with check (id = auth.uid())'
+);
+select table_privs_are('public', 'profiles', 'authenticated', array['SELECT'],
+  'authenticated: на таблице только SELECT');
+select table_privs_are('public', 'profiles', 'anon', array[]::text[],
+  'anon: на таблице никаких прав');
+select column_privs_are('public', 'profiles', 'id', 'authenticated', array['SELECT'],
+  'authenticated: id только читать');
+select column_privs_are('public', 'profiles', 'created_at', 'authenticated', array['SELECT'],
+  'authenticated: created_at только читать');
+select column_privs_are('public', 'profiles', 'display_name', 'authenticated', array['SELECT', 'UPDATE'],
+  'authenticated: display_name читать и менять');
 
 -- ---------- триггер ----------
 select is(
@@ -74,6 +115,13 @@ select is_empty(
        where id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb' returning 1 $$,
   'A не меняет профиль B (0 строк)'
 );
+-- UPDATE без WHERE: SELECT-политика здесь не участвует в фильтре строк,
+-- поэтому именно UPDATE-политика должна отсечь чужие профили.
+select lives_ok(
+  $$ update public.profiles set display_name = 'Mass' $$,
+  'A делает UPDATE без WHERE'
+);
+
 select throws_ok(
   $$ update public.profiles set id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
        where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' $$,
@@ -105,6 +153,25 @@ select throws_ok(
        where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' $$,
   '23514', null,
   'display_name длиннее 64 символов отклоняется'
+);
+
+-- timezone: только существующие часовые пояса, не длиннее 64 символов.
+select throws_ok(
+  $$ update public.profiles set timezone = 'Mars/Olympus'
+       where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' $$,
+  '23514', null,
+  'несуществующий timezone отклоняется'
+);
+select throws_ok(
+  $$ update public.profiles set timezone = repeat('x', 65)
+       where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' $$,
+  '23514', null,
+  'timezone длиннее 64 символов отклоняется'
+);
+select lives_ok(
+  $$ update public.profiles set timezone = 'Europe/Moscow'
+       where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' $$,
+  'валидный timezone принимается'
 );
 
 -- ---------- анонимный пользователь C (роль authenticated, is_anonymous) ----------
@@ -147,7 +214,12 @@ reset role;
 select is(
   (select display_name from public.profiles where id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
   'Bob',
-  'профиль B остался нетронутым'
+  'профиль B остался нетронутым (в том числе после UPDATE без WHERE от A)'
+);
+select is(
+  (select display_name from public.profiles where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+  'Mass',
+  'UPDATE без WHERE изменил только профиль A'
 );
 delete from auth.users where id = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
 select is(

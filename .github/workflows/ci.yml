@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 env:
   # Версия Flutter зафиксирована здесь, в одном месте (stable, как локально).
   FLUTTER_VERSION: "3.47.2"
@@ -33,5 +36,7 @@ jobs:
         with:
           # Та же версия, что локально (supabase --version).
           version: 2.120.0
-      - run: supabase start
+      # Только Postgres (без Auth, Studio и т. п.): pgTAP-тестам больше не нужно.
+      - run: supabase db start
+      - run: supabase db lint --fail-on error
       - run: supabase test db

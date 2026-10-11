@@ -20,6 +20,9 @@ max_rows = 1000
 # `postgres` are reachable through the Data API roles (`anon`, `authenticated`, `service_role`)
 # without explicit GRANTs, matching the cloud default. Set to `false` to require explicit GRANTs
 # instead. Left unset, a fresh project falls back to `true`.
+# T04: оставлено по умолчанию. Привилегии anon/authenticated закрыты в migrations/0001 через
+# alter default privileges. Со значением false CLI 2.120 урезает права и у service_role
+# (на новых таблицах остаётся только Dxtm), это сломало бы Edge Functions.
 # auto_expose_new_tables = true
 
 [api.tls]

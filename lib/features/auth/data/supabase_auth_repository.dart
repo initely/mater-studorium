@@ -22,6 +22,11 @@ class SupabaseAuthRepository implements AuthRepository {
         cause: e,
       );
     } on AuthException catch (e) {
+      // Лимит запросов (например, 30 анонимных входов в час с IP) временный:
+      // повторяем с паузой, как при отсутствии сети.
+      if (e.statusCode == '429' || e.code == 'over_request_rate_limit') {
+        throw NetworkError('Anonymous sign-in: лимит запросов (429)', cause: e);
+      }
       throw AuthError('Anonymous sign-in отклонён: ${e.message}', cause: e);
     } catch (e) {
       throw UnexpectedError('Anonymous sign-in: неожиданная ошибка', cause: e);

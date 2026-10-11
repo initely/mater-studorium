@@ -3,10 +3,46 @@
 -- Профиль создаётся триггером при появлении строки в auth.users (в том числе для
 -- анонимных пользователей) и принадлежит только своему владельцу.
 
+-- ---------- Привилегии по умолчанию ----------
+-- Supabase по умолчанию выдаёт anon/authenticated полный доступ к новым таблицам,
+-- последовательностям и функциям в public. Закрываем: каждая новая таблица или
+-- функция получает доступ только осознанным GRANT в своей миграции.
+-- Затрагивает объекты, которые создаёт роль postgres (так применяются миграции).
+alter default privileges for role postgres in schema public
+  revoke all on tables from anon, authenticated;
+alter default privileges for role postgres in schema public
+  revoke all on sequences from anon, authenticated;
+alter default privileges for role postgres
+  revoke execute on functions from public;
+alter default privileges for role postgres in schema public
+  revoke execute on functions from anon, authenticated;
+
+-- ---------- Служебная схема ----------
+-- private не входит в api.schemas (config.toml), через PostgREST не видна.
+create schema if not exists private;
+revoke all on schema private from public;
+grant usage on schema private to authenticated;
+
+-- Проверка имени часового пояса (нужна CHECK-ограничению, которое исполняется
+-- с правами вызывающего, поэтому execute выдан authenticated).
+create function private.is_valid_timezone(tz text)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select exists (select 1 from pg_catalog.pg_timezone_names where name = tz);
+$$;
+
+revoke all on function private.is_valid_timezone(text) from public;
+grant execute on function private.is_valid_timezone(text) to authenticated;
+
+-- ---------- profiles ----------
 create table public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   display_name text check (char_length(display_name) <= 64),
-  timezone text not null default 'UTC',
+  timezone text not null default 'UTC'
+    check (char_length(timezone) <= 64 and private.is_valid_timezone(timezone)),
   created_at timestamptz not null default now()
 );
 
@@ -24,8 +60,7 @@ create policy profiles_update_own on public.profiles
   using (id = (select auth.uid()))
   with check (id = (select auth.uid()));
 
--- Привилегии ограничиваем явно, не полагаясь на default privileges Supabase
--- (по умолчанию новые таблицы доступны anon/authenticated/service_role полностью).
+-- Привилегии ограничиваем явно (revoke на случай изменённых дефолтов).
 revoke all on public.profiles from anon, authenticated;
 grant select on public.profiles to authenticated;
 -- Менять можно только эти колонки; id и created_at неизменяемы с клиента.

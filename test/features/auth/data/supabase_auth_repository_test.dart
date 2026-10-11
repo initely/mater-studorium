@@ -44,6 +44,26 @@ void main() {
     expect(repo.ensureSignedIn(), throwsA(isA<NetworkError>()));
   });
 
+  test('лимит запросов (429) превращается в NetworkError для повтора', () {
+    when(() => auth.signInAnonymously()).thenThrow(
+      const AuthApiException(
+        'Request rate limit reached',
+        statusCode: '429',
+        code: 'over_request_rate_limit',
+      ),
+    );
+
+    expect(repo.ensureSignedIn(), throwsA(isA<NetworkError>()));
+  });
+
+  test('429 без кода тоже NetworkError', () {
+    when(
+      () => auth.signInAnonymously(),
+    ).thenThrow(const AuthException('slow down', statusCode: '429'));
+
+    expect(repo.ensureSignedIn(), throwsA(isA<NetworkError>()));
+  });
+
   test('отказ сервера превращается в AuthError', () {
     when(() => auth.signInAnonymously()).thenThrow(
       const AuthApiException(
