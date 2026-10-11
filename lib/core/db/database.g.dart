@@ -3616,26 +3616,24 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   ];
 }
 
-typedef $$DecksTableCreateCompanionBuilder =
-    DecksCompanion Function({
-      required String id,
-      required int version,
-      required String title,
-      required String topic,
-      required String lang,
-      required DateTime downloadedAt,
-      Value<int> rowid,
-    });
-typedef $$DecksTableUpdateCompanionBuilder =
-    DecksCompanion Function({
-      Value<String> id,
-      Value<int> version,
-      Value<String> title,
-      Value<String> topic,
-      Value<String> lang,
-      Value<DateTime> downloadedAt,
-      Value<int> rowid,
-    });
+typedef $$DecksTableCreateCompanionBuilder = DecksCompanion Function({
+  required String id,
+  required int version,
+  required String title,
+  required String topic,
+  required String lang,
+  required DateTime downloadedAt,
+  Value<int> rowid,
+});
+typedef $$DecksTableUpdateCompanionBuilder = DecksCompanion Function({
+  Value<String> id,
+  Value<int> version,
+  Value<String> title,
+  Value<String> topic,
+  Value<String> lang,
+  Value<DateTime> downloadedAt,
+  Value<int> rowid,
+});
 
 final class $$DecksTableReferences
     extends BaseReferences<_$AppDatabase, $DecksTable, DeckRow> {
@@ -3931,30 +3929,28 @@ typedef $$DecksTableProcessedTableManager =
       DeckRow,
       PrefetchHooks Function({bool itemsRefs})
     >;
-typedef $$ItemsTableCreateCompanionBuilder =
-    ItemsCompanion Function({
-      required String id,
-      required String deckId,
-      required String title,
-      required String fact,
-      required String explanationShort,
-      required String explanationLong,
-      required String refsJson,
-      Value<bool> retired,
-      Value<int> rowid,
-    });
-typedef $$ItemsTableUpdateCompanionBuilder =
-    ItemsCompanion Function({
-      Value<String> id,
-      Value<String> deckId,
-      Value<String> title,
-      Value<String> fact,
-      Value<String> explanationShort,
-      Value<String> explanationLong,
-      Value<String> refsJson,
-      Value<bool> retired,
-      Value<int> rowid,
-    });
+typedef $$ItemsTableCreateCompanionBuilder = ItemsCompanion Function({
+  required String id,
+  required String deckId,
+  required String title,
+  required String fact,
+  required String explanationShort,
+  required String explanationLong,
+  required String refsJson,
+  Value<bool> retired,
+  Value<int> rowid,
+});
+typedef $$ItemsTableUpdateCompanionBuilder = ItemsCompanion Function({
+  Value<String> id,
+  Value<String> deckId,
+  Value<String> title,
+  Value<String> fact,
+  Value<String> explanationShort,
+  Value<String> explanationLong,
+  Value<String> refsJson,
+  Value<bool> retired,
+  Value<int> rowid,
+});
 
 final class $$ItemsTableReferences
     extends BaseReferences<_$AppDatabase, $ItemsTable, ItemRow> {
@@ -4338,17 +4334,16 @@ class $$ItemsTableTableManager
                     >
                   >(state) {
                     if (deckId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.deckId,
-                                referencedTable: $$ItemsTableReferences
-                                    ._deckIdTable(db),
-                                referencedColumn: $$ItemsTableReferences
-                                    ._deckIdTable(db)
-                                    .id,
-                              )
-                              as T;
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.deckId,
+                        referencedTable: $$ItemsTableReferences._deckIdTable(
+                          db,
+                        ),
+                        referencedColumn: $$ItemsTableReferences
+                            ._deckIdTable(db)
+                            .id,
+                      ) as T;
                     }
 
                     return state;
@@ -4392,26 +4387,24 @@ typedef $$ItemsTableProcessedTableManager =
       ItemRow,
       PrefetchHooks Function({bool deckId, bool questionsRefs})
     >;
-typedef $$QuestionsTableCreateCompanionBuilder =
-    QuestionsCompanion Function({
-      required String id,
-      required String itemId,
-      required String type,
-      required String prompt,
-      required String payloadJson,
-      Value<String?> explanationShort,
-      Value<int> rowid,
-    });
-typedef $$QuestionsTableUpdateCompanionBuilder =
-    QuestionsCompanion Function({
-      Value<String> id,
-      Value<String> itemId,
-      Value<String> type,
-      Value<String> prompt,
-      Value<String> payloadJson,
-      Value<String?> explanationShort,
-      Value<int> rowid,
-    });
+typedef $$QuestionsTableCreateCompanionBuilder = QuestionsCompanion Function({
+  required String id,
+  required String itemId,
+  required String type,
+  required String prompt,
+  required String payloadJson,
+  Value<String?> explanationShort,
+  Value<int> rowid,
+});
+typedef $$QuestionsTableUpdateCompanionBuilder = QuestionsCompanion Function({
+  Value<String> id,
+  Value<String> itemId,
+  Value<String> type,
+  Value<String> prompt,
+  Value<String> payloadJson,
+  Value<String?> explanationShort,
+  Value<int> rowid,
+});
 
 final class $$QuestionsTableReferences
     extends BaseReferences<_$AppDatabase, $QuestionsTable, QuestionRow> {
@@ -4694,17 +4687,15 @@ class $$QuestionsTableTableManager
                     >
                   >(state) {
                     if (itemId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.itemId,
-                                referencedTable: $$QuestionsTableReferences
-                                    ._itemIdTable(db),
-                                referencedColumn: $$QuestionsTableReferences
-                                    ._itemIdTable(db)
-                                    .id,
-                              )
-                              as T;
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.itemId,
+                        referencedTable: $$QuestionsTableReferences
+                            ._itemIdTable(db),
+                        referencedColumn: $$QuestionsTableReferences
+                            ._itemIdTable(db)
+                            .id,
+                      ) as T;
                     }
 
                     return state;
@@ -5147,42 +5138,40 @@ typedef $$UserItemStatesTableProcessedTableManager =
       UserItemStateRow,
       PrefetchHooks Function()
     >;
-typedef $$ReviewLogsTableCreateCompanionBuilder =
-    ReviewLogsCompanion Function({
-      required String id,
-      required String userId,
-      required String deckId,
-      required int deckVersion,
-      required String itemId,
-      required String questionId,
-      required String questionType,
-      required int rating,
-      required String gradeSource,
-      Value<double?> llmScore,
-      Value<String?> answerText,
-      required int durationMs,
-      required DateTime reviewedAt,
-      Value<DateTime?> syncedAt,
-      Value<int> rowid,
-    });
-typedef $$ReviewLogsTableUpdateCompanionBuilder =
-    ReviewLogsCompanion Function({
-      Value<String> id,
-      Value<String> userId,
-      Value<String> deckId,
-      Value<int> deckVersion,
-      Value<String> itemId,
-      Value<String> questionId,
-      Value<String> questionType,
-      Value<int> rating,
-      Value<String> gradeSource,
-      Value<double?> llmScore,
-      Value<String?> answerText,
-      Value<int> durationMs,
-      Value<DateTime> reviewedAt,
-      Value<DateTime?> syncedAt,
-      Value<int> rowid,
-    });
+typedef $$ReviewLogsTableCreateCompanionBuilder = ReviewLogsCompanion Function({
+  required String id,
+  required String userId,
+  required String deckId,
+  required int deckVersion,
+  required String itemId,
+  required String questionId,
+  required String questionType,
+  required int rating,
+  required String gradeSource,
+  Value<double?> llmScore,
+  Value<String?> answerText,
+  required int durationMs,
+  required DateTime reviewedAt,
+  Value<DateTime?> syncedAt,
+  Value<int> rowid,
+});
+typedef $$ReviewLogsTableUpdateCompanionBuilder = ReviewLogsCompanion Function({
+  Value<String> id,
+  Value<String> userId,
+  Value<String> deckId,
+  Value<int> deckVersion,
+  Value<String> itemId,
+  Value<String> questionId,
+  Value<String> questionType,
+  Value<int> rating,
+  Value<String> gradeSource,
+  Value<double?> llmScore,
+  Value<String?> answerText,
+  Value<int> durationMs,
+  Value<DateTime> reviewedAt,
+  Value<DateTime?> syncedAt,
+  Value<int> rowid,
+});
 
 class $$ReviewLogsTableFilterComposer
     extends Composer<_$AppDatabase, $ReviewLogsTable> {
@@ -5541,22 +5530,20 @@ typedef $$ReviewLogsTableProcessedTableManager =
       ReviewLogRow,
       PrefetchHooks Function()
     >;
-typedef $$OutboxTableCreateCompanionBuilder =
-    OutboxCompanion Function({
-      Value<int> id,
-      required OutboxKind kind,
-      required String payloadJson,
-      required DateTime createdAt,
-      Value<int> attempts,
-    });
-typedef $$OutboxTableUpdateCompanionBuilder =
-    OutboxCompanion Function({
-      Value<int> id,
-      Value<OutboxKind> kind,
-      Value<String> payloadJson,
-      Value<DateTime> createdAt,
-      Value<int> attempts,
-    });
+typedef $$OutboxTableCreateCompanionBuilder = OutboxCompanion Function({
+  Value<int> id,
+  required OutboxKind kind,
+  required String payloadJson,
+  required DateTime createdAt,
+  Value<int> attempts,
+});
+typedef $$OutboxTableUpdateCompanionBuilder = OutboxCompanion Function({
+  Value<int> id,
+  Value<OutboxKind> kind,
+  Value<String> payloadJson,
+  Value<DateTime> createdAt,
+  Value<int> attempts,
+});
 
 class $$OutboxTableFilterComposer
     extends Composer<_$AppDatabase, $OutboxTable> {
@@ -5832,14 +5819,10 @@ class $$HiddenQuestionsTableTableManager
               $$HiddenQuestionsTableOrderingComposer($db: db, $table: table),
           createComputedFieldComposer: () =>
               $$HiddenQuestionsTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback:
-              ({
-                Value<String> questionId = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) => HiddenQuestionsCompanion(
-                questionId: questionId,
-                rowid: rowid,
-              ),
+          updateCompanionCallback: ({
+            Value<String> questionId = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) => HiddenQuestionsCompanion(questionId: questionId, rowid: rowid),
           createCompanionCallback:
               ({
                 required String questionId,

@@ -49,9 +49,8 @@ class ReviewDao extends DatabaseAccessor<AppDatabase> with _$ReviewDaoMixin {
     int? limit,
   }) async {
     final query =
-        select(
-            userItemStates,
-          ).join([innerJoin(items, items.id.equalsExp(userItemStates.itemId))])
+        select(userItemStates)
+            .join([innerJoin(items, items.id.equalsExp(userItemStates.itemId))])
           ..where(
             userItemStates.userId.equals(userId) &
                 userItemStates.due.isSmallerOrEqualValue(now.toUtc()) &

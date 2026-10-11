@@ -27,9 +27,8 @@ void main() {
   });
 
   test('нет сессии: выполняется анонимный вход', () async {
-    when(
-      () => auth.signInAnonymously(),
-    ).thenAnswer((_) async => AuthResponse());
+    when(() => auth.signInAnonymously())
+        .thenAnswer((_) async => AuthResponse());
 
     await repo.ensureSignedIn();
 
@@ -37,9 +36,8 @@ void main() {
   });
 
   test('сетевой сбой превращается в NetworkError', () {
-    when(
-      () => auth.signInAnonymously(),
-    ).thenThrow(AuthRetryableFetchException(message: 'Failed host lookup'));
+    when(() => auth.signInAnonymously())
+        .thenThrow(AuthRetryableFetchException(message: 'Failed host lookup'));
 
     expect(repo.ensureSignedIn(), throwsA(isA<NetworkError>()));
   });
@@ -57,9 +55,8 @@ void main() {
   });
 
   test('429 без кода тоже NetworkError', () {
-    when(
-      () => auth.signInAnonymously(),
-    ).thenThrow(const AuthException('slow down', statusCode: '429'));
+    when(() => auth.signInAnonymously())
+        .thenThrow(const AuthException('slow down', statusCode: '429'));
 
     expect(repo.ensureSignedIn(), throwsA(isA<NetworkError>()));
   });
