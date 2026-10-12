@@ -197,6 +197,7 @@
 - **Проверка:** ручная.
 - **Зависимости:** T17. **Размер:** S–M.
 - **Модель:** Sonnet.
+- **Сделано в T21** (ADR-34): OAuth через браузер без нового пакета; `enable_manual_linking = true`, `[auth.external.google]` (`enabled = false`, пока нет ключей; ключи через `env(...)`), `[auth.email] enable_signup = false` (проверено: анонимный вход не ломается); блок «Аккаунт» в настройках, диалог конфликта `identity_already_exists`, перенос прогресса при входе в существующий аккаунт только по явному подтверждению; чистка `private.purge_orphan_anonymous_users`; README «Привязка Google». ⚠ AC1.2 вручную на двух устройствах после настройки ключей.
 - **Из ревью T04:** включить `enable_manual_linking = true` в `supabase/config.toml`; завести чистку сиротских анонимов (`delete from auth.users where is_anonymous and created_at < now() - interval '30 days'`; профили уходят каскадом; не удалять анонимов, у которых есть данные); отключить `[auth.email] enable_signup`, если GoTrue этого не требует для linking.
 
 ## T22. Дуэль: бэкенд, создание, вход по коду

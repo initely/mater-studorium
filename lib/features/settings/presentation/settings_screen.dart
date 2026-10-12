@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/app_error.dart';
 import '../../../core/l10n/app_localizations.dart';
+import '../../auth/presentation/account_section.dart';
 import '../../grading/domain/llm_consent.dart';
 import '../../grading/presentation/llm_consent_notifier.dart';
 import '../../reminders/presentation/reminder_tiles.dart';
@@ -10,8 +11,8 @@ import '../domain/user_settings.dart';
 import 'settings_notifier.dart';
 import 'stepper_tile.dart';
 
-/// Настройки: лимит новых в день, размер сессии (T18) и напоминание (T19).
-/// Привязка Google и «о приложении» добавят T21 и позже.
+/// Настройки: аккаунт и привязка Google (T21), лимит новых в день, размер
+/// сессии (T18), напоминание (T19), проверка ответов (T16).
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -36,6 +37,7 @@ class SettingsScreen extends ConsumerWidget {
       body: SafeArea(
         child: ListView(
           children: [
+            const AccountSection(),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
               child: Semantics(

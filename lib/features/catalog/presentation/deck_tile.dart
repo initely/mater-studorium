@@ -89,6 +89,7 @@ String deckErrorText(AppLocalizations l10n, AppError error) => switch (error) {
   UnexpectedError() ||
   SyncRejectedError() ||
   QuotaExceededError() ||
+  ProviderUnavailableError() ||
   RequestRejectedError() ||
   LocalStorageError() => l10n.decksErrorGeneric,
 };

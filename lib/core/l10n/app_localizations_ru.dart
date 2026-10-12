@@ -828,4 +828,74 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get disagreeThanks => 'Спасибо! Куратор посмотрит оценку.';
+
+  @override
+  String get settingsAccountSection => 'Аккаунт';
+
+  @override
+  String get accountSigningIn => 'Выполняется вход…';
+
+  @override
+  String get accountAnonymousTitle => 'Анонимный аккаунт';
+
+  @override
+  String get accountAnonymousSubtitle =>
+      'Прогресс хранится на этом устройстве и в облаке без входа. Привяжите Google, чтобы не потерять его и открыть на другом устройстве.';
+
+  @override
+  String accountLinkedTitle(String email) {
+    return 'Google: $email';
+  }
+
+  @override
+  String get accountLinkedNoEmailTitle => 'Google привязан';
+
+  @override
+  String get accountLinkedSubtitle =>
+      'Прогресс сохраняется в облаке. Войдите в этот аккаунт Google на другом устройстве, и прогресс будет там же.';
+
+  @override
+  String get accountLinkButton => 'Привязать Google';
+
+  @override
+  String get accountLinkOpening => 'Открываем браузер…';
+
+  @override
+  String get accountNoBackend =>
+      'Вход недоступен: приложение собрано без подключения к серверу.';
+
+  @override
+  String get accountNoticeLinked => 'Google привязан. Прогресс сохранён.';
+
+  @override
+  String get accountNoticeSignedInExisting =>
+      'Вы вошли в существующий аккаунт Google. Прогресс этого устройства объединён с ним и уйдёт на сервер при синхронизации.';
+
+  @override
+  String get accountNoticeCancelled => 'Вход отменён. Ничего не изменилось.';
+
+  @override
+  String get accountNoticeUnavailable =>
+      'Привязка Google не настроена в этой сборке.';
+
+  @override
+  String get accountNoticeNetwork =>
+      'Нет связи с сервером. Проверьте сеть и попробуйте ещё раз.';
+
+  @override
+  String get accountNoticeFailed =>
+      'Не удалось привязать Google. Ничего не изменилось, можно попробовать ещё раз.';
+
+  @override
+  String get accountConflictTitle => 'Этот Google уже используется';
+
+  @override
+  String get accountConflictBody =>
+      'Этот аккаунт Google уже привязан к другому профилю приложения. Можно войти в него: тогда прогресс на этом устройстве объединится с прогрессом того аккаунта. По каждому знанию останется более поздний результат повторения, остальное сохранится. Если не хотите, откажитесь: всё останется как сейчас.';
+
+  @override
+  String get accountConflictConfirm => 'Войти и объединить';
+
+  @override
+  String get accountConflictDecline => 'Отказаться';
 }

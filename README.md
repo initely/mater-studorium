@@ -85,7 +85,7 @@ dart run tools/import_deck.dart content/decks/sample.json --allow-draft   # draf
 
 ### Синхронизация: ручной прогон (T17)
 
-Шаги «авиарежим → 20 ответов → сеть» (AC8.1) и «два устройства» (AC8.2). Устройство на web — вкладка Chrome, второе устройство — второй профиль Chrome или Android; для AC8.2 оба должны быть одним аккаунтом, а это станет возможно только с привязкой Google (T21), до неё AC8.2 проверяется тестами (`test/core/sync`, `test/integration/sync_live_test.dart`).
+Шаги «авиарежим → 20 ответов → сеть» (AC8.1) и «два устройства» (AC8.2). Устройство на web — вкладка Chrome, второе устройство — второй профиль Chrome или Android; для AC8.2 оба должны быть одним аккаунтом: привязка Google (T21, шаги ниже) делает это возможным; без ключей AC8.2 проверяется тестами (`test/core/sync`, `test/integration/sync_live_test.dart`).
 1. `supabase start && supabase db reset`, импорт `sample.json`, запуск приложения, онбординг со скачиванием колоды.
 2. Выключить сеть (DevTools → Network → Offline или `supabase stop`) и пройти несколько сессий (20 ответов; для одной колоды `sample.json` понадобятся «Взять 5 новых» и повторения по времени). Ошибок о сети нет.
 3. Включить сеть (`supabase start`). В течение ~5 с … 5 мин (повтор с нарастающей паузой) или сразу после следующей сессии / возврата во вкладку: в Studio → Table Editor → `review_logs` ровно столько строк, сколько ответов, `user_item_state` — по строке на знание; повторный прогон число строк не меняет.
@@ -131,3 +131,78 @@ dart run tools/import_deck.dart content/decks/sample.json --allow-draft   # draf
 LIVE_SUPABASE_URL=<API_URL> LIVE_SUPABASE_ANON_KEY=<ANON_KEY> LIVE_SUPABASE_SERVICE_KEY=<SERVICE_ROLE_KEY> \
   flutter test --tags live -j 1 test/integration
 ```
+
+### Привязка Google (T21): настройка и ручная проверка AC1.2
+
+Код, конфиг и тесты готовы, но **ключей Google в репозитории нет и не будет**: их нужно создать самим и подставить по шагам ниже. Без ключей кнопка «Привязать Google» в Настройках → «Аккаунт» показывает «Привязка Google не настроена в этой сборке», приложение не падает, анонимный вход и синхронизация работают как раньше. Решения и компромиссы — ADR-34 в `docs/TZ.md`.
+
+**Как это работает.** Вход через браузер (OAuth, PKCE), без нового пакета: клиент просит у Supabase адрес входа (`linkIdentity` для привязки, обычный `signInWithOAuth` для входа в существующий аккаунт), открывает его во внешнем браузере; после Google пользователь возвращается в приложение (web: на адрес приложения, Android: deep link `app.materstudorium.mater_studorium://login-callback`). Client id и secret Google знает только сервер Supabase, в приложение они не передаются: в клиенте по-прежнему только `SUPABASE_URL` и `SUPABASE_ANON_KEY`. Нужен только **Web client** Google; Android client и SHA-1 для этого способа не нужны.
+
+#### 1. Google Cloud Console
+
+1. <https://console.cloud.google.com> → создать проект (или выбрать существующий).
+2. **APIs & Services → OAuth consent screen** (в новом интерфейсе: Google Auth Platform → Branding и Audience): тип *External*; название приложения, почта поддержки; области (scopes) только `openid`, `email`, `profile` (они «не чувствительные», проверка Google не нужна). Пока статус *Testing*, войти смогут только добавленные в **Test users** аккаунты: добавьте свои Google-аккаунты (для проверки AC1.2 нужен один аккаунт, а лучше два). Чтобы пускать всех, нажать *Publish app*.
+3. **APIs & Services → Credentials → Create credentials → OAuth client ID**, тип **Web application**. В **Authorized redirect URIs** добавить:
+   - локальный Supabase: `http://127.0.0.1:54321/auth/v1/callback`;
+   - облачный проект: `https://<project-ref>.supabase.co/auth/v1/callback` (Dashboard → Project Settings → API → Project URL).
+   *Authorized JavaScript origins* не нужны (вход идёт через сервер Supabase). Скопировать **Client ID** и **Client secret**.
+4. (Не нужно сейчас, на случай перехода на нативный вход, ADR-34.) SHA-1 отладочного ключа Android: `keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android` или `cd android && ./gradlew signingReport`; пакет `app.materstudorium.mater_studorium`.
+
+#### 2. Локальный Supabase
+
+1. Скопировать `supabase/.env.example` в `supabase/.env` (он в `.gitignore`, в репозиторий не попадает) и подставить значения:
+   ```
+   SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID=<Client ID из шага 1.3>
+   SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET=<Client secret из шага 1.3>
+   ```
+2. В `supabase/config.toml` в блоке `[auth.external.google]` поставить `enabled = true` (локально; закоммитите, только когда ключи есть и у остальных разработчиков/CI). `enable_manual_linking = true`, `additional_redirect_urls` (web на порту 3000 и deep link Android) и `[auth.email] enable_signup = false` уже заданы.
+3. `supabase stop && supabase start` (переменные читаются при старте). Проверка: `curl -s http://127.0.0.1:54321/auth/v1/settings -H "apikey: <ANON_KEY>"` → `"google":true`.
+
+#### 3. Облачный проект Supabase
+
+1. Dashboard → **Authentication → Sign In / Providers → Google**: включить, вставить Client ID и Client secret (секреты хранятся в Dashboard, в git их нет). Если конфиг применяется через CLI (`supabase config push`), задать те же две переменные в окружении запуска.
+2. **Authentication → Sign In / Providers**: *Allow anonymous sign-ins* включено (уже), **Allow manual linking** включить (иначе привязка даёт `manual_linking_disabled`, клиент покажет «не настроено»).
+3. **Authentication → URL Configuration → Redirect URLs**: добавить адрес сайта приложения (например `https://<user>.github.io/<repo>/`) и `app.materstudorium.mater_studorium://login-callback`. Site URL — адрес сайта.
+
+#### 4. Запуск клиента
+
+В `.env.json` по-прежнему только `SUPABASE_URL` и `SUPABASE_ANON_KEY` (из локального или облачного проекта). Web локально обязательно на порту 3000 (он в списке разрешённых адресов):
+```sh
+flutter run -d chrome --web-port=3000 --dart-define-from-file=.env.json
+```
+Android (`flutter run -d <устройство>`): надёжнее всего проверять против **облачного** проекта (https; Google не пускает на `http://10.0.2.2`, а возврат в браузере с телефона на `127.0.0.1` ведёт на сам телефон). С локальным Supabase на реальном телефоне: `adb reverse tcp:54321 tcp:54321` и `SUPABASE_URL=http://127.0.0.1:54321` (не проверялось: Android может блокировать http-трафик в debug-сборке, см. «Запуск приложения»).
+
+#### 5. Ручная проверка AC1.2 (Android + web или два профиля Chrome)
+
+Подготовка: два устройства с разными анонимными аккаунтами: A (например, Chrome, колода `sample.json`) и B (Android или второй профиль Chrome).
+1. **A:** пройти сессию (5–10 ответов), дождаться синка (или завершить сессию). Настройки → «Аккаунт»: «Анонимный аккаунт», кнопка «Привязать Google».
+2. **A:** «Привязать Google» → страница Google → выбрать аккаунт → разрешить. Возврат в приложение: открываются Настройки, «Google: ваша.почта@…», сообщение «Google привязан. Прогресс сохранён.». В Studio → Authentication → Users: тот же `id`, `is_anonymous = false`, provider `google`; `user_item_state` на месте. Синк продолжает работать (новый ответ доходит до сервера под тем же `user_id`).
+3. **B** (свежая установка или очищенные данные сайта): при желании пройти пару вопросов (это локальный прогресс, который будет объединён). Настройки → «Привязать Google» → **тот же** Google-аккаунт → возврат с диалогом «Этот Google уже используется» (текст про объединение по более позднему результату). **Отказаться:** ничего не меняется, B остаётся анонимным. Повторить и нажать **«Войти и объединить»** → Google → возврат: «Google: …», сообщение «Вы вошли в существующий аккаунт Google…».
+4. **AC1.2:** после синка (до 5 мин, или завершить сессию) на B видны те же знания, что на A (главный экран: счётчик «к повторению», колода скачана/прогресс; Studio: `select user_id, item_id, reps, updated_at from public.user_item_state where user_id = '<id Google-пользователя>';` — строки A и B, по знанию более поздняя).
+5. Отмена: в Google нажать «Отмена»: «Вход отменён. Ничего не изменилось», кнопка снова доступна. Нет сети при нажатии: «Нет связи с сервером…».
+6. TalkBack и крупный шрифт: «Аккаунт» озвучивается как заголовок, кнопка и кнопки диалога не меньше 48 dp.
+
+Что должен увидеть ревьюер: пока не нажато «Войти и объединить», локальный прогресс анонимного A остаётся под его `user_id` (в `supabase` под Google-аккаунт ничего не уходит); после подтверждения он переходит на Google-аккаунт и уходит туда одним синком.
+
+#### 6. Как вернуть всё назад
+
+Убрать `supabase/.env`, в `config.toml` вернуть `enabled = false` для Google, `supabase stop && supabase start` (пользователей в локальной БД сбросит `supabase db reset`). В Google Cloud Console удалить OAuth client. В Studio → Authentication → Users удалить тестового Google-пользователя; в приложении очистить данные (Android: «Хранилище → Очистить данные»; web: «Параметры сайта → Удалить данные»).
+
+#### 7. Если не работает
+
+- «Привязка Google не настроена в этой сборке»: провайдер выключен (`enabled = false`, нет ключей) или выключено ручное связывание. Проверить `.../auth/v1/settings` и «Allow manual linking».
+- Google: `redirect_uri_mismatch`: в Authorized redirect URIs нет точного `…/auth/v1/callback` вашего проекта.
+- После Google попадаете не в приложение, а на `site_url`: адрес возврата не в списке `additional_redirect_urls` (web: порт 3000; Android: `app.materstudorium.mater_studorium://login-callback`).
+- Android: браузер после Google не возвращает в приложение: проверить `intent-filter` в `AndroidManifest.xml` и что приложение установлено как `app.materstudorium.mater_studorium`.
+- «Access blocked: app has not completed verification»: аккаунт не в Test users (шаг 1.2).
+
+#### Чистка сиротских анонимов (ревью T04)
+
+Анонимные пользователи, которые давно не заходили и ничего не записали, копятся в `auth.users`. Раз в месяц куратор запускает чистку вручную (Studio → SQL editor или `psql` под `postgres`; `pg_cron` не нужен). Удаляются только анонимы старше 30 дней, без identity, без недавней сессии и **без единой строки** ни в одной таблице с `user_id`/`owner_id` (список берётся из каталога БД; `profiles` уходит каскадом):
+```sql
+-- посмотреть, кого удалят (по умолчанию пробный запуск, ничего не удаляет)
+select * from private.purge_orphan_anonymous_users();
+-- удалить (возраст не меньше 7 дней, по умолчанию 30)
+select * from private.purge_orphan_anonymous_users(interval '30 days', false);
+```
+Функция лежит в схеме `private` (через API не вызывается), `execute` только у `service_role` и владельца. Аноним, чей прогресс был перенесён на Google-аккаунт, остаётся на сервере с данными и не удаляется (ADR-34).

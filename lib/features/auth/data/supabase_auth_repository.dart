@@ -1,13 +1,29 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthUser;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/errors/app_error.dart';
+import '../../../core/supabase/supabase_config.dart';
+import '../domain/account_failure.dart';
 import '../domain/auth_repository.dart';
 import '../domain/auth_user.dart';
 
+/// Открывает адрес входа во внешнем браузере. Подменяется в тестах.
+typedef AuthUrlLauncher = Future<bool> Function(Uri url);
+
 class SupabaseAuthRepository implements AuthRepository {
-  SupabaseAuthRepository(this._auth);
+  SupabaseAuthRepository(
+    this._auth, {
+    String Function()? redirectTo,
+    AuthUrlLauncher? launcher,
+  }) : _redirectTo = redirectTo ?? (() => SupabaseConfig.oauthRedirectUrl),
+       _launch = launcher ?? _launchInBrowser;
 
   final GoTrueClient _auth;
+  final String Function() _redirectTo;
+  final AuthUrlLauncher _launch;
 
   @override
   AuthUser? get currentUser => _map(_auth.currentUser);
@@ -24,7 +40,32 @@ class SupabaseAuthRepository implements AuthRepository {
 
   static AuthUser? _map(User? user) => user == null
       ? null
-      : AuthUser(id: user.id, isAnonymous: user.isAnonymous);
+      : AuthUser(id: user.id, isAnonymous: user.isAnonymous, email: user.email);
+
+  /// Ошибки возврата из браузера: `getSessionFromUrl` бросает `AuthException`
+  /// по `error_code` из адреса, supabase_flutter передаёт её в
+  /// `notifyException`, и она приходит ошибкой того же потока
+  /// `onAuthStateChange` (поток повторяет прошлые события, в том числе после
+  /// перезагрузки страницы на web). Сетевые сбои обновления токена сюда не
+  /// относятся и отбрасываются.
+  @override
+  Stream<AccountFailure> oauthFailures() {
+    late final StreamController<AccountFailure> controller;
+    StreamSubscription<Object?>? subscription;
+    controller = StreamController<AccountFailure>(
+      onListen: () {
+        subscription = _auth.onAuthStateChange.listen(
+          (_) {},
+          onError: (Object error, StackTrace _) {
+            final failure = accountFailureFor(error);
+            if (failure != null) controller.add(failure);
+          },
+        );
+      },
+      onCancel: () => subscription?.cancel(),
+    );
+    return controller.stream;
+  }
 
   @override
   Future<void> ensureSignedIn() async {
@@ -50,4 +91,105 @@ class SupabaseAuthRepository implements AuthRepository {
       throw UnexpectedError('Anonymous sign-in: неожиданная ошибка', cause: e);
     }
   }
+
+  @override
+  Future<void> linkGoogle() => _openBrowser(
+    'Привязка Google',
+    () async => (await _auth.getLinkIdentityUrl(
+      OAuthProvider.google,
+      redirectTo: _redirectTo(),
+    )).url,
+  );
+
+  @override
+  Future<void> signInWithGoogle() => _openBrowser(
+    'Вход через Google',
+    () async => (await _auth.getOAuthSignInUrl(
+      provider: OAuthProvider.google,
+      redirectTo: _redirectTo(),
+    )).url,
+  );
+
+  Future<void> _openBrowser(
+    String what,
+    Future<String> Function() urlFor,
+  ) async {
+    try {
+      final opened = await _launch(Uri.parse(await urlFor()));
+      if (!opened) throw UnexpectedError('$what: браузер не открылся');
+    } on AppError {
+      rethrow;
+    } on AuthException catch (e) {
+      throw mapAuthLaunchError(what, e);
+    } on FormatException catch (e) {
+      throw UnexpectedError('$what: сервер вернул неверный адрес', cause: e);
+    } catch (e) {
+      throw UnexpectedError('$what: неожиданная ошибка', cause: e);
+    }
+  }
 }
+
+/// Ошибка GoTrue при получении адреса входа или привязки -> типизированная.
+///
+/// Google не настроен: `validation_failed` («provider is not enabled») или
+/// `manual_linking_disabled`; оба ответа проверены на локальном стеке
+/// (ADR-34).
+AppError mapAuthLaunchError(String what, AuthException e) {
+  if (e is AuthRetryableFetchException) {
+    return NetworkError('$what: сеть или сервер недоступны', cause: e);
+  }
+  final code = e.code ?? e.statusCode;
+  final message = e.message.toLowerCase();
+  if (code == 'manual_linking_disabled' ||
+      code == 'validation_failed' ||
+      message.contains('provider is not enabled') ||
+      message.contains('unsupported provider')) {
+    return ProviderUnavailableError('$what: Google не настроен', cause: e);
+  }
+  if (e.statusCode == '429' || code == 'over_request_rate_limit') {
+    return NetworkError('$what: лимит запросов (429)', cause: e);
+  }
+  return AuthError('$what отклонена сервером: ${e.message}', cause: e);
+}
+
+/// Ошибка возврата из браузера -> причина для UI. `null`: к входу через
+/// Google не относится (сеть, обновление токена).
+///
+/// gotrue собирает `AuthException(error_description, statusCode: error_code,
+/// code: error)` из адреса возврата, поэтому код ошибки может лежать в обоих
+/// полях.
+AccountFailure? accountFailureFor(Object error) {
+  if (error is! AuthException || error is AuthRetryableFetchException) {
+    return null;
+  }
+  final fields = [
+    error.statusCode,
+    error.code,
+    error.message,
+  ].whereType<String>().map((s) => s.toLowerCase()).toList();
+  bool has(String needle) => fields.any((f) => f.contains(needle));
+  final detail = error.toString();
+  if (has('identity_already_exists') ||
+      has('identity is already linked') ||
+      has('already linked to another user')) {
+    return AccountFailure(
+      AccountFailureKind.identityAlreadyExists,
+      detail: detail,
+    );
+  }
+  if (has('access_denied') || has('user_cancelled')) {
+    return AccountFailure(AccountFailureKind.cancelled, detail: detail);
+  }
+  return AccountFailure(AccountFailureKind.other, detail: detail);
+}
+
+Future<bool> _launchInBrowser(Uri url) => launchUrl(
+  url,
+  // Google не разрешает вход во встроенных WebView: на Android нужен внешний
+  // браузер. На web страница уходит на Google в этой же вкладке и
+  // возвращается.
+  mode: !kIsWeb && defaultTargetPlatform == TargetPlatform.android
+      ? LaunchMode.externalApplication
+      : LaunchMode.platformDefault,
+  webOnlyWindowName: '_self',
+);

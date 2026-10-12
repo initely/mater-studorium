@@ -24,6 +24,14 @@ final class AuthError extends AppError {
   const AuthError(super.message, {super.cause});
 }
 
+/// Вход через провайдера (Google, T21) не настроен на сервере: провайдер
+/// выключен или не включено ручное связывание (`manual_linking_disabled`,
+/// `validation_failed`). Повтор не поможет, пока не заданы ключи (README,
+/// «Привязка Google»).
+final class ProviderUnavailableError extends AppError {
+  const ProviderUnavailableError(super.message, {super.cause});
+}
+
 /// Знание с таким `id` уже принадлежит другой колоде (ADR-21: `item_id`
 /// глобально уникален). Колоду записывать нельзя: прогресс по знанию
 /// перепутался бы между колодами.

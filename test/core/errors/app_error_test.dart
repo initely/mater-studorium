@@ -23,6 +23,7 @@ void main() {
       SyncRejectedError() => 'rejected',
       QuotaExceededError() => 'quota',
       RequestRejectedError() => 'request_rejected',
+      ProviderUnavailableError() => 'provider_unavailable',
       UnexpectedError() => 'unexpected',
     };
     expect(label, 'network');

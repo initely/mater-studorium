@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 
+import '../../features/auth/domain/account_intent.dart';
 import '../../features/auth/domain/auth_user.dart';
 import '../../features/catalog/domain/question_type.dart';
 import '../../features/session/domain/grade_source.dart';
@@ -19,6 +20,10 @@ part 'sync_dao.g.dart';
 /// Ключ `app_settings`: чьи данные лежат на устройстве (ADR-30).
 const kLastOwnerSettingKey = 'sync.last_owner';
 
+/// Ключ `app_settings`: незавершённая привязка Google или вход в
+/// существующий аккаунт (T21, ADR-34).
+const kAccountIntentSettingKey = 'account.intent';
+
 /// Локальная сторона синхронизации (T17, ТЗ §7.3). Все выборки и записи
 /// ограничены `user_id`; слияние и сдвиг курсора — одной транзакцией.
 @DriftAccessor(
@@ -26,7 +31,7 @@ const kLastOwnerSettingKey = 'sync.last_owner';
 )
 class SyncDao extends DatabaseAccessor<AppDatabase>
     with _$SyncDaoMixin
-    implements SyncStore {
+    implements SyncStore, AccountIntentStore {
   SyncDao(super.attachedDatabase);
 
   @override
@@ -238,6 +243,43 @@ class SyncDao extends DatabaseAccessor<AppDatabase>
     ),
     mode: InsertMode.insertOrReplace,
   );
+
+  @override
+  Future<AccountIntent?> readIntent() async {
+    final row = await (select(
+      appSettings,
+    )..where((s) => s.key.equals(kAccountIntentSettingKey))).getSingleOrNull();
+    if (row == null) return null;
+    try {
+      final json = jsonDecode(row.value) as Map<String, dynamic>;
+      return AccountIntent(
+        kind: AccountIntentKind.values.byName(json['kind'] as String),
+        fromUserId: json['from'] as String,
+        createdAt: DateTime.parse(json['at'] as String).toUtc(),
+      );
+    } on Object {
+      // Битая запись ничего не разрешает.
+      return null;
+    }
+  }
+
+  @override
+  Future<void> writeIntent(AccountIntent intent) => into(appSettings).insert(
+    AppSettingsCompanion.insert(
+      key: kAccountIntentSettingKey,
+      value: jsonEncode({
+        'kind': intent.kind.name,
+        'from': intent.fromUserId,
+        'at': intent.createdAt.toUtc().toIso8601String(),
+      }),
+    ),
+    mode: InsertMode.insertOrReplace,
+  );
+
+  @override
+  Future<void> clearIntent() => (delete(
+    appSettings,
+  )..where((s) => s.key.equals(kAccountIntentSettingKey))).go();
 
   @override
   Future<void> adoptLocalData({required String from, required String to}) =>

@@ -35,6 +35,20 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Возврат из браузера после входа через Google (T21, ADR-34):
+                 GoTrue перенаправляет на эту схему и хост, supabase_flutter
+                 (app_links) обменивает код на сессию. Схема и хост совпадают с
+                 SupabaseConfig.androidRedirectUrl и additional_redirect_urls в
+                 supabase/config.toml. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="app.materstudorium.mater_studorium" android:host="login-callback"/>
+            </intent-filter>
+            <!-- Адрес возврата обрабатывает supabase_flutter, а не go_router:
+                 иначе роутер увидел бы чужой путь и показал «страница не найдена». -->
+            <meta-data android:name="flutter_deeplinking_enabled" android:value="false"/>
         </activity>
         <!-- flutter_local_notifications: показ запланированных напоминаний и
              их восстановление после перезагрузки и обновления приложения. -->

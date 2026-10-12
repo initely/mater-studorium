@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../features/auth/data/account_providers.dart';
 import '../../../features/auth/data/auth_providers.dart';
 import '../../../features/auth/domain/auth_user.dart';
 import '../../db/database_providers.dart';
@@ -74,6 +75,8 @@ final syncBootstrapProvider = Provider<void>((ref) {
   final switcher = AccountSwitchHandler(
     store: ref.watch(syncStoreProvider),
     sync: ref.watch(syncServiceProvider),
+    intents: ref.watch(accountIntentStoreProvider),
+    clock: ref.watch(clockProvider),
   );
   // События входа обрабатываются строго по порядку: gotrue повторяет
   // подписчику прошлые события, и перенос данных не должен обогнать

@@ -1,3 +1,4 @@
+import '../../../features/auth/domain/account_intent.dart';
 import '../../../features/auth/domain/auth_user.dart';
 import '../../../features/session/domain/review_log.dart';
 import '../../../features/srs/domain/item_state.dart';
@@ -136,3 +137,25 @@ bool shouldAdoptLocalData({
   required AuthUser previous,
   required AuthUser current,
 }) => previous.id != current.id && previous.isAnonymous && current.isAnonymous;
+
+/// Можно ли перенести локальные данные анонимного [previous] на Google-
+/// аккаунт [current], в который пользователь только что вошёл (T21, ADR-34).
+///
+/// Только по явному подтверждению: [intent] — запись `merge`, созданная после
+/// нажатия «Войти и объединить», на этом же устройстве, для этого же
+/// анонимного пользователя и ещё не просроченная. Без неё данные остаются
+/// под прежним `user_id`, как и раньше ([shouldAdoptLocalData]): иначе чужой
+/// вход на общем устройстве забрал бы прогресс прежнего владельца.
+bool shouldAdoptConfirmedMerge({
+  required AuthUser previous,
+  required AuthUser current,
+  required AccountIntent? intent,
+  required DateTime now,
+}) =>
+    intent != null &&
+    intent.kind == AccountIntentKind.merge &&
+    intent.isFresh(now) &&
+    previous.isAnonymous &&
+    !current.isAnonymous &&
+    previous.id != current.id &&
+    intent.fromUserId == previous.id;

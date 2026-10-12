@@ -1431,6 +1431,126 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Спасибо! Куратор посмотрит оценку.'**
   String get disagreeThanks;
+
+  /// Заголовок раздела настроек про аккаунт и привязку Google (T21)
+  ///
+  /// In ru, this message translates to:
+  /// **'Аккаунт'**
+  String get settingsAccountSection;
+
+  /// Статус аккаунта, пока анонимный вход ещё не завершён
+  ///
+  /// In ru, this message translates to:
+  /// **'Выполняется вход…'**
+  String get accountSigningIn;
+
+  /// Статус аккаунта без привязки
+  ///
+  /// In ru, this message translates to:
+  /// **'Анонимный аккаунт'**
+  String get accountAnonymousTitle;
+
+  /// Пояснение к анонимному аккаунту
+  ///
+  /// In ru, this message translates to:
+  /// **'Прогресс хранится на этом устройстве и в облаке без входа. Привяжите Google, чтобы не потерять его и открыть на другом устройстве.'**
+  String get accountAnonymousSubtitle;
+
+  /// Статус привязанного аккаунта с почтой
+  ///
+  /// In ru, this message translates to:
+  /// **'Google: {email}'**
+  String accountLinkedTitle(String email);
+
+  /// Статус привязанного аккаунта, если почта неизвестна
+  ///
+  /// In ru, this message translates to:
+  /// **'Google привязан'**
+  String get accountLinkedNoEmailTitle;
+
+  /// Пояснение к привязанному аккаунту
+  ///
+  /// In ru, this message translates to:
+  /// **'Прогресс сохраняется в облаке. Войдите в этот аккаунт Google на другом устройстве, и прогресс будет там же.'**
+  String get accountLinkedSubtitle;
+
+  /// Кнопка привязки Google к анонимному аккаунту
+  ///
+  /// In ru, this message translates to:
+  /// **'Привязать Google'**
+  String get accountLinkButton;
+
+  /// Кнопка привязки, пока открывается браузер
+  ///
+  /// In ru, this message translates to:
+  /// **'Открываем браузер…'**
+  String get accountLinkOpening;
+
+  /// Блок аккаунта в сборке без Supabase
+  ///
+  /// In ru, this message translates to:
+  /// **'Вход недоступен: приложение собрано без подключения к серверу.'**
+  String get accountNoBackend;
+
+  /// Сообщение после успешной привязки
+  ///
+  /// In ru, this message translates to:
+  /// **'Google привязан. Прогресс сохранён.'**
+  String get accountNoticeLinked;
+
+  /// Сообщение после входа в существующий аккаунт с объединением
+  ///
+  /// In ru, this message translates to:
+  /// **'Вы вошли в существующий аккаунт Google. Прогресс этого устройства объединён с ним и уйдёт на сервер при синхронизации.'**
+  String get accountNoticeSignedInExisting;
+
+  /// Сообщение, если пользователь отказался на стороне Google
+  ///
+  /// In ru, this message translates to:
+  /// **'Вход отменён. Ничего не изменилось.'**
+  String get accountNoticeCancelled;
+
+  /// Сообщение, если провайдер Google не включён на сервере
+  ///
+  /// In ru, this message translates to:
+  /// **'Привязка Google не настроена в этой сборке.'**
+  String get accountNoticeUnavailable;
+
+  /// Сообщение о недоступном сервере при привязке
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет связи с сервером. Проверьте сеть и попробуйте ещё раз.'**
+  String get accountNoticeNetwork;
+
+  /// Общее сообщение об ошибке привязки
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось привязать Google. Ничего не изменилось, можно попробовать ещё раз.'**
+  String get accountNoticeFailed;
+
+  /// Заголовок диалога: Google-аккаунт уже привязан к другому профилю
+  ///
+  /// In ru, this message translates to:
+  /// **'Этот Google уже используется'**
+  String get accountConflictTitle;
+
+  /// Текст диалога конфликта: предупреждение об объединении через синхронизацию (LWW)
+  ///
+  /// In ru, this message translates to:
+  /// **'Этот аккаунт Google уже привязан к другому профилю приложения. Можно войти в него: тогда прогресс на этом устройстве объединится с прогрессом того аккаунта. По каждому знанию останется более поздний результат повторения, остальное сохранится. Если не хотите, откажитесь: всё останется как сейчас.'**
+  String get accountConflictBody;
+
+  /// Кнопка диалога конфликта: войти в существующий аккаунт и объединить прогресс
+  ///
+  /// In ru, this message translates to:
+  /// **'Войти и объединить'**
+  String get accountConflictConfirm;
+
+  /// Кнопка диалога конфликта: ничего не менять
+  ///
+  /// In ru, this message translates to:
+  /// **'Отказаться'**
+  String get accountConflictDecline;
 }
 
 class _AppLocalizationsDelegate

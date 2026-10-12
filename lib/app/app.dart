@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/l10n/app_localizations.dart';
+import '../features/auth/presentation/account_return_listener.dart';
 import '../features/reminders/presentation/reminder_coordinator.dart';
 import 'router.dart';
 import 'theme.dart';
@@ -18,9 +19,12 @@ class App extends ConsumerWidget {
       theme: lightTheme,
       darkTheme: darkTheme,
       routerConfig: router,
-      builder: (context, child) => ReminderCoordinator(
+      builder: (context, child) => AccountReturnListener(
         router: router,
-        child: child ?? const SizedBox.shrink(),
+        child: ReminderCoordinator(
+          router: router,
+          child: child ?? const SizedBox.shrink(),
+        ),
       ),
       localizationsDelegates: const [
         AppLocalizations.delegate,

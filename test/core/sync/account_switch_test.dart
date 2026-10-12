@@ -34,7 +34,12 @@ void main() {
   test('потерянный анонимный аккаунт: данные переносятся на новый и '
       'уходят на сервер под ним', () async {
     final d = Device(server);
-    final switcher = AccountSwitchHandler(store: d.db.syncDao, sync: d.service);
+    final switcher = AccountSwitchHandler(
+      store: d.db.syncDao,
+      sync: d.service,
+      intents: d.db.syncDao,
+      clock: () => s0.add(const Duration(hours: 1)),
+    );
     await switcher.onSignedIn(anonA);
     final sent = await answer(d.db, userA, 'i1', s0);
     await d.service.sync(); // i1 и его лог уже на сервере под A
@@ -88,7 +93,12 @@ void main() {
   test('прежний аккаунт не анонимный: данные не переносятся и не уходят '
       'под чужой сессией', () async {
     final d = Device(server);
-    final switcher = AccountSwitchHandler(store: d.db.syncDao, sync: d.service);
+    final switcher = AccountSwitchHandler(
+      store: d.db.syncDao,
+      sync: d.service,
+      intents: d.db.syncDao,
+      clock: () => s0.add(const Duration(hours: 1)),
+    );
     await switcher.onSignedIn(googleA);
     await answer(d.db, userA, 'i1', s0);
 
@@ -107,7 +117,12 @@ void main() {
   test('первый вход на устройстве и повтор того же пользователя: ничего не '
       'переносится', () async {
     final d = Device(server);
-    final switcher = AccountSwitchHandler(store: d.db.syncDao, sync: d.service);
+    final switcher = AccountSwitchHandler(
+      store: d.db.syncDao,
+      sync: d.service,
+      intents: d.db.syncDao,
+      clock: () => s0.add(const Duration(hours: 1)),
+    );
     await answer(d.db, userB, 'i1', s0);
     await switcher.onSignedIn(anonA);
     await switcher.onSignedIn(anonA);
