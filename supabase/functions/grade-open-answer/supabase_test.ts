@@ -216,6 +216,36 @@ Deno.test("DeckSource: файл не той колоды или версии —
   }
 });
 
+Deno.test("DeckSource: файл больше лимита и 400 Storage без not found — ошибки", async () => {
+  const big = new DeckSource({
+    supabaseUrl: URL_,
+    anonKey: ANON,
+    serviceKey: SERVICE,
+    maxDeckBytes: 100,
+    fetchFn: fakeFetch(deckRoutes()),
+  });
+  await assertRejects(
+    () => big.lookup(USER_TOKEN, "d", 2, "d.i.q2"),
+    DeckInvalidError,
+  );
+  const bad400 = new DeckSource({
+    supabaseUrl: URL_,
+    anonKey: ANON,
+    serviceKey: SERVICE,
+    fetchFn: fakeFetch((u) =>
+      u.includes("/rest/v1/decks")
+        ? Response.json([{ version: 2 }])
+        : Response.json({ statusCode: "400", error: "InvalidKey" }, {
+          status: 400,
+        })
+    ),
+  });
+  await assertRejects(
+    () => bad400.lookup(USER_TOKEN, "d", 2, "d.i.q2"),
+    UpstreamError,
+  );
+});
+
 Deno.test("DeckSource: ошибка Supabase — UpstreamError без тела", async () => {
   const src = new DeckSource({
     supabaseUrl: URL_,
@@ -338,6 +368,7 @@ Deno.test("SupabaseGradingStore: RPC лимита, кэш и журнал — к
     callLimit: 30,
     requestLimit: 300,
     budgetUsd: 1,
+    reserveUsd: 0.002,
     unknownCostUsd: 0.001,
   });
   assertEquals(t, {
@@ -354,7 +385,7 @@ Deno.test("SupabaseGradingStore: RPC лимита, кэш и журнал — к
     p_call_limit: 30,
     p_request_limit: 300,
     p_budget_usd: 1,
-    p_unknown_cost_usd: 0.001,
+    p_reserve_usd: 0.002,
   });
   assertEquals(await store.getCache("ab".repeat(32), "grade-v2"), null);
   assertEquals(
@@ -367,6 +398,13 @@ Deno.test("SupabaseGradingStore: RPC лимита, кэш и журнал — к
   assertEquals(JSON.parse(seen[2].body!), {
     p_user_id: "u",
     p_day: "2026-10-12",
+  });
+  await store.settle("2026-10-12", 0.002, 0.00019);
+  assertEquals(seen[3].url, `${URL_}/rest/v1/rpc/grading_budget_settle`);
+  assertEquals(JSON.parse(seen[3].body!), {
+    p_day: "2026-10-12",
+    p_reserve_usd: 0.002,
+    p_actual_usd: 0.00019,
   });
   for (const s of seen) {
     assertEquals(s.headers.get("authorization"), `Bearer ${SERVICE}`);

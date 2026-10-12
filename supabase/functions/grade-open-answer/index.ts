@@ -40,12 +40,15 @@ function readConfig(): {
       callLimit: num("GRADING_DAILY_LIMIT", 30, true),
       requestLimit: num("GRADING_DAILY_REQUEST_LIMIT", 300, true),
       budgetUsd: num("DAILY_BUDGET_USD", 1, false),
+      // Верхняя оценка двух попыток (MAX_MODEL_CALLS); средний вызов ≈ $0.0002.
+      reserveUsd: num("GRADING_RESERVE_USD", 0.002, false),
       unknownCostUsd: num("GRADING_UNKNOWN_COST_USD", 0.001, false),
     },
     allowedOrigins: (env("GRADING_ALLOWED_ORIGINS") ?? "")
       .split(",").map((s) => s.trim()).filter((s) => s !== ""),
     modelDeadlineMs: num("GRADING_MODEL_DEADLINE_MS", 12_000, true),
   };
+  if (config.limits.reserveUsd <= 0) errors.push("GRADING_RESERVE_USD");
   // Имена переменных, а не значения: значения могут быть секретами.
   if (errors.length > 0) config.configError = `env: ${errors.join(", ")}`;
   // temperature 0 и seed: у gemini есть, у claude-haiku на OpenRouter нет

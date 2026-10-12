@@ -74,9 +74,22 @@ export interface ChatMessage {
 // ---------------------------------------------------------------------------
 // Нормализация (§4.2, п. 1–2)
 
-/** lower, trim, ё → е, схлопнутые пробелы. Ключ кэша считается от этой строки. */
+/**
+ * Очистка ввода до любой обработки (ключ кэша и текст для модели — от одной
+ * строки): непарные суррогаты → U+FFFD (toWellFormed), управляющие символы
+ * (\p{Cc}, кроме \t \n \r) → пробел, невидимые форматирующие (\p{Cf}:
+ * zero-width, BOM, bidi) — удаляются.
+ */
+export function sanitizeAnswer(text: string): string {
+  return text.toWellFormed()
+    .replace(/[^\P{Cc}\t\n\r]/gu, " ")
+    .replace(/\p{Cf}/gu, "");
+}
+
+/** Очистка, lower, trim, ё → е, схлопнутые пробелы. Ключ кэша считается от этой строки. */
 export function normalizeAnswer(text: string): string {
-  return text.toLowerCase().replaceAll("ё", "е").replace(/\s+/g, " ").trim();
+  return sanitizeAnswer(text).toLowerCase().replaceAll("ё", "е")
+    .replace(/\s+/g, " ").trim();
 }
 
 /** Пустой или короче 3 символов ответ получает incorrect без вызова модели. */

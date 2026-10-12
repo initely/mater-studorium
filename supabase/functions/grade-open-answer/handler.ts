@@ -16,6 +16,7 @@ import {
   normalizeAnswer,
   type OpenQuestion,
   PROMPT_VERSION,
+  sanitizeAnswer,
   scoreGrade,
   suggestedRating,
   type Thresholds,
@@ -75,6 +76,8 @@ export interface HandlerDeps {
 
 /** Меньше этого на попытку не начинаем: всё равно не успеет. */
 const MIN_ATTEMPT_MS = 1500;
+/** HTTP-вызовов модели на запрос (повторы включены); резерв бюджета — на столько. */
+export const MAX_MODEL_CALLS = 2;
 const MAX_FEEDBACK_CHARS = 300;
 const MAX_TOKEN_CHARS = 16 * 1024;
 
@@ -469,7 +472,9 @@ export function createHandler(
     };
 
     // §4.2, п. 1: пустой или короткий ответ — incorrect без модели и кэша.
-    if (isTooShort(input.answer_text)) {
+    // Ключ кэша, проверка длины и текст для модели — от одной очищенной строки.
+    const answer = sanitizeAnswer(input.answer_text);
+    if (isTooShort(answer)) {
       const t = await take(false);
       ctx.log.outcome = "too_short";
       const body: GradeResponse = {
@@ -496,7 +501,7 @@ export function createHandler(
     const key = await cacheKey(
       input.question_id,
       input.deck_version,
-      input.answer_text,
+      answer,
     );
     const hit = await deps.store.getCache(key, PROMPT_VERSION);
     if (hit !== null && cachedFits(hit.result, question)) {
@@ -512,6 +517,7 @@ export function createHandler(
           tokens_in: 0,
           tokens_out: 0,
           cost_usd: 0,
+          cost_estimated: false,
           latency_ms: 0,
         }),
       );
@@ -530,15 +536,18 @@ export function createHandler(
     // §4.2, п. 3: лимит пользователя и глобальный бюджет, атомарно в БД.
     const t = await take(true);
 
-    // §4.2, п. 4–6: модель (общий код T07), дедлайн на все попытки.
+    // §4.2, п. 4–6: модель (общий код T07), дедлайн на все попытки. Всего не
+    // больше MAX_MODEL_CALLS HTTP-вызовов (повтор при невалидном JSON и повтор
+    // при сбое сети делят их): на это рассчитан резерв бюджета.
     const deadline = now() + cfg.modelDeadlineMs;
     const calls: CompletionResult[] = [];
-    let unknownCostCalls = 0;
+    let failedCalls = 0;
     const complete: CompleteFn = async (messages, format) => {
-      // Повтор при сетевой ошибке, 429 и 5xx — один раз, если есть время.
-      for (let attempt = 1;; attempt++) {
+      for (;;) {
         const left = deadline - now();
-        if (left < MIN_ATTEMPT_MS) {
+        if (
+          left < MIN_ATTEMPT_MS || calls.length + failedCalls >= MAX_MODEL_CALLS
+        ) {
           throw new OpenRouterError("timeout", 0, true);
         }
         try {
@@ -547,8 +556,11 @@ export function createHandler(
           return r.content;
         } catch (e) {
           // Ответа нет, но запрос мог дойти до провайдера и стоить денег.
-          unknownCostCalls++;
-          if (!(e instanceof OpenRouterError) || !e.retryable || attempt >= 2) {
+          failedCalls++;
+          if (
+            !(e instanceof OpenRouterError) || !e.retryable ||
+            calls.length + failedCalls >= MAX_MODEL_CALLS
+          ) {
             throw e;
           }
           ctx.log.retried = e.status;
@@ -556,26 +568,64 @@ export function createHandler(
       }
     };
     const modelStarted = now();
-    const usage = (outcome: UsageOutcome, attempts: number) => ({
-      ...usageBase,
-      model: cfg.model,
-      outcome,
-      cached: false,
-      attempts,
-      tokens_in: calls.reduce((s, c) => s + c.usage.prompt_tokens, 0),
-      tokens_out: calls.reduce((s, c) => s + c.usage.completion_tokens, 0),
-      cost_usd: unknownCostCalls > 0 || calls.some((c) => c.usage.cost === null)
-        ? null
-        : calls.reduce((s, c) => s + (c.usage.cost ?? 0), 0),
-      latency_ms: Math.round(now() - modelStarted),
-    });
+    // Фактическая стоимость: известная usage.cost плюс верхняя оценка на
+    // КАЖДУЮ попытку без известной стоимости (сбой или кривой usage).
+    const spent = () => {
+      let usd = 0;
+      let estimated = failedCalls > 0;
+      for (const c of calls) {
+        const cost = c.usage.cost;
+        if (typeof cost === "number" && Number.isFinite(cost) && cost >= 0) {
+          usd += cost;
+        } else {
+          estimated = true;
+          usd += cfg.limits.unknownCostUsd;
+        }
+      }
+      usd += failedCalls * cfg.limits.unknownCostUsd;
+      return { usd: Math.round(usd * 1e8) / 1e8, estimated };
+    };
+    const tokens = (n: unknown) =>
+      typeof n === "number" && Number.isFinite(n) && n >= 0
+        ? Math.min(Math.round(n), 10_000_000)
+        : 0;
+    const usage = (outcome: UsageOutcome) => {
+      const cost = spent();
+      return {
+        ...usageBase,
+        model: cfg.model,
+        outcome,
+        cached: false,
+        attempts: calls.length + failedCalls,
+        tokens_in: calls.reduce((s, c) => s + tokens(c.usage.prompt_tokens), 0),
+        tokens_out: calls.reduce(
+          (s, c) => s + tokens(c.usage.completion_tokens),
+          0,
+        ),
+        cost_usd: cost.usd,
+        cost_estimated: cost.estimated,
+        latency_ms: Math.min(Math.round(now() - modelStarted), 600_000),
+      };
+    };
+    // Резерв бюджета заменяется фактической стоимостью; журнал — аудит.
+    const account = async (outcome: UsageOutcome) => {
+      const u = usage(outcome);
+      ctx.log.cost_usd = u.cost_usd;
+      await Promise.all([
+        quietly(
+          "settle",
+          deps.store.settle(t.day, cfg.limits.reserveUsd, u.cost_usd),
+        ),
+        quietly("usage", deps.store.recordUsage(u)),
+      ]);
+    };
 
     let graded: GradeResult | null = null;
     try {
       graded = await gradeOpenAnswer(
         {
           question,
-          answer: input.answer_text,
+          answer,
           inputMode: input.input_mode,
           lang,
           thresholds,
@@ -585,35 +635,28 @@ export function createHandler(
     } catch (e) {
       if (e instanceof OpenRouterError) ctx.log.model_status = e.status;
       if (calls.length === 0) {
-        // Модель не ответила ни разу: лимит возвращается, клиент переходит
-        // на самооценку по коду ошибки.
+        // Модель не ответила ни разу: лимит возвращается (сбой не по вине
+        // пользователя), клиент переходит на самооценку по коду ошибки.
         const timeout = e instanceof OpenRouterError && e.status === 0 &&
           e.message === "timeout";
         const outcome = timeout ? "model_timeout" : "model_error";
         ctx.log.outcome = outcome;
         await quietly("refund", deps.store.refund(user.id, t.day));
-        await quietly(
-          "usage",
-          deps.store.recordUsage(usage(outcome, unknownCostCalls)),
-        );
+        await account(outcome);
         throw new HttpError(outcome);
       }
       // Первый ответ не разобран, а повтор не удался: как невалидный вывод.
     }
 
-    const attempts = calls.length + unknownCostCalls;
-    ctx.log.attempts = attempts;
+    ctx.log.attempts = calls.length + failedCalls;
     ctx.log.model_ms = Math.round(now() - modelStarted);
     if (graded === null || graded.rule === "invalid_output") {
-      // §4.2, п. 4: невалидный JSON и после повтора — unsure. Не кэшируется,
-      // лимит возвращается (деньги за вызовы учтены в llm_usage и бюджете).
+      // §4.2, п. 4: невалидный JSON и после повтора — unsure, не кэшируется.
+      // Лимит НЕ возвращается: модель ответила, деньги потрачены, а сломать
+      // JSON может сам ввод пользователя (иначе лимит обходился бы).
       ctx.log.outcome = "invalid_output";
       if (graded) ctx.log.parse_errors = graded.parse_errors;
-      await quietly("refund", deps.store.refund(user.id, t.day));
-      await quietly(
-        "usage",
-        deps.store.recordUsage(usage("invalid_output", attempts)),
-      );
+      await account("invalid_output");
       const body: GradeResponse = {
         verdict: "unsure",
         score: 0,
@@ -623,8 +666,7 @@ export function createHandler(
         suggested_rating: null,
         source: "llm",
         cached: false,
-        remaining_quota: Math.max(0, cfg.limits.callLimit - t.model_calls + 1),
-        quota_reset_at: t.reset_at,
+        ...quotaFields(t),
       };
       return finish(200, body);
     }
@@ -637,9 +679,8 @@ export function createHandler(
       model_verdict: graded.model_verdict ?? "unsure",
       feedback: graded.feedback,
     };
-    const u = usage("graded", attempts);
-    ctx.log.cost_usd = u.cost_usd;
     await Promise.all([
+      account("graded"),
       quietly(
         "cache",
         deps.store.putCache({
@@ -652,7 +693,6 @@ export function createHandler(
           result: cached,
         }),
       ),
-      quietly("usage", deps.store.recordUsage(u)),
     ]);
     const result = buildResult(cached, question, thresholds);
     ctx.log.outcome = "graded";

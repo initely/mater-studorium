@@ -46,6 +46,9 @@ export interface QuotaLimits {
   callLimit: number;
   requestLimit: number;
   budgetUsd: number;
+  /** Резерв бюджета на один запрос с моделью: верхняя оценка MAX_MODEL_CALLS вызовов. */
+  reserveUsd: number;
+  /** Верхняя оценка одной попытки с неизвестной стоимостью. */
   unknownCostUsd: number;
 }
 
@@ -69,7 +72,9 @@ export interface UsageRow {
   attempts: number;
   tokens_in: number;
   tokens_out: number;
-  cost_usd: number | null;
+  /** Фактическая; попытки без известной стоимости — по верхней оценке. */
+  cost_usd: number;
+  cost_estimated: boolean;
   latency_ms: number | null;
 }
 
@@ -78,6 +83,8 @@ export interface GradingStore {
   putCache(row: CacheRow): Promise<void>;
   take(userId: string, modelCall: boolean, l: QuotaLimits): Promise<QuotaTake>;
   refund(userId: string, day: string): Promise<void>;
+  /** Заменить резерв бюджета суток `day` фактической стоимостью. */
+  settle(day: string, reserveUsd: number, actualUsd: number): Promise<void>;
   recordUsage(row: UsageRow): Promise<void>;
 }
 
@@ -196,7 +203,7 @@ export class SupabaseGradingStore implements GradingStore {
         p_call_limit: l.callLimit,
         p_request_limit: l.requestLimit,
         p_budget_usd: l.budgetUsd,
-        p_unknown_cost_usd: l.unknownCostUsd,
+        p_reserve_usd: l.reserveUsd,
       },
     });
     const r = Array.isArray(rows) ? rows[0] : null;
@@ -220,6 +227,17 @@ export class SupabaseGradingStore implements GradingStore {
     await this.#call("quota", "/rest/v1/rpc/grading_quota_refund", {
       method: "POST",
       body: { p_user_id: userId, p_day: day },
+    });
+  }
+
+  async settle(
+    day: string,
+    reserveUsd: number,
+    actualUsd: number,
+  ): Promise<void> {
+    await this.#call("budget", "/rest/v1/rpc/grading_budget_settle", {
+      method: "POST",
+      body: { p_day: day, p_reserve_usd: reserveUsd, p_actual_usd: actualUsd },
     });
   }
 

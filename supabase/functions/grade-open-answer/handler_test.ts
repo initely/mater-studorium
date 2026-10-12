@@ -93,9 +93,12 @@ class FakeStore implements GradingStore {
   usage: UsageRow[] = [];
   calls = 0;
   requests = 0;
-  budgetSpent = 0;
+  /** grading_budget.reserved_usd: резервы и фактические траты за сутки. */
+  reserved = 0;
+  settles: [string, number, number][] = [];
   refunds = 0;
   failWrites = false;
+  resetAt = "2026-10-13T00:00:00.000Z";
 
   getCache(key: string, promptVersion: string) {
     const r = this.cache.get(key);
@@ -108,17 +111,18 @@ class FakeStore implements GradingStore {
   }
   take(userId: string, modelCall: boolean, l: QuotaLimits): Promise<QuotaTake> {
     assertEquals(userId, USER);
-    const base = {
-      day: "2026-10-12",
-      reset_at: "2026-10-13T00:00:00.000Z",
-    };
+    const base = { day: "2026-10-12", reset_at: this.resetAt };
     let reason: QuotaTake["reason"] = null;
-    if (modelCall && this.budgetSpent >= l.budgetUsd) reason = "budget";
-    else if (this.requests >= l.requestLimit) reason = "requests";
+    if (modelCall && this.reserved + l.reserveUsd > l.budgetUsd) {
+      reason = "budget";
+    } else if (this.requests >= l.requestLimit) reason = "requests";
     else if (modelCall && this.calls >= l.callLimit) reason = "quota";
     if (reason === null) {
       this.requests++;
-      if (modelCall) this.calls++;
+      if (modelCall) {
+        this.calls++;
+        this.reserved += l.reserveUsd;
+      }
     }
     return Promise.resolve({
       allowed: reason === null,
@@ -134,6 +138,12 @@ class FakeStore implements GradingStore {
     if (this.calls > 0) this.calls--;
     return Promise.resolve();
   }
+  settle(day: string, reserveUsd: number, actualUsd: number) {
+    this.settles.push([day, reserveUsd, actualUsd]);
+    this.reserved = Math.round((this.reserved - reserveUsd + actualUsd) * 1e8) /
+      1e8;
+    return Promise.resolve();
+  }
   recordUsage(row: UsageRow) {
     if (this.failWrites) return Promise.reject(new Error("db down"));
     this.usage.push(row);
@@ -143,6 +153,7 @@ class FakeStore implements GradingStore {
 
 interface Setup {
   store: FakeStore;
+  authCalls: string[];
   modelCalls: ChatMessage[][];
   logs: Record<string, unknown>[];
   timeouts: number[];
@@ -150,7 +161,7 @@ interface Setup {
 }
 
 function setup(o: {
-  replies?: (string | Error)[];
+  replies?: (string | Error | CompletionResult)[];
   lookup?: QuestionLookup;
   config?: Partial<HandlerConfig>;
   store?: FakeStore;
@@ -158,6 +169,7 @@ function setup(o: {
   modelDelay?: number;
 } = {}): Setup {
   const store = o.store ?? new FakeStore();
+  const authCalls: string[] = [];
   const modelCalls: ChatMessage[][] = [];
   const logs: Record<string, unknown>[] = [];
   const timeouts: number[] = [];
@@ -170,7 +182,7 @@ function setup(o: {
     const r = replies.shift();
     if (r === undefined) throw new Error("лишний вызов модели");
     if (r instanceof Error) return Promise.reject(r);
-    return Promise.resolve(completion(r));
+    return Promise.resolve(typeof r === "string" ? completion(r) : r);
   };
   const handle = createHandler({
     config: {
@@ -180,6 +192,7 @@ function setup(o: {
         callLimit: 30,
         requestLimit: 300,
         budgetUsd: 1,
+        reserveUsd: 0.002,
         unknownCostUsd: 0.001,
       },
       allowedOrigins: ["https://tel.github.io", "http://localhost:*"],
@@ -187,7 +200,10 @@ function setup(o: {
       ...o.config,
     },
     auth: {
-      getUser: (t) => Promise.resolve(t === TOKEN ? { id: USER } : null),
+      getUser: (t) => {
+        authCalls.push(t);
+        return Promise.resolve(t === TOKEN ? { id: USER } : null);
+      },
     },
     decks: {
       lookup: (token, deckId, version, questionId) => {
@@ -207,7 +223,7 @@ function setup(o: {
     now: () => clock.t,
     log: (e) => logs.push(e),
   });
-  return { store, modelCalls, logs, timeouts, handle };
+  return { store, authCalls, modelCalls, logs, timeouts, handle };
 }
 
 function post(
@@ -269,8 +285,12 @@ Deno.test("оценка моделью: контракт ответа, кэш и
   assertEquals(s.store.usage.length, 1);
   assertEquals(s.store.usage[0].outcome, "graded");
   assertEquals(s.store.usage[0].cost_usd, 0.0002);
+  assertEquals(s.store.usage[0].cost_estimated, false);
   assertEquals(s.store.usage[0].tokens_in, 1000);
   assertEquals(s.store.usage[0].user_id, USER);
+  // Резерв $0.002 заменён фактической стоимостью.
+  assertEquals(s.store.settles, [["2026-10-12", 0.002, 0.0002]]);
+  assertEquals(s.store.reserved, 0.0002);
 });
 
 Deno.test("AC5.3: тот же нормализованный ответ — из кэша, без модели и лимита", async () => {
@@ -461,6 +481,15 @@ Deno.test("лимит: 31-й вызов модели — 429 с временем
   assertEquals(s.modelCalls.length, 0);
 });
 
+Deno.test("429: Retry-After не меньше 1 даже при прошедшем reset_at", async () => {
+  const store = new FakeStore();
+  store.calls = 30;
+  store.resetAt = "2000-01-01T00:00:00.000Z";
+  const res = await setup({ store }).handle(post(REQ));
+  assertEquals(res.status, 429);
+  assertEquals(res.headers.get("Retry-After"), "1");
+});
+
 Deno.test("лимит не мешает попаданию в кэш (§4.2: кэш раньше лимита)", async () => {
   const store = new FakeStore();
   await setup({ store, replies: [modelJson(["hit", "hit", "miss"])] }).handle(
@@ -475,7 +504,7 @@ Deno.test("лимит не мешает попаданию в кэш (§4.2: к�
 
 Deno.test("глобальный бюджет и лимит запросов — 429 со своими кодами", async () => {
   const store = new FakeStore();
-  store.budgetSpent = 1;
+  store.reserved = 0.999;
   const r1 = await setup({ store }).handle(post(REQ));
   assertEquals(
     [r1.status, (await json(r1)).error.code],
@@ -495,7 +524,7 @@ Deno.test("глобальный бюджет и лимит запросов — 
 // ---------------------------------------------------------------------------
 // Сбои модели
 
-Deno.test("невалидный JSON дважды → unsure, лимит возвращён, не в кэше", async () => {
+Deno.test("невалидный JSON дважды → unsure, лимит НЕ возвращён, не в кэше", async () => {
   const s = setup({ replies: ["не json", '{"points": []}'] });
   const res = await s.handle(post(REQ));
   assertEquals(res.status, 200);
@@ -504,14 +533,16 @@ Deno.test("невалидный JSON дважды → unsure, лимит воз�
     [body.verdict, body.suggested_rating, body.points, body.missed],
     ["unsure", null, [], []],
   );
-  assertEquals(body.remaining_quota, 30);
+  // Модель ответила, деньги потрачены: ввод, ломающий JSON, не обходит лимит.
+  assertEquals(body.remaining_quota, 29);
   assertEquals(s.modelCalls.length, 2);
-  assertEquals([s.store.refunds, s.store.calls], [1, 0]);
+  assertEquals([s.store.refunds, s.store.calls], [0, 1]);
   assertEquals(s.store.cache.size, 0);
   assertEquals(s.store.usage[0].outcome, "invalid_output");
   assertEquals(s.store.usage[0].attempts, 2);
-  // Деньги за оба вызова учтены.
+  // Деньги за оба вызова учтены и в журнале, и в бюджете.
   assertEquals(s.store.usage[0].cost_usd, 0.0004);
+  assertEquals(s.store.reserved, 0.0004);
 });
 
 Deno.test("невалидный JSON, затем валидный — оценка со второй попытки", async () => {
@@ -534,7 +565,10 @@ Deno.test("таймаут модели → 504, лимит возвращён, �
   assertEquals(s.modelCalls.length, 1);
   assertEquals([s.store.refunds, s.store.calls], [1, 0]);
   assertEquals(s.store.usage[0].outcome, "model_timeout");
-  assertEquals(s.store.usage[0].cost_usd, null);
+  // Стоимость неизвестна — верхняя оценка за попытку, и она же в бюджете.
+  assertEquals(s.store.usage[0].cost_usd, 0.001);
+  assertEquals(s.store.usage[0].cost_estimated, true);
+  assertEquals(s.store.settles, [["2026-10-12", 0.002, 0.001]]);
   assertEquals(s.timeouts, [12_000]);
 });
 
@@ -550,6 +584,8 @@ Deno.test("5xx модели: один повтор, затем 502 и возвр
   assertEquals((await json(res)).error.code, "model_error");
   assertEquals(s.modelCalls.length, 2);
   assertEquals(s.store.calls, 0);
+  // Оценка за КАЖДУЮ неудачную попытку.
+  assertEquals(s.store.usage[0].cost_usd, 0.002);
   // Оставшееся время уменьшается от попытки к попытке.
   assertEquals(s.timeouts, [12_000, 11_900]);
 });
@@ -563,9 +599,51 @@ Deno.test("сбой сети, затем ответ — оценка прохо�
   });
   const res = await s.handle(post(REQ));
   assertEquals(res.status, 200);
-  // Стоимость первой попытки неизвестна — в журнале null (бюджет считает её по верхней оценке).
-  assertEquals(s.store.usage[0].cost_usd, null);
+  // Первая попытка — по верхней оценке, вторая — фактическая.
+  assertEquals(s.store.usage[0].cost_usd, 0.0012);
+  assertEquals(s.store.usage[0].cost_estimated, true);
   assertEquals(s.store.usage[0].attempts, 2);
+});
+
+Deno.test("невалидный JSON, затем сбой сети — unsure без возврата лимита", async () => {
+  const s = setup({
+    replies: ["не json", new OpenRouterError("network_error", 0, true)],
+  });
+  const res = await s.handle(post(REQ));
+  assertEquals(res.status, 200);
+  const body = await json(res);
+  assertEquals([body.verdict, body.remaining_quota], ["unsure", 29]);
+  assertEquals([s.store.refunds, s.store.calls], [0, 1]);
+  // Не больше двух HTTP-вызовов на запрос: на столько рассчитан резерв.
+  assertEquals(s.modelCalls.length, 2);
+  assertEquals(s.store.usage[0].cost_usd, 0.0012);
+});
+
+Deno.test("сбой сети, затем невалидный JSON — третьего вызова нет", async () => {
+  const s = setup({
+    replies: [new OpenRouterError("network_error", 0, true), "не json"],
+  });
+  const body = await json(await s.handle(post(REQ)));
+  assertEquals(body.verdict, "unsure");
+  assertEquals(s.modelCalls.length, 2);
+});
+
+Deno.test("кривой usage (NaN, отрицательный, Infinity) не теряет стоимость", async () => {
+  const bad = {
+    ...completion(modelJson(["hit", "hit", "hit"])),
+    usage: {
+      prompt_tokens: NaN,
+      completion_tokens: -5,
+      reasoning_tokens: 0,
+      cost: Infinity,
+    },
+  };
+  const s = setup({ replies: [bad] });
+  assertEquals((await s.handle(post(REQ))).status, 200);
+  const u = s.store.usage[0];
+  assertEquals([u.tokens_in, u.tokens_out], [0, 0]);
+  assertEquals([u.cost_usd, u.cost_estimated], [0.001, true]);
+  assertEquals(s.store.reserved, 0.001);
 });
 
 Deno.test("4xx модели (не повторяемая) → 502 без повтора", async () => {
@@ -650,6 +728,48 @@ Deno.test("без JWT или с неверным JWT — 401", async () => {
   const r3 = await s.handle(post(REQ, { Authorization: TOKEN }));
   assertEquals(r3.status, 401);
   assertEquals(s.modelCalls.length, 0);
+});
+
+Deno.test("слишком длинный токен — 401 без обращения к Auth", async () => {
+  const s = setup();
+  const res = await s.handle(
+    post(REQ, { Authorization: `Bearer ${"a".repeat(16 * 1024 + 1)}` }),
+  );
+  assertEquals(res.status, 401);
+  assertEquals(s.authCalls.length, 0);
+  // Граница: ровно 16 КиБ доходит до Auth.
+  await s.handle(
+    post(REQ, { Authorization: `Bearer ${"a".repeat(16 * 1024)}` }),
+  );
+  assertEquals(s.authCalls.length, 1);
+});
+
+Deno.test("N2: невидимые и управляющие символы не дают ответа, суррогаты — один ключ и один текст", async () => {
+  const s = setup();
+  const res = await s.handle(
+    post({ ...REQ, answer_text: "\u0000\u200b\u200b\ufeff\u2066\u0007 " }),
+  );
+  assertEquals((await json(res)).source, "rule");
+  assertEquals(s.modelCalls.length, 0);
+  // Zero-width внутри слова не меняет ключ; непарный суррогат = U+FFFD,
+  // и модель получает ровно ту же строку, что и ключ.
+  assertEquals(
+    await cacheKey("q", 1, "со\u200bль"),
+    await cacheKey("q", 1, "соль"),
+  );
+  assertEquals(
+    await cacheKey("q", 1, "a\ud800b"),
+    await cacheKey("q", 1, "a\ufffdb"),
+  );
+  const s2 = setup({ replies: [modelJson(["hit", "hit", "hit"])] });
+  await s2.handle(post({ ...REQ, answer_text: "хеш и соль a\ud800b" }));
+  const s3 = setup({ store: s2.store });
+  const hit = await json(
+    await s3.handle(post({ ...REQ, answer_text: "хеш и соль a\ufffdb" })),
+  );
+  assertEquals(hit.cached, true);
+  assert(s2.modelCalls[0][1].content.includes("a\ufffdb"));
+  assertFalse(s2.modelCalls[0][1].content.toLowerCase().includes("\\ud800"));
 });
 
 Deno.test("валидация полей — 400 с именем поля", async () => {
@@ -810,6 +930,13 @@ Deno.test("CORS: чужой Origin — 403 без заголовков CORS, м�
     "origin_not_allowed",
   ]);
   assertEquals(s.modelCalls.length, 0);
+});
+
+Deno.test("CORS: OPTIONS без Origin — 403", async () => {
+  const res = await setup().handle(
+    new Request("http://localhost/", { method: "OPTIONS" }),
+  );
+  assertEquals(res.status, 403);
 });
 
 Deno.test("CORS: ответ разрешённому Origin и запрос без Origin", async () => {
