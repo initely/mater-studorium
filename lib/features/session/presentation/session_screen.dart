@@ -19,7 +19,13 @@ import 'session_summary.dart';
 /// сбрасывается, ответы уже в БД). Состояние живёт в провайдере и в `State`
 /// виджетов вопроса, поэтому поворот экрана его не теряет.
 class SessionScreen extends ConsumerStatefulWidget {
-  const SessionScreen({super.key});
+  /// [deckId] — сессия по одной колоде (`/session?deck=…`); [extraNew] —
+  /// сразу взять новые сверх дневного лимита (`/session?extraNew=5`, главный
+  /// экран, ТЗ §8.5).
+  const SessionScreen({super.key, this.deckId, this.extraNew = 0});
+
+  final String? deckId;
+  final int extraNew;
 
   @override
   ConsumerState<SessionScreen> createState() => _SessionScreenState();
@@ -34,7 +40,9 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     super.initState();
     // После первого кадра: к этому моменту build уже подписался на
     // autoDispose-провайдер.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _start());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _start(extraNew: widget.extraNew),
+    );
   }
 
   Future<void> _start({int extraNew = 0}) async {
@@ -43,7 +51,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     try {
       await ref
           .read(sessionControllerProvider.notifier)
-          .start(extraNew: extraNew);
+          .start(extraNew: extraNew, deckId: widget.deckId);
     } on AppError catch (error) {
       if (mounted) setState(() => _startError = error);
     }

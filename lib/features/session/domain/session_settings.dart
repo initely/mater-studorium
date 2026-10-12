@@ -23,4 +23,11 @@ class SessionSettings {
 
   /// Колоды, из которых берём знания; `null` — все скачанные.
   final Set<String>? deckIds;
+
+  /// Те же настройки, но очередь из одной колоды ([deckId]); `null` — из всех.
+  SessionSettings forDeck(String? deckId) => SessionSettings(
+    sessionSize: sessionSize,
+    newPerDay: newPerDay,
+    deckIds: deckId == null ? deckIds : {deckId},
+  );
 }

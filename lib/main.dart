@@ -5,6 +5,7 @@ import 'app/app.dart';
 import 'core/supabase/supabase_config.dart';
 import 'core/supabase/supabase_init.dart';
 import 'features/auth/presentation/auth_session_notifier.dart';
+import 'features/settings/presentation/settings_notifier.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,6 +23,13 @@ Future<void> main() async {
       'SUPABASE_URL / SUPABASE_ANON_KEY не заданы '
       '(--dart-define-from-file=.env.json): работаем без бэкенда.',
     );
+  }
+  // Роутер решает по флагу онбординга; читаем его до первого кадра, чтобы
+  // не мигать промежуточным экраном. Ошибка чтения не мешает запуску.
+  try {
+    await container.read(settingsProvider.future);
+  } catch (e) {
+    debugPrint('Настройки не прочитаны: $e');
   }
   runApp(UncontrolledProviderScope(container: container, child: const App()));
 }

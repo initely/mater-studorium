@@ -12,6 +12,9 @@ abstract class LocalDeck with _$LocalDeck {
     required String topic,
     required String lang,
 
+    /// Описание из JSON колоды; пусто у колод, скачанных до schema v3.
+    @Default('') String description,
+
     /// UTC.
     required DateTime downloadedAt,
   }) = _LocalDeck;

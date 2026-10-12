@@ -14,6 +14,10 @@ class Decks extends Table {
   TextColumn get title => text()();
   TextColumn get topic => text()();
   TextColumn get lang => text()();
+
+  /// Описание колоды из JSON (schema v3, ADR-26). У колод, скачанных до v3,
+  /// пусто до следующего обновления версии.
+  TextColumn get description => text().withDefault(const Constant(''))();
   DateTimeColumn get downloadedAt => dateTime()();
 
   @override
@@ -145,4 +149,17 @@ class HiddenQuestions extends Table {
 
   @override
   Set<Column> get primaryKey => {questionId};
+}
+
+/// Локальные настройки приложения «ключ -> значение» (schema v3, ADR-26):
+/// флаг «онбординг пройден», новые в день, размер сессии. Относятся к
+/// устройству, а не к пользователю, поэтому `user_id` нет и на сервер они
+/// не уходят.
+@DataClassName('AppSettingRow')
+class AppSettings extends Table {
+  TextColumn get key => text()();
+  TextColumn get value => text()();
+
+  @override
+  Set<Column> get primaryKey => {key};
 }

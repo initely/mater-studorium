@@ -55,6 +55,18 @@ class $DecksTable extends Decks with TableInfo<$DecksTable, DeckRow> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
   static const VerificationMeta _downloadedAtMeta = const VerificationMeta(
     'downloadedAt',
   );
@@ -73,6 +85,7 @@ class $DecksTable extends Decks with TableInfo<$DecksTable, DeckRow> {
     title,
     topic,
     lang,
+    description,
     downloadedAt,
   ];
   @override
@@ -124,6 +137,15 @@ class $DecksTable extends Decks with TableInfo<$DecksTable, DeckRow> {
     } else if (isInserting) {
       context.missing(_langMeta);
     }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
+      );
+    }
     if (data.containsKey('downloaded_at')) {
       context.handle(
         _downloadedAtMeta,
@@ -164,6 +186,10 @@ class $DecksTable extends Decks with TableInfo<$DecksTable, DeckRow> {
         DriftSqlType.string,
         data['${effectivePrefix}lang'],
       )!,
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      )!,
       downloadedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}downloaded_at'],
@@ -183,6 +209,10 @@ class DeckRow extends DataClass implements Insertable<DeckRow> {
   final String title;
   final String topic;
   final String lang;
+
+  /// Описание колоды из JSON (schema v3, ADR-26). У колод, скачанных до v3,
+  /// пусто до следующего обновления версии.
+  final String description;
   final DateTime downloadedAt;
   const DeckRow({
     required this.id,
@@ -190,6 +220,7 @@ class DeckRow extends DataClass implements Insertable<DeckRow> {
     required this.title,
     required this.topic,
     required this.lang,
+    required this.description,
     required this.downloadedAt,
   });
   @override
@@ -200,6 +231,7 @@ class DeckRow extends DataClass implements Insertable<DeckRow> {
     map['title'] = Variable<String>(title);
     map['topic'] = Variable<String>(topic);
     map['lang'] = Variable<String>(lang);
+    map['description'] = Variable<String>(description);
     map['downloaded_at'] = Variable<DateTime>(downloadedAt);
     return map;
   }
@@ -211,6 +243,7 @@ class DeckRow extends DataClass implements Insertable<DeckRow> {
       title: Value(title),
       topic: Value(topic),
       lang: Value(lang),
+      description: Value(description),
       downloadedAt: Value(downloadedAt),
     );
   }
@@ -226,6 +259,7 @@ class DeckRow extends DataClass implements Insertable<DeckRow> {
       title: serializer.fromJson<String>(json['title']),
       topic: serializer.fromJson<String>(json['topic']),
       lang: serializer.fromJson<String>(json['lang']),
+      description: serializer.fromJson<String>(json['description']),
       downloadedAt: serializer.fromJson<DateTime>(json['downloadedAt']),
     );
   }
@@ -238,6 +272,7 @@ class DeckRow extends DataClass implements Insertable<DeckRow> {
       'title': serializer.toJson<String>(title),
       'topic': serializer.toJson<String>(topic),
       'lang': serializer.toJson<String>(lang),
+      'description': serializer.toJson<String>(description),
       'downloadedAt': serializer.toJson<DateTime>(downloadedAt),
     };
   }
@@ -248,6 +283,7 @@ class DeckRow extends DataClass implements Insertable<DeckRow> {
     String? title,
     String? topic,
     String? lang,
+    String? description,
     DateTime? downloadedAt,
   }) => DeckRow(
     id: id ?? this.id,
@@ -255,6 +291,7 @@ class DeckRow extends DataClass implements Insertable<DeckRow> {
     title: title ?? this.title,
     topic: topic ?? this.topic,
     lang: lang ?? this.lang,
+    description: description ?? this.description,
     downloadedAt: downloadedAt ?? this.downloadedAt,
   );
   DeckRow copyWithCompanion(DecksCompanion data) {
@@ -264,6 +301,9 @@ class DeckRow extends DataClass implements Insertable<DeckRow> {
       title: data.title.present ? data.title.value : this.title,
       topic: data.topic.present ? data.topic.value : this.topic,
       lang: data.lang.present ? data.lang.value : this.lang,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
       downloadedAt: data.downloadedAt.present
           ? data.downloadedAt.value
           : this.downloadedAt,
@@ -278,6 +318,7 @@ class DeckRow extends DataClass implements Insertable<DeckRow> {
           ..write('title: $title, ')
           ..write('topic: $topic, ')
           ..write('lang: $lang, ')
+          ..write('description: $description, ')
           ..write('downloadedAt: $downloadedAt')
           ..write(')'))
         .toString();
@@ -285,7 +326,7 @@ class DeckRow extends DataClass implements Insertable<DeckRow> {
 
   @override
   int get hashCode =>
-      Object.hash(id, version, title, topic, lang, downloadedAt);
+      Object.hash(id, version, title, topic, lang, description, downloadedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -295,6 +336,7 @@ class DeckRow extends DataClass implements Insertable<DeckRow> {
           other.title == this.title &&
           other.topic == this.topic &&
           other.lang == this.lang &&
+          other.description == this.description &&
           other.downloadedAt == this.downloadedAt);
 }
 
@@ -304,6 +346,7 @@ class DecksCompanion extends UpdateCompanion<DeckRow> {
   final Value<String> title;
   final Value<String> topic;
   final Value<String> lang;
+  final Value<String> description;
   final Value<DateTime> downloadedAt;
   final Value<int> rowid;
   const DecksCompanion({
@@ -312,6 +355,7 @@ class DecksCompanion extends UpdateCompanion<DeckRow> {
     this.title = const Value.absent(),
     this.topic = const Value.absent(),
     this.lang = const Value.absent(),
+    this.description = const Value.absent(),
     this.downloadedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -321,6 +365,7 @@ class DecksCompanion extends UpdateCompanion<DeckRow> {
     required String title,
     required String topic,
     required String lang,
+    this.description = const Value.absent(),
     required DateTime downloadedAt,
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -335,6 +380,7 @@ class DecksCompanion extends UpdateCompanion<DeckRow> {
     Expression<String>? title,
     Expression<String>? topic,
     Expression<String>? lang,
+    Expression<String>? description,
     Expression<DateTime>? downloadedAt,
     Expression<int>? rowid,
   }) {
@@ -344,6 +390,7 @@ class DecksCompanion extends UpdateCompanion<DeckRow> {
       if (title != null) 'title': title,
       if (topic != null) 'topic': topic,
       if (lang != null) 'lang': lang,
+      if (description != null) 'description': description,
       if (downloadedAt != null) 'downloaded_at': downloadedAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -355,6 +402,7 @@ class DecksCompanion extends UpdateCompanion<DeckRow> {
     Value<String>? title,
     Value<String>? topic,
     Value<String>? lang,
+    Value<String>? description,
     Value<DateTime>? downloadedAt,
     Value<int>? rowid,
   }) {
@@ -364,6 +412,7 @@ class DecksCompanion extends UpdateCompanion<DeckRow> {
       title: title ?? this.title,
       topic: topic ?? this.topic,
       lang: lang ?? this.lang,
+      description: description ?? this.description,
       downloadedAt: downloadedAt ?? this.downloadedAt,
       rowid: rowid ?? this.rowid,
     );
@@ -387,6 +436,9 @@ class DecksCompanion extends UpdateCompanion<DeckRow> {
     if (lang.present) {
       map['lang'] = Variable<String>(lang.value);
     }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
     if (downloadedAt.present) {
       map['downloaded_at'] = Variable<DateTime>(downloadedAt.value);
     }
@@ -404,6 +456,7 @@ class DecksCompanion extends UpdateCompanion<DeckRow> {
           ..write('title: $title, ')
           ..write('topic: $topic, ')
           ..write('lang: $lang, ')
+          ..write('description: $description, ')
           ..write('downloadedAt: $downloadedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -3577,6 +3630,214 @@ class HiddenQuestionsCompanion extends UpdateCompanion<HiddenQuestionRow> {
   }
 }
 
+class $AppSettingsTable extends AppSettings
+    with TableInfo<$AppSettingsTable, AppSettingRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AppSettingsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _keyMeta = const VerificationMeta('key');
+  @override
+  late final GeneratedColumn<String> key = GeneratedColumn<String>(
+    'key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _valueMeta = const VerificationMeta('value');
+  @override
+  late final GeneratedColumn<String> value = GeneratedColumn<String>(
+    'value',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [key, value];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'app_settings';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AppSettingRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('key')) {
+      context.handle(
+        _keyMeta,
+        key.isAcceptableOrUnknown(data['key']!, _keyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_keyMeta);
+    }
+    if (data.containsKey('value')) {
+      context.handle(
+        _valueMeta,
+        value.isAcceptableOrUnknown(data['value']!, _valueMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_valueMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {key};
+  @override
+  AppSettingRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AppSettingRow(
+      key: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}key'],
+      )!,
+      value: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}value'],
+      )!,
+    );
+  }
+
+  @override
+  $AppSettingsTable createAlias(String alias) {
+    return $AppSettingsTable(attachedDatabase, alias);
+  }
+}
+
+class AppSettingRow extends DataClass implements Insertable<AppSettingRow> {
+  final String key;
+  final String value;
+  const AppSettingRow({required this.key, required this.value});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['key'] = Variable<String>(key);
+    map['value'] = Variable<String>(value);
+    return map;
+  }
+
+  AppSettingsCompanion toCompanion(bool nullToAbsent) {
+    return AppSettingsCompanion(key: Value(key), value: Value(value));
+  }
+
+  factory AppSettingRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AppSettingRow(
+      key: serializer.fromJson<String>(json['key']),
+      value: serializer.fromJson<String>(json['value']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'key': serializer.toJson<String>(key),
+      'value': serializer.toJson<String>(value),
+    };
+  }
+
+  AppSettingRow copyWith({String? key, String? value}) =>
+      AppSettingRow(key: key ?? this.key, value: value ?? this.value);
+  AppSettingRow copyWithCompanion(AppSettingsCompanion data) {
+    return AppSettingRow(
+      key: data.key.present ? data.key.value : this.key,
+      value: data.value.present ? data.value.value : this.value,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppSettingRow(')
+          ..write('key: $key, ')
+          ..write('value: $value')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(key, value);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AppSettingRow &&
+          other.key == this.key &&
+          other.value == this.value);
+}
+
+class AppSettingsCompanion extends UpdateCompanion<AppSettingRow> {
+  final Value<String> key;
+  final Value<String> value;
+  final Value<int> rowid;
+  const AppSettingsCompanion({
+    this.key = const Value.absent(),
+    this.value = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AppSettingsCompanion.insert({
+    required String key,
+    required String value,
+    this.rowid = const Value.absent(),
+  }) : key = Value(key),
+       value = Value(value);
+  static Insertable<AppSettingRow> custom({
+    Expression<String>? key,
+    Expression<String>? value,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (key != null) 'key': key,
+      if (value != null) 'value': value,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AppSettingsCompanion copyWith({
+    Value<String>? key,
+    Value<String>? value,
+    Value<int>? rowid,
+  }) {
+    return AppSettingsCompanion(
+      key: key ?? this.key,
+      value: value ?? this.value,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (key.present) {
+      map['key'] = Variable<String>(key.value);
+    }
+    if (value.present) {
+      map['value'] = Variable<String>(value.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppSettingsCompanion(')
+          ..write('key: $key, ')
+          ..write('value: $value, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3589,6 +3850,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $HiddenQuestionsTable hiddenQuestions = $HiddenQuestionsTable(
     this,
   );
+  late final $AppSettingsTable appSettings = $AppSettingsTable(this);
   late final Index idxQuestionsItemId = Index(
     'idx_questions_item_id',
     'CREATE INDEX idx_questions_item_id ON questions (item_id)',
@@ -3603,6 +3865,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final DecksDao decksDao = DecksDao(this as AppDatabase);
   late final ReviewDao reviewDao = ReviewDao(this as AppDatabase);
+  late final SettingsDao settingsDao = SettingsDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3615,6 +3878,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     reviewLogs,
     outbox,
     hiddenQuestions,
+    appSettings,
     idxQuestionsItemId,
     idxUserItemStateDue,
     idxReviewLogsUserItemTime,
@@ -3627,6 +3891,7 @@ typedef $$DecksTableCreateCompanionBuilder = DecksCompanion Function({
   required String title,
   required String topic,
   required String lang,
+  Value<String> description,
   required DateTime downloadedAt,
   Value<int> rowid,
 });
@@ -3636,6 +3901,7 @@ typedef $$DecksTableUpdateCompanionBuilder = DecksCompanion Function({
   Value<String> title,
   Value<String> topic,
   Value<String> lang,
+  Value<String> description,
   Value<DateTime> downloadedAt,
   Value<int> rowid,
 });
@@ -3694,6 +3960,11 @@ class $$DecksTableFilterComposer extends Composer<_$AppDatabase, $DecksTable> {
 
   ColumnFilters<String> get lang => $composableBuilder(
     column: $table.lang,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3762,6 +4033,11 @@ class $$DecksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get downloadedAt => $composableBuilder(
     column: $table.downloadedAt,
     builder: (column) => ColumnOrderings(column),
@@ -3791,6 +4067,11 @@ class $$DecksTableAnnotationComposer
 
   GeneratedColumn<String> get lang =>
       $composableBuilder(column: $table.lang, builder: (column) => column);
+
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get downloadedAt => $composableBuilder(
     column: $table.downloadedAt,
@@ -3856,6 +4137,7 @@ class $$DecksTableTableManager
                 Value<String> title = const Value.absent(),
                 Value<String> topic = const Value.absent(),
                 Value<String> lang = const Value.absent(),
+                Value<String> description = const Value.absent(),
                 Value<DateTime> downloadedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DecksCompanion(
@@ -3864,6 +4146,7 @@ class $$DecksTableTableManager
                 title: title,
                 topic: topic,
                 lang: lang,
+                description: description,
                 downloadedAt: downloadedAt,
                 rowid: rowid,
               ),
@@ -3874,6 +4157,7 @@ class $$DecksTableTableManager
                 required String title,
                 required String topic,
                 required String lang,
+                Value<String> description = const Value.absent(),
                 required DateTime downloadedAt,
                 Value<int> rowid = const Value.absent(),
               }) => DecksCompanion.insert(
@@ -3882,6 +4166,7 @@ class $$DecksTableTableManager
                 title: title,
                 topic: topic,
                 lang: lang,
+                description: description,
                 downloadedAt: downloadedAt,
                 rowid: rowid,
               ),
@@ -5870,6 +6155,153 @@ typedef $$HiddenQuestionsTableProcessedTableManager =
       HiddenQuestionRow,
       PrefetchHooks Function()
     >;
+typedef $$AppSettingsTableCreateCompanionBuilder =
+    AppSettingsCompanion Function({
+      required String key,
+      required String value,
+      Value<int> rowid,
+    });
+typedef $$AppSettingsTableUpdateCompanionBuilder =
+    AppSettingsCompanion Function({
+      Value<String> key,
+      Value<String> value,
+      Value<int> rowid,
+    });
+
+class $$AppSettingsTableFilterComposer
+    extends Composer<_$AppDatabase, $AppSettingsTable> {
+  $$AppSettingsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AppSettingsTableOrderingComposer
+    extends Composer<_$AppDatabase, $AppSettingsTable> {
+  $$AppSettingsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AppSettingsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AppSettingsTable> {
+  $$AppSettingsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get key =>
+      $composableBuilder(column: $table.key, builder: (column) => column);
+
+  GeneratedColumn<String> get value =>
+      $composableBuilder(column: $table.value, builder: (column) => column);
+}
+
+class $$AppSettingsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AppSettingsTable,
+          AppSettingRow,
+          $$AppSettingsTableFilterComposer,
+          $$AppSettingsTableOrderingComposer,
+          $$AppSettingsTableAnnotationComposer,
+          $$AppSettingsTableCreateCompanionBuilder,
+          $$AppSettingsTableUpdateCompanionBuilder,
+          (
+            AppSettingRow,
+            BaseReferences<_$AppDatabase, $AppSettingsTable, AppSettingRow>,
+          ),
+          AppSettingRow,
+          PrefetchHooks Function()
+        > {
+  $$AppSettingsTableTableManager(_$AppDatabase db, $AppSettingsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AppSettingsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AppSettingsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AppSettingsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> key = const Value.absent(),
+            Value<String> value = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) => AppSettingsCompanion(key: key, value: value, rowid: rowid),
+          createCompanionCallback:
+              ({
+                required String key,
+                required String value,
+                Value<int> rowid = const Value.absent(),
+              }) => AppSettingsCompanion.insert(
+                key: key,
+                value: value,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$AppSettingsTable, AppSettingRow>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $AppSettingsTable,
+                    AppSettingRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AppSettingsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AppSettingsTable,
+      AppSettingRow,
+      $$AppSettingsTableFilterComposer,
+      $$AppSettingsTableOrderingComposer,
+      $$AppSettingsTableAnnotationComposer,
+      $$AppSettingsTableCreateCompanionBuilder,
+      $$AppSettingsTableUpdateCompanionBuilder,
+      (
+        AppSettingRow,
+        BaseReferences<_$AppDatabase, $AppSettingsTable, AppSettingRow>,
+      ),
+      AppSettingRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -5888,4 +6320,6 @@ class $AppDatabaseManager {
       $$OutboxTableTableManager(_db, _db.outbox);
   $$HiddenQuestionsTableTableManager get hiddenQuestions =>
       $$HiddenQuestionsTableTableManager(_db, _db.hiddenQuestions);
+  $$AppSettingsTableTableManager get appSettings =>
+      $$AppSettingsTableTableManager(_db, _db.appSettings);
 }

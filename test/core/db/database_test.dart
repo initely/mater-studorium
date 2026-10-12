@@ -9,7 +9,7 @@ import '../../helpers/db_fixtures.dart';
 void main() {
   test('БД создаётся в памяти: таблицы и индексы по ТЗ', () async {
     final db = memoryDb();
-    expect(db.schemaVersion, 2);
+    expect(db.schemaVersion, 3);
 
     final master = await db
         .customSelect('SELECT type, name FROM sqlite_master')
@@ -25,6 +25,7 @@ void main() {
         'review_logs',
         'outbox',
         'hidden_questions',
+        'app_settings',
         'idx_user_item_state_due',
         'idx_questions_item_id',
         'idx_review_logs_user_item_time',

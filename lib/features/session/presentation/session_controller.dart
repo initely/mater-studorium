@@ -23,13 +23,15 @@ class SessionController extends Notifier<SessionState> {
   /// Строит очередь и начинает сессию. Пустая очередь — сразу
   /// [SessionStatus.finished] (экран покажет пустое состояние по
   /// `state.queue`). [extraNew] — «Взять новые» сверх дневного лимита.
-  Future<void> start({int extraNew = 0}) async {
+  /// [deckId] — сессия по одной колоде («Начать по этой колоде», T18);
+  /// `null` — по всем скачанным.
+  Future<void> start({int extraNew = 0, String? deckId}) async {
     final now = ref.read(clockProvider)();
     final queue = await ref
         .read(sessionQueueBuilderProvider)
         .build(
           now: now,
-          settings: ref.read(sessionSettingsProvider),
+          settings: ref.read(sessionSettingsProvider).forDeck(deckId),
           extraNew: extraNew,
         );
     if (!ref.mounted) return;

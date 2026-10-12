@@ -5,6 +5,7 @@ import '../../../core/supabase/supabase_config.dart';
 import '../../../core/supabase/supabase_init.dart';
 import '../../../core/utils/clock.dart';
 import '../domain/catalog_repository.dart';
+import '../domain/local_deck.dart';
 import 'deck_remote_source.dart';
 import 'drift_catalog_repository.dart';
 import 'supabase_deck_remote_source.dart';
@@ -23,4 +24,9 @@ final catalogRepositoryProvider = Provider<CatalogRepository>(
     decks: ref.watch(decksDaoProvider),
     clock: ref.watch(clockProvider),
   ),
+);
+
+/// Скачанные колоды (поток локальной БД): главный экран, онбординг, колода.
+final downloadedDecksProvider = StreamProvider<List<LocalDeck>>(
+  (ref) => ref.watch(catalogRepositoryProvider).watchDownloaded(),
 );

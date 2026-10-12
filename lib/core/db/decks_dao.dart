@@ -69,6 +69,7 @@ class DecksDao extends DatabaseAccessor<AppDatabase> with _$DecksDaoMixin {
           title: deck.title,
           topic: deck.topic,
           lang: deck.lang,
+          description: Value(deck.description),
           downloadedAt: downloadedAt.toUtc(),
         ),
       );
@@ -124,6 +125,19 @@ class DecksDao extends DatabaseAccessor<AppDatabase> with _$DecksDaoMixin {
     });
   }
 
+  /// Удаляет колоду с устройства: строки `questions`, `items` и `decks`
+  /// одной транзакцией. Прогресс (`user_item_state`, `review_logs`) не
+  /// трогается (ADR-26): при повторном скачивании колоды он подхватится по
+  /// стабильным `item_id` (ADR-21). Скрытые вопросы тоже остаются.
+  Future<void> deleteDeck(String id) => transaction(() async {
+    final itemIds = selectOnly(items)
+      ..addColumns([items.id])
+      ..where(items.deckId.equals(id));
+    await (delete(questions)..where((q) => q.itemId.isInQuery(itemIds))).go();
+    await (delete(items)..where((i) => i.deckId.equals(id))).go();
+    await (delete(decks)..where((d) => d.id.equals(id))).go();
+  });
+
   Future<LocalDeck?> getDeck(String id) async {
     final row = await (select(
       decks,
@@ -134,6 +148,12 @@ class DecksDao extends DatabaseAccessor<AppDatabase> with _$DecksDaoMixin {
   Stream<List<LocalDeck>> watchDecks() =>
       (select(decks)..orderBy([(d) => OrderingTerm.asc(d.title)])).watch().map(
         (rows) => rows.map(deckFromRow).toList(),
+      );
+
+  /// Колода по id; `null`, пока её нет на устройстве (и после удаления).
+  Stream<LocalDeck?> watchDeck(String id) =>
+      (select(decks)..where((d) => d.id.equals(id))).watchSingleOrNull().map(
+        (row) => row == null ? null : deckFromRow(row),
       );
 
   Future<LocalItem?> getItem(String id) async {
