@@ -21,6 +21,8 @@ void main() {
       DeckNotFoundError() => 'not_found',
       LocalStorageError() => 'storage',
       SyncRejectedError() => 'rejected',
+      QuotaExceededError() => 'quota',
+      RequestRejectedError() => 'request_rejected',
       UnexpectedError() => 'unexpected',
     };
     expect(label, 'network');

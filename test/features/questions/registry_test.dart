@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mater_studorium/features/catalog/domain/question_type.dart';
 import 'package:mater_studorium/features/questions/flip/flip_module.dart';
 import 'package:mater_studorium/features/questions/mcq/mcq_module.dart';
+import 'package:mater_studorium/features/questions/open/open_module.dart';
 import 'package:mater_studorium/features/questions/question_module.dart';
 import 'package:mater_studorium/features/questions/question_request.dart';
 import 'package:mater_studorium/features/questions/registry.dart';
@@ -20,17 +21,21 @@ class _FakeModule implements QuestionModule {
 }
 
 void main() {
-  test('по умолчанию зарегистрированы mcq и flip', () {
+  test('по умолчанию зарегистрированы mcq, flip и open', () {
     final registry = QuestionRegistry(defaultQuestionModules);
     expect(registry.moduleFor(QuestionType.mcq), isA<McqModule>());
     expect(registry.moduleFor(QuestionType.flip), isA<FlipModule>());
-    expect(registry.supportedTypes, {QuestionType.mcq, QuestionType.flip});
+    expect(registry.moduleFor(QuestionType.open), isA<OpenModule>());
+    expect(registry.supportedTypes, {
+      QuestionType.mcq,
+      QuestionType.flip,
+      QuestionType.open,
+    });
   });
 
   test('формата нет — moduleFor возвращает null', () {
     final registry = QuestionRegistry(defaultQuestionModules);
     for (final type in [
-      QuestionType.open,
       QuestionType.cloze,
       QuestionType.order,
       QuestionType.findError,
@@ -64,6 +69,7 @@ void main() {
     expect(container.read(supportedQuestionTypesProvider), {
       QuestionType.mcq,
       QuestionType.flip,
+      QuestionType.open,
     });
 
     final custom = ProviderContainer(

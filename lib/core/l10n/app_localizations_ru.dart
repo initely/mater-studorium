@@ -605,4 +605,163 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get onboardingReminderBody =>
       'Хотите, чтобы приложение напоминало о повторении? Оно напишет в выбранное время и только если есть что повторять. Это можно изменить в настройках.';
+
+  @override
+  String get openAnswerLabel => 'Ваш ответ';
+
+  @override
+  String get openAnswerHint => 'Своими словами, в одном-трёх предложениях';
+
+  @override
+  String openCounter(int count, int max) {
+    return '$count из $max';
+  }
+
+  @override
+  String get openCheck => 'Проверить';
+
+  @override
+  String get openChecking => 'Проверяю…';
+
+  @override
+  String get openDontRemember => 'Не помню';
+
+  @override
+  String get openCheckAgain => 'Проверить ещё раз';
+
+  @override
+  String get openSelfAssess => 'Оценить самому';
+
+  @override
+  String get openReferenceTitle => 'Эталонный ответ';
+
+  @override
+  String get openRubricTitle => 'Разбор по пунктам';
+
+  @override
+  String get openPointHit => 'раскрыт';
+
+  @override
+  String get openPointPartial => 'раскрыт частично';
+
+  @override
+  String get openPointMiss => 'не раскрыт';
+
+  @override
+  String get openPointRequired => 'обязательный пункт';
+
+  @override
+  String get openFeedbackTitle => 'Комментарий проверки';
+
+  @override
+  String openQuotaRemaining(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Осталось $count проверки на сегодня',
+      many: 'Осталось $count проверок на сегодня',
+      few: 'Осталось $count проверки на сегодня',
+      one: 'Осталась $count проверка на сегодня',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get openFallbackUnavailable =>
+      'Проверка недоступна. Сравните свой ответ с эталоном и оцените себя сами.';
+
+  @override
+  String get openFallbackQuota =>
+      'На сегодня проверки закончились. Сравните свой ответ с эталоном и оцените себя сами.';
+
+  @override
+  String openFallbackQuotaReset(String time) {
+    return 'На сегодня проверки закончились, они обновятся в $time. Сравните свой ответ с эталоном и оцените себя сами.';
+  }
+
+  @override
+  String get openFallbackSignedOut =>
+      'Чтобы проверять ответы, нужно войти в приложение. Сравните свой ответ с эталоном и оцените себя сами.';
+
+  @override
+  String get openFallbackUnsure =>
+      'Не удалось уверенно оценить ответ. Сравните его с эталоном и оцените себя сами.';
+
+  @override
+  String get openFallbackDisabled =>
+      'Проверка моделью выключена. Сравните свой ответ с эталоном и оцените себя сами.';
+
+  @override
+  String get openFallbackSkipped =>
+      'Сравните ответ с эталоном и оцените себя сами.';
+
+  @override
+  String get openMicStart => 'Диктовать ответ';
+
+  @override
+  String get openMicStop => 'Закончить диктовку';
+
+  @override
+  String get openMicCancel => 'Отменить диктовку';
+
+  @override
+  String get openMicListening => 'Слушаю… говорите';
+
+  @override
+  String get openMicEditHint =>
+      'Распознанный текст можно поправить перед проверкой.';
+
+  @override
+  String get openMicUnsupported =>
+      'Диктовка в этом браузере или на этом устройстве недоступна. Введите ответ текстом.';
+
+  @override
+  String get openMicPermissionDenied =>
+      'Нет доступа к микрофону. Разрешите его в настройках приложения или введите ответ текстом.';
+
+  @override
+  String get openMicPermissionDeniedWeb =>
+      'Браузер не дал доступ к микрофону. Разрешите его для этого сайта или введите ответ текстом.';
+
+  @override
+  String get openMicOpenSettings => 'Открыть настройки приложения';
+
+  @override
+  String get openMicNoSpeech =>
+      'Речь не расслышали. Нажмите на микрофон и повторите или введите ответ текстом.';
+
+  @override
+  String get openMicNetwork =>
+      'Для распознавания речи нужна сеть. Введите ответ текстом.';
+
+  @override
+  String get openMicLanguage =>
+      'Для языка колоды на устройстве нет распознавания речи. Введите ответ текстом.';
+
+  @override
+  String get openMicError =>
+      'Диктовка не сработала. Попробуйте ещё раз или введите ответ текстом.';
+
+  @override
+  String get openConsentTitle => 'Проверка ответов моделью';
+
+  @override
+  String get openConsentBody =>
+      'Открытые ответы отправляются на проверку внешней языковой модели через наш сервер. Уходит только текст ответа, без имени и контактов. Если отказаться, вы будете оценивать себя сами по эталонному ответу; передумать можно в настройках.';
+
+  @override
+  String get openConsentAllow => 'Разрешить';
+
+  @override
+  String get openConsentDecline => 'Без ИИ';
+
+  @override
+  String get settingsGradingSection => 'Проверка ответов';
+
+  @override
+  String get settingsLlmConsentTitle => 'Проверять открытые ответы моделью';
+
+  @override
+  String get settingsLlmConsentSubtitle =>
+      'Текст ответа отправляется внешней модели. Если выключить, вы оцениваете себя сами по эталону.';
 }

@@ -30,3 +30,16 @@ final catalogRepositoryProvider = Provider<CatalogRepository>(
 final downloadedDecksProvider = StreamProvider<List<LocalDeck>>(
   (ref) => ref.watch(catalogRepositoryProvider).watchDownloaded(),
 );
+
+/// Язык колоды ([LocalDeck.lang], например `ru`) для распознавания речи и
+/// подобного; пока колоды не прочитаны или такой нет — `ru`.
+final deckLangProvider = FutureProvider.family<String, String>((
+  ref,
+  deckId,
+) async {
+  final decks = await ref.watch(downloadedDecksProvider.future);
+  for (final d in decks) {
+    if (d.id == deckId) return d.lang;
+  }
+  return 'ru';
+});

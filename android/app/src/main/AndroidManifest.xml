@@ -6,6 +6,10 @@
          13+) и VIBRATE приходят из манифеста плагина. Точные будильники
          (SCHEDULE_EXACT_ALARM, USE_EXACT_ALARM) не нужны: расписание неточное. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <!-- Диктовка ответа на open (T16, ADR-32, speech_to_text): микрофон только
+         по тапу пользователя на кнопке микрофона; звук не сохраняется и не
+         отправляется приложением, наружу уходит только распознанный текст. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
         android:label="mater_studorium"
         android:name="${applicationName}"
@@ -63,6 +67,10 @@
         <intent>
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="https"/>
+        </intent>
+        <!-- speech_to_text: найти сервис распознавания речи (Android 11+). -->
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
         </intent>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>

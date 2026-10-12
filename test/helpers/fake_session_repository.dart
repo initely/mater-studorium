@@ -34,6 +34,11 @@ Question fakeQuestion(String id, QuestionType type) => Question(
         RubricPoint(id: 'p2', text: 't', weight: 1, required: false),
       ],
     ),
+    QuestionType.cloze => const QuestionPayload.cloze(
+      blanks: [
+        ClozeBlank(id: 'b1', accepted: ['x']),
+      ],
+    ),
     _ => throw ArgumentError('нет заготовки для $type'),
   },
 );

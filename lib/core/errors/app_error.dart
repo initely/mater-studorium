@@ -87,6 +87,29 @@ final class SyncRejectedError extends AppError {
   const SyncRejectedError(super.message, {super.cause});
 }
 
+/// Дневной лимит оценки открытых ответов исчерпан (429: `quota_exceeded`,
+/// `request_limit`, `budget_exceeded`, ТЗ §5.5). Повтор до [resetAt] не
+/// поможет: ответ оценивает сам пользователь.
+final class QuotaExceededError extends AppError {
+  const QuotaExceededError(super.message, {this.resetAt, super.cause});
+
+  /// Когда лимит обнулится (UTC), если сервер это сообщил.
+  final DateTime? resetAt;
+}
+
+/// Сервер не принял запрос как неверный (400, 403, 404, 413: ошибка ввода или
+/// расхождение клиента и сервера, ADR-31). Тот же запрос не пройдёт, поэтому
+/// повтор не предлагается.
+final class RequestRejectedError extends AppError {
+  const RequestRejectedError(super.message, {this.status, this.code});
+
+  /// HTTP-статус ответа, если запрос дошёл до сервера.
+  final int? status;
+
+  /// `error.code` из тела ответа, если он разобран.
+  final String? code;
+}
+
 /// Всё остальное, чего мы не ожидали.
 final class UnexpectedError extends AppError {
   const UnexpectedError(super.message, {super.cause});

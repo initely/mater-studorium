@@ -1053,6 +1053,264 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Хотите, чтобы приложение напоминало о повторении? Оно напишет в выбранное время и только если есть что повторять. Это можно изменить в настройках.'**
   String get onboardingReminderBody;
+
+  /// Подпись поля ввода открытого ответа
+  ///
+  /// In ru, this message translates to:
+  /// **'Ваш ответ'**
+  String get openAnswerLabel;
+
+  /// Подсказка в пустом поле открытого ответа
+  ///
+  /// In ru, this message translates to:
+  /// **'Своими словами, в одном-трёх предложениях'**
+  String get openAnswerHint;
+
+  /// Счётчик символов открытого ответа
+  ///
+  /// In ru, this message translates to:
+  /// **'{count} из {max}'**
+  String openCounter(int count, int max);
+
+  /// Кнопка проверки открытого ответа
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверить'**
+  String get openCheck;
+
+  /// Индикатор проверки ответа моделью
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверяю…'**
+  String get openChecking;
+
+  /// Кнопка: не помню ответ, сразу к эталону и самооценке
+  ///
+  /// In ru, this message translates to:
+  /// **'Не помню'**
+  String get openDontRemember;
+
+  /// Повтор проверки после сбоя сети или сервера
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверить ещё раз'**
+  String get openCheckAgain;
+
+  /// Кнопка: отказаться от повтора и оценить себя по эталону
+  ///
+  /// In ru, this message translates to:
+  /// **'Оценить самому'**
+  String get openSelfAssess;
+
+  /// Заголовок блока с эталонным ответом
+  ///
+  /// In ru, this message translates to:
+  /// **'Эталонный ответ'**
+  String get openReferenceTitle;
+
+  /// Заголовок списка пунктов рубрики с отметками
+  ///
+  /// In ru, this message translates to:
+  /// **'Разбор по пунктам'**
+  String get openRubricTitle;
+
+  /// Статус пункта рубрики: раскрыт (для озвучки)
+  ///
+  /// In ru, this message translates to:
+  /// **'раскрыт'**
+  String get openPointHit;
+
+  /// Статус пункта рубрики: частично (для озвучки)
+  ///
+  /// In ru, this message translates to:
+  /// **'раскрыт частично'**
+  String get openPointPartial;
+
+  /// Статус пункта рубрики: не раскрыт (для озвучки)
+  ///
+  /// In ru, this message translates to:
+  /// **'не раскрыт'**
+  String get openPointMiss;
+
+  /// Пометка обязательного пункта рубрики
+  ///
+  /// In ru, this message translates to:
+  /// **'обязательный пункт'**
+  String get openPointRequired;
+
+  /// Заголовок краткого комментария модели
+  ///
+  /// In ru, this message translates to:
+  /// **'Комментарий проверки'**
+  String get openFeedbackTitle;
+
+  /// Сколько проверок осталось на сегодня
+  ///
+  /// In ru, this message translates to:
+  /// **'{count, plural, one{Осталась {count} проверка на сегодня} few{Осталось {count} проверки на сегодня} many{Осталось {count} проверок на сегодня} other{Осталось {count} проверки на сегодня}}'**
+  String openQuotaRemaining(int count);
+
+  /// Нет сети или сервер не ответил (ТЗ §8.5)
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверка недоступна. Сравните свой ответ с эталоном и оцените себя сами.'**
+  String get openFallbackUnavailable;
+
+  /// Исчерпан дневной лимит проверок
+  ///
+  /// In ru, this message translates to:
+  /// **'На сегодня проверки закончились. Сравните свой ответ с эталоном и оцените себя сами.'**
+  String get openFallbackQuota;
+
+  /// Лимит исчерпан, известно время сброса
+  ///
+  /// In ru, this message translates to:
+  /// **'На сегодня проверки закончились, они обновятся в {time}. Сравните свой ответ с эталоном и оцените себя сами.'**
+  String openFallbackQuotaReset(String time);
+
+  /// Нет сессии пользователя
+  ///
+  /// In ru, this message translates to:
+  /// **'Чтобы проверять ответы, нужно войти в приложение. Сравните свой ответ с эталоном и оцените себя сами.'**
+  String get openFallbackSignedOut;
+
+  /// Модель не уверена (unsure)
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось уверенно оценить ответ. Сравните его с эталоном и оцените себя сами.'**
+  String get openFallbackUnsure;
+
+  /// Пользователь отказался от проверки внешней моделью
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверка моделью выключена. Сравните свой ответ с эталоном и оцените себя сами.'**
+  String get openFallbackDisabled;
+
+  /// Пользователь нажал «Не помню»
+  ///
+  /// In ru, this message translates to:
+  /// **'Сравните ответ с эталоном и оцените себя сами.'**
+  String get openFallbackSkipped;
+
+  /// Кнопка микрофона (подсказка и семантика)
+  ///
+  /// In ru, this message translates to:
+  /// **'Диктовать ответ'**
+  String get openMicStart;
+
+  /// Кнопка микрофона во время диктовки
+  ///
+  /// In ru, this message translates to:
+  /// **'Закончить диктовку'**
+  String get openMicStop;
+
+  /// Отмена диктовки: возвращает текст, который был до неё
+  ///
+  /// In ru, this message translates to:
+  /// **'Отменить диктовку'**
+  String get openMicCancel;
+
+  /// Состояние диктовки: идёт запись речи
+  ///
+  /// In ru, this message translates to:
+  /// **'Слушаю… говорите'**
+  String get openMicListening;
+
+  /// Подсказка после диктовки
+  ///
+  /// In ru, this message translates to:
+  /// **'Распознанный текст можно поправить перед проверкой.'**
+  String get openMicEditHint;
+
+  /// Нет распознавания речи
+  ///
+  /// In ru, this message translates to:
+  /// **'Диктовка в этом браузере или на этом устройстве недоступна. Введите ответ текстом.'**
+  String get openMicUnsupported;
+
+  /// Отказ в разрешении на микрофон (Android)
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет доступа к микрофону. Разрешите его в настройках приложения или введите ответ текстом.'**
+  String get openMicPermissionDenied;
+
+  /// Отказ в разрешении на микрофон (web)
+  ///
+  /// In ru, this message translates to:
+  /// **'Браузер не дал доступ к микрофону. Разрешите его для этого сайта или введите ответ текстом.'**
+  String get openMicPermissionDeniedWeb;
+
+  /// Кнопка перехода в системные настройки приложения
+  ///
+  /// In ru, this message translates to:
+  /// **'Открыть настройки приложения'**
+  String get openMicOpenSettings;
+
+  /// Таймаут тишины или нет совпадения
+  ///
+  /// In ru, this message translates to:
+  /// **'Речь не расслышали. Нажмите на микрофон и повторите или введите ответ текстом.'**
+  String get openMicNoSpeech;
+
+  /// Сервису распознавания нужна сеть
+  ///
+  /// In ru, this message translates to:
+  /// **'Для распознавания речи нужна сеть. Введите ответ текстом.'**
+  String get openMicNetwork;
+
+  /// Язык колоды не поддерживается распознаванием
+  ///
+  /// In ru, this message translates to:
+  /// **'Для языка колоды на устройстве нет распознавания речи. Введите ответ текстом.'**
+  String get openMicLanguage;
+
+  /// Прочий сбой диктовки
+  ///
+  /// In ru, this message translates to:
+  /// **'Диктовка не сработала. Попробуйте ещё раз или введите ответ текстом.'**
+  String get openMicError;
+
+  /// Заголовок диалога согласия перед первым open
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверка ответов моделью'**
+  String get openConsentTitle;
+
+  /// Текст диалога согласия
+  ///
+  /// In ru, this message translates to:
+  /// **'Открытые ответы отправляются на проверку внешней языковой модели через наш сервер. Уходит только текст ответа, без имени и контактов. Если отказаться, вы будете оценивать себя сами по эталонному ответу; передумать можно в настройках.'**
+  String get openConsentBody;
+
+  /// Согласие на проверку моделью
+  ///
+  /// In ru, this message translates to:
+  /// **'Разрешить'**
+  String get openConsentAllow;
+
+  /// Отказ от проверки моделью
+  ///
+  /// In ru, this message translates to:
+  /// **'Без ИИ'**
+  String get openConsentDecline;
+
+  /// Заголовок раздела настроек про проверку открытых ответов
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверка ответов'**
+  String get settingsGradingSection;
+
+  /// Переключатель согласия на проверку внешней моделью
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверять открытые ответы моделью'**
+  String get settingsLlmConsentTitle;
+
+  /// Пояснение переключателя
+  ///
+  /// In ru, this message translates to:
+  /// **'Текст ответа отправляется внешней модели. Если выключить, вы оцениваете себя сами по эталону.'**
+  String get settingsLlmConsentSubtitle;
 }
 
 class _AppLocalizationsDelegate

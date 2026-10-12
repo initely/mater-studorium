@@ -154,6 +154,8 @@ class _SessionQuestionStepState extends ConsumerState<SessionQuestionStep> {
                   question: question,
                   shuffleSeed: _shuffleSeed,
                   onAnswered: _onAnswered,
+                  deckId: widget.item.item.deckId,
+                  deckVersion: widget.item.deckVersion,
                 ),
               ),
               if (result != null) ...[

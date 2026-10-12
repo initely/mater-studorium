@@ -491,13 +491,13 @@ void main() {
     testWidgets(
       'формат без модуля в реестре не показывается и не ломает сессию',
       (tester) async {
-        // В очереди есть знание только с open: реестр его не поддерживает, поэтому
+        // В очереди есть знание только с cloze: реестр его не поддерживает, поэтому
         // построитель пропускает знание, а mcq-знание идёт как обычно.
         final repo = _Repo(
           contents: [
             fakeContent(
               'i0',
-              questions: [fakeQuestion('i0.open', QuestionType.open)],
+              questions: [fakeQuestion('i0.cloze', QuestionType.cloze)],
             ),
             _item('i1', _mcq('q1')),
           ],

@@ -6,13 +6,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../catalog/domain/question_type.dart';
 import 'flip/flip_module.dart';
 import 'mcq/mcq_module.dart';
+import 'open/open_module.dart';
 import 'question_module.dart';
 
-/// Форматы, которые умеет показывать приложение. T16 добавит `OpenModule`,
-/// T27–T29 — `cloze`, `order`, `find_error`.
+/// Форматы, которые умеет показывать приложение. T27–T29 добавят `cloze`,
+/// `order`, `find_error`.
 final List<QuestionModule> defaultQuestionModules = List.unmodifiable([
   const McqModule(),
   const FlipModule(),
+  const OpenModule(),
 ]);
 
 /// Тип вопроса → модуль формата.

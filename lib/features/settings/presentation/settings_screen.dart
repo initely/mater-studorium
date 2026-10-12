@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/app_error.dart';
 import '../../../core/l10n/app_localizations.dart';
+import '../../grading/domain/llm_consent.dart';
+import '../../grading/presentation/llm_consent_notifier.dart';
 import '../../reminders/presentation/reminder_tiles.dart';
 import '../domain/user_settings.dart';
 import 'settings_notifier.dart';
@@ -18,6 +20,7 @@ class SettingsScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final settings = ref.watch(settingsProvider).value ?? const UserSettings();
     final notifier = ref.read(settingsProvider.notifier);
+    final consent = ref.watch(llmConsentProvider).value ?? LlmConsent.unknown;
 
     Future<void> save(Future<void> Function() write) async {
       final messenger = ScaffoldMessenger.of(context);
@@ -72,6 +75,29 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
             const ReminderTiles(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Semantics(
+                header: true,
+                child: Text(
+                  l10n.settingsGradingSection,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+            ),
+            SwitchListTile(
+              key: const Key('settings-llm-consent'),
+              title: Text(l10n.settingsLlmConsentTitle),
+              subtitle: Text(l10n.settingsLlmConsentSubtitle),
+              // Пока не спрашивали, считаем «включено» только после явного
+              // согласия: переключатель честно показывает, что уходит наружу.
+              value: consent == LlmConsent.granted,
+              onChanged: (on) => save(
+                () => ref
+                    .read(llmConsentProvider.notifier)
+                    .set(on ? LlmConsent.granted : LlmConsent.declined),
+              ),
+            ),
           ],
         ),
       ),
