@@ -62,7 +62,7 @@ final syncRequestProvider = Provider<void Function()>((ref) {
 
 /// Запуск синхронизации из `main` (только с настроенным Supabase): первый
 /// прогон и расписание, прогон на каждый вход (после переноса данных
-/// потерянного анонимного аккаунта, ADR-28) и при возврате в приложение.
+/// потерянного анонимного аккаунта, ADR-30) и при возврате в приложение.
 final syncBootstrapProvider = Provider<void>((ref) {
   final coordinator = ref.watch(syncCoordinatorProvider);
   final switcher = AccountSwitchHandler(

@@ -8,12 +8,15 @@ import '../../../core/errors/app_error.dart';
 import '../../../core/l10n/app_localizations.dart';
 import '../../catalog/presentation/catalog_notifier.dart';
 import '../../catalog/presentation/deck_tile.dart';
+import '../../reminders/data/reminder_providers.dart';
+import '../../reminders/presentation/reminder_tiles.dart';
 import '../../settings/presentation/settings_notifier.dart';
 
-const _kSteps = 3;
+enum _Step { welcome, session, reminder, deck }
 
 /// Онбординг при первом запуске (ТЗ §8.1, M1): что это, как устроены сессии,
-/// выбор и скачивание первой колоды. Время напоминания сюда добавит T19.
+/// напоминание (только там, где оно работает: Android, T19), выбор и
+/// скачивание первой колоды.
 /// Флаг «пройден» пишется в `app_settings` (ADR-27); роутер больше не
 /// возвращает на этот экран.
 class OnboardingScreen extends ConsumerStatefulWidget {
@@ -26,6 +29,14 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   var _step = 0;
   var _finishing = false;
+
+  /// Шаг напоминания пропускается на web и вне Android (ADR-29).
+  List<_Step> get _steps => [
+    _Step.welcome,
+    _Step.session,
+    if (ref.read(notificationSchedulerProvider).isSupported) _Step.reminder,
+    _Step.deck,
+  ];
 
   Future<void> _finish({required bool startSession}) async {
     if (_finishing) return;
@@ -50,22 +61,34 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
-    final last = _step == _kSteps - 1;
+    final steps = _steps;
+    final current = steps[_step];
+    final last = _step == steps.length - 1;
     final hasDeck = ref.watch(
       catalogProvider.select((s) => s.local.isNotEmpty),
     );
 
-    final (title, body) = switch (_step) {
-      0 => (l10n.onboardingWelcomeTitle, l10n.onboardingWelcomeBody),
-      1 => (l10n.onboardingSessionTitle, l10n.onboardingSessionBody),
-      _ => (l10n.onboardingDeckTitle, l10n.onboardingDeckBody),
+    final (title, body) = switch (current) {
+      _Step.welcome => (
+        l10n.onboardingWelcomeTitle,
+        l10n.onboardingWelcomeBody,
+      ),
+      _Step.session => (
+        l10n.onboardingSessionTitle,
+        l10n.onboardingSessionBody,
+      ),
+      _Step.reminder => (
+        l10n.onboardingReminderTitle,
+        l10n.onboardingReminderBody,
+      ),
+      _Step.deck => (l10n.onboardingDeckTitle, l10n.onboardingDeckBody),
     };
 
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
         title: Text(
-          l10n.onboardingStep(_step + 1, _kSteps),
+          l10n.onboardingStep(_step + 1, steps.length),
           key: const Key('onboarding-step'),
           style: theme.textTheme.titleSmall,
         ),
@@ -88,7 +111,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  LinearProgressIndicator(value: (_step + 1) / _kSteps),
+                  LinearProgressIndicator(value: (_step + 1) / steps.length),
                   const SizedBox(height: 24),
                   Semantics(
                     header: true,
@@ -102,7 +125,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   Text(body, key: const Key('onboarding-body')),
                   const SizedBox(height: 16),
                   Expanded(
-                    child: last ? const _DeckChoice() : const SizedBox.shrink(),
+                    child: switch (current) {
+                      _Step.deck => const _DeckChoice(),
+                      _Step.reminder => const SingleChildScrollView(
+                        child: ReminderTiles(),
+                      ),
+                      _ => const SizedBox.shrink(),
+                    },
                   ),
                   const SizedBox(height: 8),
                   if (last)

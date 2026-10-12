@@ -11,4 +11,9 @@ abstract interface class SettingsRepository {
   Future<void> setNewPerDay(int value);
 
   Future<void> setSessionSize(int value);
+
+  Future<void> setReminderEnabled(bool enabled);
+
+  /// Минуты от местной полуночи, 0..1439.
+  Future<void> setReminderMinuteOfDay(int minuteOfDay);
 }

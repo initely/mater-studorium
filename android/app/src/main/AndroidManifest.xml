@@ -1,6 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Нужен релизной сборке для запросов к Supabase (в debug/profile добавляется Flutter-ом). -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Локальные напоминания (T19, ADR-29): после перезагрузки плагин
+         восстанавливает поставленные уведомления. POST_NOTIFICATIONS (Android
+         13+) и VIBRATE приходят из манифеста плагина. Точные будильники
+         (SCHEDULE_EXACT_ALARM, USE_EXACT_ALARM) не нужны: расписание неточное. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <application
         android:label="mater_studorium"
         android:name="${applicationName}"
@@ -27,6 +32,21 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- flutter_local_notifications: показ запланированных напоминаний и
+             их восстановление после перезагрузки и обновления приложения. -->
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
+            android:exported="false"/>
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

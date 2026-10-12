@@ -29,6 +29,20 @@ class SettingsNotifier extends AsyncNotifier<UserSettings> {
     _update((s) => s.copyWith(sessionSize: v));
   }
 
+  Future<void> setReminderEnabled(bool enabled) async {
+    await ref.read(settingsRepositoryProvider).setReminderEnabled(enabled);
+    _update((s) => s.copyWith(reminderEnabled: enabled));
+  }
+
+  Future<void> setReminderMinuteOfDay(int minuteOfDay) async {
+    final v = minuteOfDay.clamp(
+      kMinReminderMinuteOfDay,
+      kMaxReminderMinuteOfDay,
+    );
+    await ref.read(settingsRepositoryProvider).setReminderMinuteOfDay(v);
+    _update((s) => s.copyWith(reminderMinuteOfDay: v));
+  }
+
   void _update(UserSettings Function(UserSettings) change) {
     if (!ref.mounted) return;
     // До загрузки значение не определено: меняем умолчания (запись уже в БД,

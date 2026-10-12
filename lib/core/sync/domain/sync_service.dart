@@ -10,7 +10,7 @@ import 'sync_report.dart';
 import 'sync_store.dart';
 import 'sync_validator.dart';
 
-/// Синхронизация прогресса (ТЗ §7.3, ADR-14, ADR-28). Шаги одного прогона:
+/// Синхронизация прогресса (ТЗ §7.3, ADR-14, ADR-30). Шаги одного прогона:
 /// 1. push неотправленных `review_logs` (идемпотентно по id);
 /// 2. push dirty `user_item_state` (LWW на сервере);
 /// 3. push outbox (реестр обработчиков по `kind`);
@@ -65,7 +65,7 @@ class SyncService {
     return run;
   }
 
-  /// Перенос локальных данных между пользователями (ADR-28) — под тем же
+  /// Перенос локальных данных между пользователями (ADR-30) — под тем же
   /// замком, что и прогоны: не смешивается с отправкой данных [from].
   Future<void> adoptLocalData({required String from, required String to}) =>
       _lock.protect(() => _store.adoptLocalData(from: from, to: to));

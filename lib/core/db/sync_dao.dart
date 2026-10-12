@@ -16,7 +16,7 @@ import 'tables.dart';
 
 part 'sync_dao.g.dart';
 
-/// Ключ `app_settings`: чьи данные лежат на устройстве (ADR-28).
+/// Ключ `app_settings`: чьи данные лежат на устройстве (ADR-30).
 const kLastOwnerSettingKey = 'sync.last_owner';
 
 /// Локальная сторона синхронизации (T17, ТЗ §7.3). Все выборки и записи

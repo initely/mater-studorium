@@ -1,4 +1,4 @@
-// Смена пользователя на устройстве (ADR-28): перенос данных потерянного
+// Смена пользователя на устройстве (ADR-30): перенос данных потерянного
 // анонимного аккаунта и отказ переносить в остальных случаях.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mater_studorium/core/sync/domain/account_switch_handler.dart';

@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/sync/data/sync_providers.dart';
 import '../../../core/utils/clock.dart';
 import '../../../core/utils/uuid.dart';
+import '../../reminders/presentation/reminder_controller.dart';
 import '../../srs/domain/rating.dart';
 import '../../srs/domain/scheduler.dart';
 import '../data/session_providers.dart';
@@ -93,8 +96,9 @@ class SessionController extends Notifier<SessionState> {
         answers: [...state.answers, log],
       );
       // Сессия закончилась этим ответом (или `finish()` во время записи:
-      // тогда его прогон мог не увидеть этот ответ) — синхронизировать.
-      if (!goOn) _requestSync();
+      // тогда его прогон мог не увидеть этот ответ) — синхронизировать и
+      // пересчитать напоминания.
+      if (!goOn) _onSessionEnd();
     } finally {
       _submitting = false;
     }
@@ -104,14 +108,20 @@ class SessionController extends Notifier<SessionState> {
   void finish() {
     if (state.status == SessionStatus.running) {
       state = state.copyWith(status: SessionStatus.finished);
-      _requestSync();
+      _onSessionEnd();
     }
   }
 
-  /// Конец сессии — триггер синхронизации (ТЗ §7.3): ответы уже в локальной
-  /// БД, отправка идёт в фоне и сессию не задерживает. Сетевых вызовов
-  /// отсюда нет (CLAUDE.md, правило 4), только просьба к `SyncService`.
-  void _requestSync() => ref.read(syncRequestProvider)();
+  /// Конец сессии. Синхронизация (ТЗ §7.3): ответы уже в локальной БД,
+  /// отправка идёт в фоне и сессию не задерживает; сетевых вызовов отсюда
+  /// нет (CLAUDE.md, правило 4), только просьба к `SyncService`.
+  /// Напоминания: `due` сдвинулись, сегодняшнее напоминание могло стать
+  /// ненужным (ТЗ M9). Ничего не ждём: итоги не зависят ни от сети, ни от
+  /// уведомлений.
+  void _onSessionEnd() {
+    ref.read(syncRequestProvider)();
+    unawaited(ref.read(reminderControllerProvider.notifier).reschedule());
+  }
 }
 
 final sessionControllerProvider =

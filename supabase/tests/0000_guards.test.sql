@@ -49,7 +49,7 @@ select is_empty(
 -- 4. security definer функции не открыты anon и authenticated без явного решения.
 --    Сюда добавлять join_duel и т. п. осознанно: имя функции плюс комментарий,
 --    почему её безопасно вызывать с клиента (проверка auth.uid() внутри).
---    Allowlist (T17, миграция 0003_sync.sql, ADR-28):
+--    Allowlist (T17, миграция 0003_sync.sql, ADR-30):
 --    * insert_review_logs, upsert_item_states — пишут только строки auth.uid()
 --      (user_id из аргументов и JSON не используется для записи), без входа и
 --      при p_user_id <> auth.uid() отказ 42501; лимит пакета 500; значения

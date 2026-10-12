@@ -60,3 +60,4 @@ supabase/.temp
 
 # Отчёты верификации колод (content/PIPELINE.md, шаг 4)
 content/reports/
+.cc-history/

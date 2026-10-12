@@ -29,6 +29,21 @@ jobs:
         run: dart run tools/validate_deck.dart content/decks/*.json
       - run: flutter build web
 
+  # Общий код Edge Functions (_shared/grading.ts, openrouter.ts) и eval T07.
+  # Без сети и без ключей: тесты на чистые функции и фейковый fetch.
+  deno-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: denoland/setup-deno@v2
+        with:
+          # Та же версия, что локально (deno --version).
+          deno-version: v2.9.7
+      - run: deno fmt --check supabase/functions eval/grading/run.ts eval/grading/tune.ts
+      - run: deno lint supabase/functions eval/grading/run.ts eval/grading/tune.ts
+      - run: deno check eval/grading/run.ts eval/grading/tune.ts
+      - run: deno test supabase/functions
+
   # pgTAP-тесты RLS на локальном Supabase (Docker есть на ubuntu-latest).
   supabase-tests:
     runs-on: ubuntu-latest

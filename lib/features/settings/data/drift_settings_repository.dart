@@ -6,6 +6,8 @@ import '../domain/user_settings.dart';
 const _kOnboardingDone = 'onboarding_done';
 const _kNewPerDay = 'new_per_day';
 const _kSessionSize = 'session_size';
+const _kReminderEnabled = 'reminder_enabled';
+const _kReminderMinuteOfDay = 'reminder_minute_of_day';
 
 /// [SettingsRepository] поверх таблицы `app_settings` (ADR-27).
 class DriftSettingsRepository implements SettingsRepository {
@@ -31,6 +33,13 @@ class DriftSettingsRepository implements SettingsRepository {
         kMinSessionSize,
         kMaxSessionSize,
       ),
+      reminderEnabled: map[_kReminderEnabled] == '1',
+      reminderMinuteOfDay: _int(
+        map[_kReminderMinuteOfDay],
+        defaults.reminderMinuteOfDay,
+        kMinReminderMinuteOfDay,
+        kMaxReminderMinuteOfDay,
+      ),
     );
   });
 
@@ -51,6 +60,20 @@ class DriftSettingsRepository implements SettingsRepository {
     () => _dao.write(
       _kSessionSize,
       value.clamp(kMinSessionSize, kMaxSessionSize).toString(),
+    ),
+  );
+
+  @override
+  Future<void> setReminderEnabled(bool enabled) =>
+      _guard(() => _dao.write(_kReminderEnabled, enabled ? '1' : '0'));
+
+  @override
+  Future<void> setReminderMinuteOfDay(int minuteOfDay) => _guard(
+    () => _dao.write(
+      _kReminderMinuteOfDay,
+      minuteOfDay
+          .clamp(kMinReminderMinuteOfDay, kMaxReminderMinuteOfDay)
+          .toString(),
     ),
   );
 
