@@ -29,8 +29,9 @@ jobs:
         run: dart run tools/validate_deck.dart content/decks/*.json
       - run: flutter build web
 
-  # Общий код Edge Functions (_shared/grading.ts, openrouter.ts) и eval T07.
-  # Без сети и без ключей: тесты на чистые функции и фейковый fetch.
+  # Edge Functions (_shared/, grade-open-answer/) и eval T07. Без ключей и без
+  # обращений к Supabase и OpenRouter: тесты на чистые функции, фейковые
+  # зависимости и фейковый fetch (сеть нужна только для загрузки jsr:@std).
   deno-tests:
     runs-on: ubuntu-latest
     steps:
@@ -41,8 +42,11 @@ jobs:
           deno-version: v2.9.7
       - run: deno fmt --check supabase/functions eval/grading/run.ts eval/grading/tune.ts
       - run: deno lint supabase/functions eval/grading/run.ts eval/grading/tune.ts
-      - run: deno check eval/grading/run.ts eval/grading/tune.ts
+      - run: deno check supabase/functions/grade-open-answer/index.ts eval/grading/run.ts eval/grading/tune.ts
       - run: deno test supabase/functions
+      # Ключ OpenRouter не должен попасть в репозиторий ни в каком файле.
+      # (Шаблон с [1], чтобы строка не находила сама себя.)
+      - run: "! git grep -nIE 'sk-or-v[1]-'"
 
   # pgTAP-тесты RLS на локальном Supabase (Docker есть на ubuntu-latest).
   supabase-tests:
