@@ -4,6 +4,7 @@
 // отправляет, а оставляет локально (иначе одна битая строка навсегда
 // остановила бы отправку всех остальных). При изменении правил — менять оба
 // места и тест test/core/sync/sync_rules_test.dart.
+import 'dart:convert';
 import 'dart:math' as math;
 
 import '../../../features/session/domain/review_log.dart';
@@ -47,13 +48,14 @@ bool isValidStateForPush(ItemState s) =>
     s.lapses <= s.reps &&
     (s.lastReview == null || _inTime(s.lastReview!)) &&
     (s.lastQuestionId == null || _isId(s.lastQuestionId!, 128)) &&
-    s.updatedAt.isBefore(_maxTime);
+    _inTime(s.updatedAt);
 
 /// Лог в виде, который примет сервер, или `null`, если такой лог сервер не
 /// примет никогда. Длительность зажимается в `[0, сутки]`, текст ответа
-/// обрезается до [kMaxAnswerTextLength]: это поля для статистики, а не для
-/// расписания, и долгий (вкладку оставили открытой) ответ не должен навсегда
-/// остаться неотправленным. Локальная запись не меняется.
+/// очищается ([sanitizeAnswerText]) и обрезается до [kMaxAnswerTextLength]:
+/// это поля для статистики, а не для расписания, и долгий (вкладку оставили
+/// открытой) или «грязный» (вставка из буфера, диктовка) ответ не должен
+/// навсегда остаться неотправленным. Локальная запись не меняется.
 ReviewLog? normalizeLogForPush(ReviewLog l) {
   final valid =
       _uuid.hasMatch(l.id) &&
@@ -67,8 +69,18 @@ ReviewLog? normalizeLogForPush(ReviewLog l) {
   if (!valid) return null;
   return l.copyWith(
     durationMs: math.min(math.max(l.durationMs, 0), kMaxDurationMs),
-    answerText: _truncate(l.answerText),
+    answerText: _truncate(sanitizeAnswerText(l.answerText)),
   );
+}
+
+/// Текст, который примут JSON и `text` в Postgres: без `\u0000` (иначе
+/// `22P05`, Postgres не хранит NUL в тексте) и без непарных суррогатов
+/// (иначе невалидный UTF-8 в теле запроса, PostgREST отвечает `PGRST102`).
+/// Непарный суррогат заменяет U+FFFD — так кодирует его `utf8.encode`
+/// (закреплено тестом).
+String? sanitizeAnswerText(String? text) {
+  if (text == null) return null;
+  return utf8.decode(utf8.encode(text.replaceAll('\u0000', '')));
 }
 
 /// Обрезка по UTF-16 (не длиннее, чем `char_length` в Postgres), не

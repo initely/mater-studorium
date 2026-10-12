@@ -26,6 +26,10 @@ import 'sync_validator.dart';
 ///   будет отправлено);
 /// - данные пользователя уходят только под его сессией: пользователь берётся
 ///   в начале прогона, сменился — прогон прерывается (`authFailed`);
+/// - одна строка, которую сервер не принимает, не останавливает синк:
+///   отвергнутый пакет уходит по одной строке, отвергнутая остаётся локально;
+///   шаги независимы, pull выполняется даже после ошибки push (кроме сети и
+///   доступа);
 /// - [sync] не бросает: всё заканчивается [SyncReport].
 class SyncService {
   SyncService({
@@ -75,24 +79,76 @@ class SyncService {
     if (userId == null) return const SyncReport(outcome: SyncOutcome.noSession);
     final r = _Counters();
     try {
-      await _pushLogs(userId, r);
-      await _pushStates(userId, r);
-      await _pushOutbox(userId, r);
-      await _pullStates(userId, r);
-      await _pullLogs(userId, r);
-      return r.report(SyncOutcome.success);
+      // Шаги push независимы: отказ одного (сервер отверг строку, сбой
+      // локальной БД) не отменяет остальные и pull — иначе одна «ядовитая»
+      // строка останавливала бы весь синк навсегда. Сеть и доступ
+      // прерывают прогон целиком: следующие шаги упали бы так же.
+      await _step(r, () => _pushLogs(userId, r));
+      await _step(r, () => _pushStates(userId, r));
+      await _step(r, () => _pushOutbox(userId, r));
+      await _step(r, () => _pullStates(userId, r));
+      await _step(r, () => _pullLogs(userId, r));
+      final error = r.firstError;
+      return error == null
+          ? r.report(SyncOutcome.success)
+          : r.report(SyncOutcome.failed, error);
     } on NetworkError catch (e) {
       return r.report(SyncOutcome.offline, e);
     } on AuthError catch (e) {
       return r.report(SyncOutcome.authFailed, e);
+    }
+  }
+
+  /// Выполняет шаг; `NetworkError` и `AuthError` пробрасывает, остальное
+  /// запоминает (первая ошибка попадёт в отчёт) и даёт идти дальше.
+  Future<void> _step(_Counters r, Future<void> Function() step) async {
+    try {
+      await step();
+    } on NetworkError {
+      rethrow;
+    } on AuthError {
+      rethrow;
     } on AppError catch (e) {
-      return r.report(SyncOutcome.failed, e);
+      r.firstError ??= e;
     } catch (e) {
-      return r.report(
-        SyncOutcome.failed,
-        UnexpectedError('синхронизация: неожиданная ошибка', cause: e),
+      r.firstError ??= UnexpectedError(
+        'синхронизация: неожиданная ошибка',
+        cause: e,
       );
     }
+  }
+
+  /// Отправляет пакет; если сервер отверг его целиком
+  /// (`SyncRejectedError`: пакет атомарен), отправляет по одной строке.
+  /// Отвергнутые по одной строки остаются локально (`skippedInvalid`), их
+  /// попробует следующий прогон, а keyset-курсор вызывающего уже за ними,
+  /// так что в этом прогоне цикла нет; остальные строки пакета доходят до
+  /// сервера. Возвращает принятые части с ответом сервера на каждую.
+  Future<List<(List<T>, R)>> _send<T, R>(
+    String userId,
+    List<T> rows,
+    Future<R> Function(List<T> part) send,
+    _Counters r,
+  ) async {
+    _ensureUser(userId);
+    try {
+      return [(rows, await send(rows))];
+    } on SyncRejectedError {
+      if (rows.length == 1) {
+        r.skippedInvalid++;
+        return const [];
+      }
+    }
+    final accepted = <(List<T>, R)>[];
+    for (final row in rows) {
+      _ensureUser(userId);
+      try {
+        accepted.add(([row], await send([row])));
+      } on SyncRejectedError {
+        r.skippedInvalid++;
+      }
+    }
+    return accepted;
   }
 
   /// Перед каждым сетевым шагом: сессия всё ещё того же пользователя.
@@ -122,12 +178,18 @@ class SyncService {
         }
       }
       if (valid.isNotEmpty) {
-        _ensureUser(userId);
-        await _remote.insertReviewLogs(userId, valid);
-        await _store.markLogsSynced(userId, [
-          for (final l in valid) l.id,
-        ], _clock());
-        r.logsPushed += valid.length;
+        final sent = await _send(
+          userId,
+          valid,
+          (part) => _remote.insertReviewLogs(userId, part),
+          r,
+        );
+        for (final (part, _) in sent) {
+          await _store.markLogsSynced(userId, [
+            for (final l in part) l.id,
+          ], _clock());
+          r.logsPushed += part.length;
+        }
       }
       if (batch.length < pushBatchSize) return;
     }
@@ -152,10 +214,16 @@ class SyncService {
         }
       }
       if (valid.isNotEmpty) {
-        _ensureUser(userId);
-        final server = await _remote.upsertItemStates(userId, valid);
-        await _store.applyPushedStates(userId, sent: valid, server: server);
-        r.statesPushed += server.length;
+        final sent = await _send(
+          userId,
+          valid,
+          (part) => _remote.upsertItemStates(userId, part),
+          r,
+        );
+        for (final (part, server) in sent) {
+          await _store.applyPushedStates(userId, sent: part, server: server);
+          r.statesPushed += server.length;
+        }
       }
       if (batch.length < pushBatchSize) return;
     }
@@ -236,6 +304,7 @@ class SyncService {
 }
 
 class _Counters {
+  AppError? firstError;
   var logsPushed = 0;
   var statesPushed = 0;
   var outboxSent = 0;

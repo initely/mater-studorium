@@ -6,9 +6,12 @@ import 'dart:async';
 import 'package:drift/drift.dart' show driftRuntimeOptions;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mater_studorium/core/errors/app_error.dart';
+import 'package:mater_studorium/core/sync/domain/sync_remote.dart';
 import 'package:mater_studorium/core/sync/domain/sync_report.dart';
 import 'package:mater_studorium/core/sync/domain/sync_store.dart';
 import 'package:mater_studorium/core/sync/outbox_entry.dart';
+import 'package:mater_studorium/features/session/domain/review_log.dart';
+import 'package:mater_studorium/features/srs/domain/item_state.dart';
 
 import '../../helpers/fake_sync_server.dart';
 import '../../helpers/sync_fixtures.dart';
@@ -411,6 +414,165 @@ void main() {
     final sent = server.logsOf(userA).single;
     expect((sent.durationMs, sent.answerText!.length), (86400000, 4000));
     expect((await d.logs()).single.durationMs, 3 * 86400000);
+  });
+
+  group('«ядовитые» строки (ревью T17, S1)', () {
+    bool loneSurrogate(String s) {
+      for (var i = 0; i < s.length; i++) {
+        final c = s.codeUnitAt(i);
+        final high = c >= 0xD800 && c <= 0xDBFF;
+        final low = c >= 0xDC00 && c <= 0xDFFF;
+        if (high) {
+          final next = i + 1 < s.length ? s.codeUnitAt(i + 1) : 0;
+          if (next >= 0xDC00 && next <= 0xDFFF) {
+            i++;
+            continue;
+          }
+          return true;
+        }
+        if (low) return true;
+      }
+      return false;
+    }
+
+    // Как настоящий сервер: \u0000 — 22P05, непарный суррогат — PGRST102.
+    bool realServerRejects(Object row) {
+      final text = row is ReviewLog ? row.answerText : null;
+      return text != null && (text.contains('\u0000') || loneSurrogate(text));
+    }
+
+    test('ответ с \\u0000 и с непарным суррогатом: текст очищается, логи '
+        'доходят, синк не встаёт', () async {
+      server.reject = realServerRejects;
+      final raw = syncLog('i1', s0).copyWith(answerText: 'a\u0000b');
+      expect(
+        () => server.insertReviewLogs(userA, [raw]),
+        throwsA(isA<SyncRejectedError>()),
+        reason: 'фейк отвергает сырой текст, как сервер',
+      );
+      final d = Device(server);
+      await d.db.reviewDao.recordReview(
+        userId: userA,
+        log: syncLog('i1', s0).copyWith(answerText: 'a\u0000b'),
+        state: syncState('i1', s0),
+      );
+      await d.db.reviewDao.recordReview(
+        userId: userA,
+        log: syncLog('i2', s0).copyWith(answerText: 'x\uD800y'),
+        state: syncState('i2', s0),
+      );
+
+      final report = await d.service.sync();
+
+      expect(report.outcome, SyncOutcome.success, reason: '$report');
+      expect(report.skippedInvalid, 0);
+      final texts = {for (final l in server.logsOf(userA)) l.answerText};
+      expect(texts, {'ab', 'x�y'});
+      expect((await d.logs()).every((l) => l.syncedAt != null), isTrue);
+    });
+
+    test(
+      'сервер отверг пакет: строки уходят по одной, отвергнутая остаётся '
+      'локально, остальные на сервере, pull выполняется; синк не залипает',
+      () async {
+        server.reject = (row) =>
+            (row is ReviewLog && row.itemId == 'poison') ||
+            (row is ItemState && row.itemId == 'poison');
+        final d = Device(server, pushBatchSize: 3);
+        for (final item in ['i1', 'i2', 'poison', 'i3', 'i4']) {
+          await answer(d.db, userA, item, s0);
+        }
+        server.putState(userA, syncState('remote', s0));
+
+        final first = await d.service.sync();
+
+        expect(first.outcome, SyncOutcome.success, reason: '$first');
+        expect(first.skippedInvalid, 2, reason: 'лог и состояние poison');
+        expect(server.logsOf(userA).map((l) => l.itemId).toSet(), {
+          'i1',
+          'i2',
+          'i3',
+          'i4',
+        });
+        expect(server.stateOf(userA, 'i4'), isNotNull);
+        expect(server.stateOf(userA, 'poison'), isNull);
+        expect(first.statesPulled, greaterThan(0));
+        expect(await d.state('remote'), isNotNull, reason: 'pull выполнен');
+        final poison = (await d.logs()).singleWhere(
+          (l) => l.itemId == 'poison',
+        );
+        expect(poison.syncedAt, isNull);
+        expect((await d.state('poison'))!.dirty, isTrue);
+
+        // Следующие прогоны: снова только poison (по одному вызову на лог и
+        // состояние), остальное не переотправляется, pull идёт.
+        server.callLog.clear();
+        await answer(d.db, userA, 'i5', s0.add(const Duration(seconds: 5)));
+        final second = await d.service.sync();
+        expect(second.outcome, SyncOutcome.success);
+        expect(second.logsPushed, 1);
+        expect(server.stateOf(userA, 'i5'), isNotNull);
+        expect(server.callLog, contains('pullItemStates'));
+        expect(server.callLog, contains('pullReviewLogs'));
+      },
+    );
+
+    test('неожиданная ошибка в одном шаге push не отменяет остальные шаги и '
+        'pull; итог failed', () async {
+      final d = Device(server);
+      await answer(d.db, userA, 'i1', s0);
+      server.putState(userA, syncState('remote', s0));
+      server.failUnexpected.add('insertReviewLogs');
+
+      final report = await d.service.sync();
+
+      expect(report.outcome, SyncOutcome.failed);
+      expect(report.error, isA<UnexpectedError>());
+      expect(server.stateOf(userA, 'i1'), isNotNull);
+      expect(await d.state('remote'), isNotNull);
+      expect((await d.logs()).single.syncedAt, isNull);
+    });
+  });
+
+  group('защита в глубину', () {
+    test('пользователь сменился до первого push: ни одного запроса', () async {
+      final d = Device(server);
+      await answer(d.db, userA, 'i1', s0);
+      var calls = 0;
+      final svc = d.serviceWithUser(() => calls++ == 0 ? userA : userB);
+      final report = await svc.sync();
+      expect(report.outcome, SyncOutcome.authFailed);
+      expect(server.callLog, isEmpty);
+    });
+
+    test('пользователь сменился перед pull: pull не выполняется', () async {
+      final d = Device(server);
+      var calls = 0;
+      // Отправлять нечего: первый сетевой шаг — pull.
+      final svc = d.serviceWithUser(() => calls++ == 0 ? userA : userB);
+      final report = await svc.sync();
+      expect(report.outcome, SyncOutcome.authFailed);
+      expect(server.callLog, isEmpty);
+    });
+
+    test('сервер вернул lastSeq не больше курсора: курсор не уменьшается, '
+        'pull не зацикливается', () async {
+      final d = Device(server);
+      await d.db.syncDao.mergePulledStates(userA, const [], cursor: 10);
+      var pulls = 0;
+      server.pullStatesOverride = (after, limit) {
+        if (++pulls > 3) throw StateError('pull зациклился');
+        return PulledPage(
+          rows: [syncState('old', s0)],
+          fetched: limit,
+          lastSeq: 7,
+        );
+      };
+      final report = await d.service.sync();
+      expect(report.outcome, SyncOutcome.success, reason: '$report');
+      expect(pulls, 1);
+      expect(await d.db.syncDao.cursor(userA, SyncStream.itemStates), 10);
+    });
   });
 
   group('pull', () {

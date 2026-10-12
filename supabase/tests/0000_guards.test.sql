@@ -55,15 +55,18 @@ select is_empty(
 --      при p_user_id <> auth.uid() отказ 42501; лимит пакета 500; значения
 --      проверяют ограничения таблиц. Открыты только authenticated (не anon):
 --      это проверяет тест 0003_sync.test.sql.
---    Allowlist по имени, поэтому 5-я проверка ниже требует, чтобы anon
---    не имел execute ни на одну definer-функцию, даже из allowlist.
+--    Allowlist по oid (имя плюс типы аргументов), а не по имени: иначе
+--    перегрузка `public.insert_review_logs(jsonb)` с тем же именем прошла
+--    бы страж. 5-я проверка ниже дополнительно требует, чтобы anon не имел
+--    execute ни на одну definer-функцию, даже из allowlist.
 select is_empty(
   $$ select p.proname
        from pg_proc p
        join pg_namespace n on n.oid = p.pronamespace
       where n.nspname = 'public'
         and p.prosecdef
-        and p.proname <> all (array['insert_review_logs', 'upsert_item_states']::text[])
+        and p.oid not in ('public.insert_review_logs(uuid,jsonb)'::regprocedure,
+                          'public.upsert_item_states(uuid,jsonb)'::regprocedure)
         and (has_function_privilege('anon', p.oid, 'execute')
              or has_function_privilege('authenticated', p.oid, 'execute')) $$,
   'security definer функции не открыты клиентским ролям (кроме allowlist)'

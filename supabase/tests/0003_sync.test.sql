@@ -8,7 +8,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(95);
+select plan(107);
 
 insert into auth.users (id, aud, role, email, is_anonymous)
 values
@@ -98,9 +98,25 @@ select ok(not has_function_privilege('anon', 'public.upsert_item_states(uuid, js
 select ok(not has_function_privilege('anon', 'public.insert_review_logs(uuid, jsonb)', 'execute'),
   'anon не исполняет insert_review_logs');
 select is((select proconfig from pg_proc where oid = 'public.upsert_item_states(uuid, jsonb)'::regprocedure),
-  array['search_path=""'], 'upsert_item_states: search_path пуст');
+  array['search_path=""', 'lock_timeout=3s'], 'upsert_item_states: search_path пуст, lock_timeout 3 с');
 select is((select proconfig from pg_proc where oid = 'public.insert_review_logs(uuid, jsonb)'::regprocedure),
-  array['search_path=""'], 'insert_review_logs: search_path пуст');
+  array['search_path=""', 'lock_timeout=3s'], 'insert_review_logs: search_path пуст, lock_timeout 3 с');
+
+-- sync_stamp: несущие свойства курсора pull (ADR-30). Транзакционная
+-- (не сессионная) блокировка, на пользователя (не глобальная), взята ДО
+-- nextval; функция definer (иначе service role не получит номер). Гонку
+-- двух транзакций в одной сессии pgTAP не воспроизвести, она — в
+-- supabase/tests/sync_seq_race.sh; здесь закреплено тело функции.
+select matches(
+  pg_get_functiondef('private.sync_stamp()'::regprocedure),
+  E'begin\\s+perform pg_catalog\\.pg_advisory_xact_lock\\(\\s*pg_catalog\\.hashtextextended\\(''sync:'' \\|\\| new\\.user_id::text, 0\\)\\s*\\);\\s+new\\.sync_seq := pg_catalog\\.nextval\\(''private\\.sync_seq''\\);\\s+return new;\\s+end;',
+  'sync_stamp: xact-блокировка на пользователя, затем nextval');
+select is(
+  (select count(*)::int from regexp_matches(
+     pg_get_functiondef('private.sync_stamp()'::regprocedure), 'advisory|nextval', 'g')),
+  2, 'sync_stamp: ровно одна блокировка и один nextval');
+select ok((select prosecdef from pg_proc where oid = 'private.sync_stamp()'::regprocedure),
+  'sync_stamp: security definer');
 select is((select count(*)::int from public.user_item_state where user_id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
   1, 'предусловие: у B есть строка состояния');
 
@@ -303,6 +319,26 @@ select throws_ok(
   '23502', null, 'нет updated_at: отказ, а не «сейчас»');
 select throws_ok(
   $$ select public.upsert_item_states('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+       jsonb_build_array(pg_temp.st('v1', now(), 1, '{"updated_at":"-infinity"}'))) $$,
+  '23514', null, 'updated_at -infinity отклоняется (клиент его не разберёт)');
+select throws_ok(
+  $$ select public.upsert_item_states('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+       jsonb_build_array(pg_temp.st('v1', now(), 1, '{"updated_at":"0044-03-15 12:00:00+00 BC"}'))) $$,
+  '23514', null, 'updated_at до нашей эры отклоняется');
+select throws_ok(
+  $$ select public.upsert_item_states('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+       jsonb_build_array(pg_temp.st('v1', now(), 1, '{"updated_at":"1969-12-31T23:59:59Z"}'))) $$,
+  '23514', null, 'updated_at до 1970 отклоняется');
+select throws_ok(
+  $$ select public.upsert_item_states('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+       jsonb_build_array(pg_temp.st('v1', now(), 1, '{"last_review":"-infinity"}'))) $$,
+  '23514', null, 'last_review -infinity отклоняется');
+select throws_ok(
+  $$ select public.upsert_item_states('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+       jsonb_build_array(pg_temp.st('v1', now(), 1, '{"due":"-infinity"}'))) $$,
+  '23514', null, 'due -infinity отклоняется');
+select throws_ok(
+  $$ select public.upsert_item_states('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
        jsonb_build_array(pg_temp.st('Bad Id', now()))) $$,
   '23514', null, 'item_id вне формата отклоняется');
 select throws_ok(
@@ -344,6 +380,10 @@ select throws_ok(
        pg_temp.lg('aaaaaaaa-0000-4000-8000-000000000010',
          jsonb_build_object('answer_text', repeat('x', 4001))))) $$,
   '23514', null, 'answer_text длиннее 4000 отклоняется');
+select throws_ok(
+  $$ select public.insert_review_logs('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', jsonb_build_array(
+       pg_temp.lg('aaaaaaaa-0000-4000-8000-000000000010', '{"reviewed_at":"-infinity"}'))) $$,
+  '23514', null, 'reviewed_at -infinity отклоняется');
 select throws_ok(
   $$ select public.insert_review_logs('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
        jsonb_build_array(pg_temp.lg('not-a-uuid'))) $$,
@@ -413,6 +453,24 @@ select throws_ok(
 select throws_ok(
   $$ select public.insert_review_logs(null, '[]'::jsonb) $$, '42501', null,
   'anon не вызывает insert_review_logs');
+
+-- ---------- service role (импорт, админка): триггер работает и для неё ----------
+reset role;
+set local role service_role;
+select lives_ok(
+  $$ insert into public.user_item_state (user_id, item_id, deck_id, due, stability, difficulty,
+       elapsed_days, scheduled_days, reps, lapses, state, updated_at, sync_seq)
+     values ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'svc', 'infosec', now(), 1, 5, 0, 1, 1, 0, 2, now(), 0) $$,
+  'service_role пишет состояние (sync_seq из закрытой последовательности через definer-триггер)');
+select lives_ok(
+  $$ insert into public.review_logs (id, user_id, deck_id, deck_version, item_id, question_id,
+       question_type, rating, grade_source, duration_ms, reviewed_at, sync_seq)
+     values ('bbbbbbbb-0000-4000-8000-0000000000aa', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+       'infosec', 1, 'svc', 'svc.q1', 'mcq', 3, 'auto', 1, now(), 0) $$,
+  'service_role пишет лог');
+select ok(
+  (select sync_seq > 0 from public.user_item_state where item_id = 'svc'),
+  'запись service_role получила sync_seq');
 
 -- ---------- владелец: итог по данным ----------
 reset role;

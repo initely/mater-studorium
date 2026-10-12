@@ -2,6 +2,7 @@
 // отправкой (те же границы, что в 0003_sync.sql), JSON и разбор ошибок
 // сервера.
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -71,6 +72,10 @@ void main() {
       ('due в 2200', ok.copyWith(due: DateTime.utc(2200))),
       ('due до 1970', ok.copyWith(due: DateTime.utc(1969, 12, 31))),
       ('updated_at в 2200', ok.copyWith(updatedAt: DateTime.utc(2200))),
+      (
+        'updated_at до 1970',
+        ok.copyWith(updatedAt: DateTime.utc(1969, 12, 31, 23, 59, 59)),
+      ),
       ('last_question_id вне формата', ok.copyWith(lastQuestionId: 'Q 1')),
     ]) {
       test('отклоняется: $name', () {
@@ -128,6 +133,32 @@ void main() {
     });
   });
 
+  group('sanitizeAnswerText (ревью T17, S1)', () {
+    test('энкодер UTF-8 Dart заменяет непарный суррогат на U+FFFD (на этом '
+        'держится очистка)', () {
+      expect(utf8.decode(utf8.encode('\uD800')), '�');
+      expect(utf8.decode(utf8.encode('\uDC00x')), '�x');
+      expect(utf8.decode(utf8.encode('😀')), '😀', reason: 'пара не трогается');
+    });
+    test('\\u0000 убирается, непарные суррогаты — U+FFFD, обычный текст как '
+        'есть', () {
+      expect(sanitizeAnswerText('a\u0000b\u0000'), 'ab');
+      expect(sanitizeAnswerText('x\uD800y\uDC00'), 'x�y�');
+      expect(sanitizeAnswerText('Привет 😀'), 'Привет 😀');
+      expect(sanitizeAnswerText(null), isNull);
+    });
+    test('normalizeLogForPush очищает текст; JSON без NUL и без экранированных '
+        'суррогатов', () {
+      final log = normalizeLogForPush(
+        syncLog('i1', s0).copyWith(answerText: 'a\u0000\uD83Db'),
+      )!;
+      expect(log.answerText, 'a�b');
+      final json = jsonEncode(logToJson(log));
+      expect(json.contains(r'\u0000'), isFalse);
+      expect(json.toLowerCase().contains(r'\ud8'), isFalse);
+    });
+  });
+
   group('JSON для RPC', () {
     test('состояние: туда и обратно без потерь, без user_id', () {
       final s = syncState('i1', s0, reps: 3).copyWith(lastReview: null);
@@ -170,6 +201,11 @@ void main() {
       );
       expect(mapSyncRemoteError(pg('503')), isA<NetworkError>());
       expect(mapSyncRemoteError(pg('429')), isA<NetworkError>());
+      expect(
+        mapSyncRemoteError(pg('55P03')),
+        isA<NetworkError>(),
+        reason: 'lock_timeout: временное',
+      );
     });
     test('доступ — AuthError', () {
       for (final code in ['42501', '401', '403', 'PGRST301']) {
@@ -177,7 +213,17 @@ void main() {
       }
     });
     test('неверный пакет — SyncRejectedError', () {
-      for (final code in ['23514', '23502', '22P02', '22023', '54000']) {
+      for (final code in [
+        '23514',
+        '23502',
+        '22P02',
+        '22023',
+        '22P05',
+        '54000',
+        'PGRST102',
+        '400',
+        '413',
+      ]) {
         expect(
           mapSyncRemoteError(pg(code)),
           isA<SyncRejectedError>(),

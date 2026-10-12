@@ -102,6 +102,8 @@ dart run tools/import_deck.dart content/decks/sample.json --allow-draft   # draf
 7. Онбординг: чистая установка на Android: третий шаг «Напоминание» с тумблером (по умолчанию выключен) и временем; на web онбординг из трёх шагов, в настройках тумблер недоступен с пояснением.
 8. Выбор времени: диалог времени, 24-часовой формат; TalkBack: тумблер и строка времени озвучиваются, тап-цели не меньше 48 dp.
 
+Гонка курсора синхронизации (две транзакции одного пользователя и pull между ними; pgTAP так не умеет): при запущенном `supabase start` выполнить `tools/sync_seq_race.sh` — ожидается `OK`; `tools/sync_seq_race.sh --without-lock` временно убирает advisory-блокировку из `private.sync_stamp` и показывает `LOST` (строка не попала ни в один pull), затем восстанавливает функцию (ADR-30).
+
 Тест каталога и синхронизации против живого локального Supabase (по умолчанию пропускается):
 ```sh
 LIVE_SUPABASE_URL=<API_URL> LIVE_SUPABASE_ANON_KEY=<ANON_KEY> LIVE_SUPABASE_SERVICE_KEY=<SERVICE_ROLE_KEY> \

@@ -85,7 +85,10 @@ create table public.user_item_state (
     check (char_length(last_question_id) <= 128
            and last_question_id ~ '^[a-z0-9]+([._-][a-z0-9]+)*$'),
   -- Часы клиента; RPC зажимает значения из будущего (см. upsert_item_states).
-  updated_at timestamptz not null check (updated_at < '2200-01-01 00:00:00+00'),
+  -- Обе границы обязательны: '-infinity' или дата до нашей эры приняла бы
+  -- база, но клиент такую строку не разберёт, и pull встал бы навсегда.
+  updated_at timestamptz not null
+    check (updated_at >= '1970-01-01 00:00:00+00' and updated_at < '2200-01-01 00:00:00+00'),
   sync_seq bigint not null,
   primary key (user_id, item_id)
 );
@@ -163,7 +166,10 @@ create trigger review_logs_no_update
 --   записались другому;
 -- * пакет — JSON-массив объектов, не больше 500 элементов (54000);
 -- * пакет атомарен: любое неверное значение (тип, NOT NULL, CHECK) отменяет
---   весь пакет, ничего не записано.
+--   весь пакет, ничего не записано;
+-- * lock_timeout 3 с: запись пользователя ждёт advisory-блокировку его же
+--   параллельной записи (sync_stamp) и строк; зависшая транзакция не держит
+--   запрос дольше, клиент получает 55P03 и повторяет позже с паузой.
 
 -- Журнал: вставка, повтор того же id ничего не делает (идемпотентность, §7.3).
 -- Возвращает число новых строк. Строка с id, который уже есть у другого
@@ -173,6 +179,7 @@ returns integer
 language plpgsql
 security definer
 set search_path = ''
+set lock_timeout = '3s'
 as $$
 declare
   v_uid uuid := auth.uid();
@@ -225,6 +232,7 @@ returns setof public.user_item_state
 language plpgsql
 security definer
 set search_path = ''
+set lock_timeout = '3s'
 as $$
 declare
   v_uid uuid := auth.uid();

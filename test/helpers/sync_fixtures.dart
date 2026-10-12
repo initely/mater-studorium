@@ -80,7 +80,8 @@ class Device {
     int pushBatchSize = 200,
     int pullPageSize = 500,
     OutboxHandlers outboxHandlers = const {},
-  }) : db = memoryDb() {
+  }) : db = memoryDb(),
+       _remote = remote {
     service = SyncService(
       remote: remote,
       store: db.syncDao,
@@ -91,6 +92,17 @@ class Device {
       pullPageSize: pullPageSize,
     );
   }
+
+  final SyncRemote _remote;
+
+  /// Отдельный сервис над той же БД, где пользователь сессии берётся из
+  /// [currentUserId] (проверка смены пользователя по ходу прогона).
+  SyncService serviceWithUser(String? Function() currentUserId) => SyncService(
+    remote: _remote,
+    store: db.syncDao,
+    currentUserId: currentUserId,
+    clock: () => s0.add(const Duration(hours: 1)),
+  );
 
   final AppDatabase db;
   late final SyncService service;

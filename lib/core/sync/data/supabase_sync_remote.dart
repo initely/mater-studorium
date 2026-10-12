@@ -79,7 +79,17 @@ class SupabaseSyncRemote implements SyncRemote {
         .gt('sync_seq', afterSeq)
         .order('sync_seq', ascending: true)
         .limit(limit);
-    return _page(rows, (row) => _ownState(userId, row));
+    return _page(rows, (row) {
+      _checkOwner(userId, row);
+      // Строка, которую клиент не разбирает (например, время, которое сервер
+      // принял до появления ограничений), пропускается: курсор её проходит,
+      // иначе pull встал бы на ней навсегда.
+      try {
+        return stateFromJson(row);
+      } on UnexpectedError {
+        return null;
+      }
+    });
   });
 
   @override
@@ -168,8 +178,11 @@ AppError mapSyncRemoteError(Object e) {
       final status = code != null && RegExp(r'^[1-5]\d\d$').hasMatch(code)
           ? int.parse(code)
           : null;
-      if (status != null && (status >= 500 || status == 429)) {
-        return NetworkError('Сервер вернул $status: $message', cause: e);
+      // 55P03 — lock_timeout в RPC (запись того же пользователя ждала
+      // блокировку дольше 3 с): временное, повтор с паузой.
+      if ((status != null && (status >= 500 || status == 429)) ||
+          code == '55P03') {
+        return NetworkError('Сервер вернул $code: $message', cause: e);
       }
       if (status == 401 ||
           status == 403 ||
@@ -177,10 +190,18 @@ AppError mapSyncRemoteError(Object e) {
           (code?.startsWith('PGRST3') ?? false)) {
         return AuthError('Доступ запрещён ($code): $message', cause: e);
       }
-      // 22xxx — неверное значение, 23xxx — нарушение ограничения,
-      // 54000 — превышен размер пакета (0003_sync.sql).
+      // 22xxx — неверное значение (22P05 — `\u0000` в тексте), 23xxx —
+      // нарушение ограничения, 54000 — превышен размер пакета
+      // (0003_sync.sql), PGRST1xx и HTTP 400/413 — PostgREST не принял тело
+      // запроса (PGRST102 — невалидный JSON/UTF-8). Повтор того же пакета не
+      // поможет; сервис отправит строки по одной.
       if (code != null &&
-          (code.startsWith('22') || code.startsWith('23') || code == '54000')) {
+          (code.startsWith('22') ||
+              code.startsWith('23') ||
+              code == '54000' ||
+              code.startsWith('PGRST1') ||
+              status == 400 ||
+              status == 413)) {
         return SyncRejectedError(
           'Сервер отклонил пакет ($code): $message',
           cause: e,

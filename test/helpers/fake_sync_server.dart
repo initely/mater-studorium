@@ -23,6 +23,16 @@ class FakeSyncServer implements SyncRemote {
   DateTime Function() now;
 
   bool offline = false;
+
+  /// Строка, которую «сервер» не примет (как CHECK, 22P05 или PGRST102):
+  /// весь пакет с ней — `SyncRejectedError`, ничего не записано.
+  bool Function(Object row)? reject;
+
+  /// Подмена ответа pull состояний (проверка неверного ответа сервера).
+  PulledPage<ItemState> Function(int afterSeq, int limit)? pullStatesOverride;
+
+  /// Сбой «неожиданного» рода (не сеть, не доступ, не отказ строки).
+  final failUnexpected = <String>{};
   final failBefore = <int>{};
   final failAfter = <int>{};
   Completer<void>? gate;
@@ -77,6 +87,9 @@ class FakeSyncServer implements SyncRemote {
       if (sessionUserId != userId) {
         throw const AuthError('fake: пакет другого пользователя');
       }
+      if (failUnexpected.contains(op)) {
+        throw UnexpectedError('fake: неожиданное ($op #$n)');
+      }
       final result = apply();
       if (failAfter.contains(n)) {
         throw NetworkError('fake: ответ потерян ($op #$n)');
@@ -87,9 +100,12 @@ class FakeSyncServer implements SyncRemote {
     }
   }
 
-  static void _checkBatch(int length) {
-    if (length > kMaxSyncBatch) {
+  void _checkBatch(List<Object> rows) {
+    if (rows.length > kMaxSyncBatch) {
       throw const SyncRejectedError('fake: больше 500 записей');
+    }
+    if (reject != null && rows.any(reject!)) {
+      throw const SyncRejectedError('fake: пакет отклонён');
     }
   }
 
@@ -114,7 +130,7 @@ class FakeSyncServer implements SyncRemote {
   @override
   Future<int> insertReviewLogs(String userId, List<ReviewLog> batch) =>
       _call('insertReviewLogs', userId, () {
-        _checkBatch(batch.length);
+        _checkBatch(batch);
         var inserted = 0;
         for (final l in batch) {
           if (logs.containsKey(l.id)) continue;
@@ -129,7 +145,7 @@ class FakeSyncServer implements SyncRemote {
     String userId,
     List<ItemState> batch,
   ) => _call('upsertItemStates', userId, () {
-    _checkBatch(batch.length);
+    _checkBatch(batch);
     for (final s in batch) {
       _upsert(userId, s);
     }
@@ -145,6 +161,7 @@ class FakeSyncServer implements SyncRemote {
     required int afterSeq,
     required int limit,
   }) => _call('pullItemStates', userId, () {
+    if (pullStatesOverride != null) return pullStatesOverride!(afterSeq, limit);
     final rows = [
       for (final MapEntry(key: (u, _), :value) in states.entries)
         if (u == userId && value.seq > afterSeq) value,
