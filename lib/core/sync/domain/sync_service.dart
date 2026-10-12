@@ -15,7 +15,9 @@ import 'sync_validator.dart';
 /// 2. push dirty `user_item_state` (LWW на сервере);
 /// 3. push outbox (реестр обработчиков по `kind`);
 /// 4. pull состояний после курсора и LWW-слияние;
-/// 5. pull логов после курсора (`hidden_questions` добавит T20).
+/// 5. pull логов после курсора;
+/// 6. pull `hidden_questions` — список скрытых по жалобам вопросов целиком
+///    (T20, ADR-33).
 ///
 /// Гарантии:
 /// - локальная пометка «отправлено» (`synced_at`, снятие `dirty`) ставится
@@ -88,6 +90,7 @@ class SyncService {
       await _step(r, () => _pushOutbox(userId, r));
       await _step(r, () => _pullStates(userId, r));
       await _step(r, () => _pullLogs(userId, r));
+      await _step(r, () => _pullHidden(userId, r));
       final error = r.firstError;
       return error == null
           ? r.report(SyncOutcome.success)
@@ -301,6 +304,14 @@ class SyncService {
       if (page.fetched < pullPageSize) return;
     }
   }
+
+  Future<void> _pullHidden(String userId, _Counters r) async {
+    _ensureUser(userId);
+    final ids = await _remote.pullHiddenQuestions(userId);
+    _ensureUser(userId);
+    await _store.replaceServerHiddenQuestions(ids);
+    r.hiddenQuestions = ids.length;
+  }
 }
 
 class _Counters {
@@ -311,6 +322,7 @@ class _Counters {
   var statesPulled = 0;
   var logsPulled = 0;
   var skippedInvalid = 0;
+  var hiddenQuestions = 0;
 
   SyncReport report(SyncOutcome outcome, [AppError? error]) => SyncReport(
     outcome: outcome,
@@ -320,6 +332,7 @@ class _Counters {
     statesPulled: statesPulled,
     logsPulled: logsPulled,
     skippedInvalid: skippedInvalid,
+    hiddenQuestions: hiddenQuestions,
     error: error,
   );
 }

@@ -52,7 +52,11 @@ void main() {
     server.callLog.clear();
     final again = await d.service.sync();
     expect((again.logsPushed, again.statesPushed), (0, 0));
-    expect(server.callLog, ['pullItemStates', 'pullReviewLogs']);
+    expect(server.callLog, [
+      'pullItemStates',
+      'pullReviewLogs',
+      'pullHiddenQuestions',
+    ]);
   });
 
   test('AC8.1: 20 ответов без сети, затем сеть — все логи на сервере, '

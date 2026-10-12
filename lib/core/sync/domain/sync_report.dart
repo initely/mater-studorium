@@ -33,6 +33,7 @@ class SyncReport {
     this.statesPulled = 0,
     this.logsPulled = 0,
     this.skippedInvalid = 0,
+    this.hiddenQuestions = 0,
     this.error,
   });
 
@@ -50,6 +51,9 @@ class SyncReport {
   /// Локальные строки, которые сервер заведомо не примет: не отправлены,
   /// остались локально (см. `sync_validator.dart`).
   final int skippedInvalid;
+
+  /// Сколько вопросов сервер сейчас скрывает по жалобам (шаг 6).
+  final int hiddenQuestions;
   final AppError? error;
 
   bool get isSuccess => outcome == SyncOutcome.success;
@@ -58,5 +62,5 @@ class SyncReport {
   String toString() =>
       'SyncReport(${outcome.name}, logs↑$logsPushed states↑$statesPushed '
       'outbox↑$outboxSent states↓$statesPulled logs↓$logsPulled '
-      'skipped $skippedInvalid${error == null ? '' : ', $error'})';
+      'skipped $skippedInvalid hidden $hiddenQuestions${error == null ? '' : ', $error'})';
 }

@@ -7,11 +7,17 @@ import '../../../core/utils/clock.dart';
 import '../../../core/utils/stable_seed.dart';
 import '../../explanations/domain/explanation.dart';
 import '../../explanations/presentation/explanation_panel.dart';
+import '../../grading/domain/open_grade.dart';
 import '../../questions/question_request.dart';
 import '../../questions/question_result.dart';
 import '../../questions/registry.dart';
+import '../../reports/domain/disagreement_input.dart';
+import '../../reports/presentation/disagree_sheet.dart';
+import '../../reports/presentation/report_question_button.dart';
+import '../../srs/domain/answer_outcome.dart';
 import '../../srs/domain/rating.dart';
 import '../../srs/domain/rating_suggester.dart';
+import '../domain/grade_source.dart';
 import '../domain/session_item.dart';
 import 'rating_bar.dart';
 import 'session_controller.dart';
@@ -61,6 +67,11 @@ class _SessionQuestionStepState extends ConsumerState<SessionQuestionStep> {
     _shownAt = ref.read(clockProvider)();
   }
 
+  static bool _isLlmVerdict(AnswerOutcome outcome) =>
+      outcome == AnswerOutcome.llmCorrect ||
+      outcome == AnswerOutcome.llmPartial ||
+      outcome == AnswerOutcome.llmIncorrect;
+
   static String _dateKey(DateTime utc) {
     final d = utc.toUtc();
     String two(int n) => n.toString().padLeft(2, '0');
@@ -86,9 +97,52 @@ class _SessionQuestionStepState extends ConsumerState<SessionQuestionStep> {
     });
   }
 
-  Future<void> _rate(Rating rating) async {
+  Future<void> _rate(Rating rating) => _record(rating);
+
+  /// «Не согласен с оценкой ИИ» (ТЗ M11): пользователь выбрал свою оценку в
+  /// шторке; запись как у обычной оценки, но с `grade_source = override` и
+  /// report `grading_disagree` в той же транзакции.
+  Future<void> _disagree(AnswerOutcome outcome, DisagreeChoice choice) async {
+    final verdict = switch (outcome) {
+      AnswerOutcome.llmCorrect => GradeVerdict.correct,
+      AnswerOutcome.llmPartial => GradeVerdict.partial,
+      _ => GradeVerdict.incorrect,
+    };
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final thanks = AppLocalizations.of(context).disagreeThanks;
+    final saved = await _record(
+      choice.rating,
+      disagreement: DisagreementInput(
+        verdict: verdict,
+        comment: choice.comment,
+      ),
+    );
+    // К этому моменту экран мог перейти к следующему вопросу.
+    if (saved) {
+      messenger
+        ?..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(thanks)));
+    }
+  }
+
+  Future<void> _openDisagree(AnswerOutcome outcome) async {
+    if (_saving) return;
+    final l10n = AppLocalizations.of(context);
+    final suggested = suggestRating(outcome).rating;
+    if (suggested == null) return;
+    final choice = await showDisagreeSheet(
+      context,
+      verdictLabel: _verdictWord(l10n, outcome),
+      suggested: suggested,
+    );
+    if (choice == null || !mounted) return;
+    await _disagree(outcome, choice);
+  }
+
+  /// `true` — ответ записан.
+  Future<bool> _record(Rating rating, {DisagreementInput? disagreement}) async {
     final result = _result;
-    if (result == null || _saving) return;
+    if (result == null || _saving) return false;
     final suggestion = suggestRating(result.outcome);
     setState(() {
       _saving = true;
@@ -99,18 +153,31 @@ class _SessionQuestionStepState extends ConsumerState<SessionQuestionStep> {
           .read(sessionControllerProvider.notifier)
           .submit(
             rating: rating,
-            gradeSource: suggestion.sourceFor(rating),
+            gradeSource: disagreement == null
+                ? suggestion.sourceFor(rating)
+                : GradeSource.override,
             durationMs: _durationMs,
             answerText: result.answerText,
             llmScore: result.llmScore,
+            disagreement: disagreement,
           );
+      return true;
     } on AppError {
       // Вопрос остался текущим (SessionController), можно оценить ещё раз.
       if (mounted) setState(() => _saveFailed = true);
+      return false;
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
+
+  /// Вердикт ИИ словами; только для `llm*` (у остальных нет «не согласен»).
+  static String _verdictWord(AppLocalizations l10n, AnswerOutcome outcome) =>
+      switch (outcome) {
+        AnswerOutcome.llmCorrect => l10n.verdictCorrect,
+        AnswerOutcome.llmPartial => l10n.verdictPartial,
+        _ => l10n.verdictIncorrect,
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -161,6 +228,24 @@ class _SessionQuestionStepState extends ConsumerState<SessionQuestionStep> {
               if (result != null) ...[
                 const SizedBox(height: 16),
                 VerdictBanner(outcome: result.outcome),
+                // «Не согласен с оценкой» — только после вердикта ИИ (ТЗ M11)
+                // и пока ответ не записан.
+                if (_isLlmVerdict(result.outcome) &&
+                    (result.answerText ?? '').isNotEmpty)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      key: const Key('disagree-button'),
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(48, 48),
+                      ),
+                      onPressed: _saving
+                          ? null
+                          : () => _openDisagree(result.outcome),
+                      icon: const Icon(Icons.rate_review_outlined),
+                      label: Text(l10n.disagreeButton),
+                    ),
+                  ),
                 const SizedBox(height: 16),
                 KeyedSubtree(
                   key: _panelKey,
@@ -183,10 +268,17 @@ class _SessionQuestionStepState extends ConsumerState<SessionQuestionStep> {
                 ],
                 // Разбор по желанию (ТЗ §8.2, п. 3, M6) ниже панели оценки:
                 // не блокирует ни оценку, ни «Дальше» (AC6.1).
-                // T20: рядом с ним — ⚑ «Пожаловаться».
                 const SizedBox(height: 16),
                 ExplanationPanel(
                   explanation: Explanation.of(widget.item.item, question),
+                ),
+                // ⚑ «Пожаловаться» (ТЗ M11): тоже ничего не блокирует.
+                const SizedBox(height: 8),
+                ReportQuestionButton(
+                  deckId: widget.item.item.deckId,
+                  deckVersion: widget.item.deckVersion,
+                  questionId: question.id,
+                  questionText: question.prompt,
                 ),
               ],
             ],

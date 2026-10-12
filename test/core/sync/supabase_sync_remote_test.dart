@@ -7,6 +7,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:mater_studorium/core/errors/app_error.dart';
 import 'package:mater_studorium/core/sync/data/supabase_sync_remote.dart';
+import 'package:mater_studorium/features/reports/domain/report.dart';
+import 'package:mater_studorium/features/reports/domain/report_reason.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../helpers/sync_fixtures.dart';
@@ -196,5 +198,121 @@ void main() {
         isA<NetworkError>(),
       );
     });
+  });
+
+  group('жалобы и скрытые вопросы (T20, ADR-33)', () {
+    final report = Report.question(
+      id: 'aaaaaaaa-0000-4000-8000-000000000001',
+      deckId: 'infosec',
+      deckVersion: 1,
+      questionId: 'xss.q1',
+      reason: ReportReason.typo,
+      comment: 'опечатка',
+      questionText: 'Что такое XSS?',
+    );
+
+    test('submit_report: тело — p_user_id и отчёт; ответ true/false', () async {
+      restReply = (req) => _json(req, true);
+      final remote = SupabaseSyncRemote(await clientAs(userA));
+      expect(await remote.submitReport(userA, report), isTrue);
+      expect(rest.single.url.path, '/rest/v1/rpc/submit_report');
+      final body = jsonDecode(rest.single.body) as Map<String, dynamic>;
+      expect(body['p_user_id'], userA);
+      expect(body['p_report'], report.toJson());
+      expect(body['p_report'], isNot(contains('user_id')));
+
+      restReply = (req) => _json(req, false);
+      expect(await remote.submitReport(userA, report), isFalse);
+    });
+
+    test('submit_report: ответ не bool — UnexpectedError', () async {
+      restReply = (req) => _json(req, 'ok');
+      final remote = SupabaseSyncRemote(await clientAs(userA));
+      await expectLater(
+        remote.submitReport(userA, report),
+        throwsA(isA<UnexpectedError>()),
+      );
+    });
+
+    test(
+      'сессия другого пользователя и нет сессии — AuthError без запроса',
+      () async {
+        await expectLater(
+          SupabaseSyncRemote(await clientAs(userB)).submitReport(userA, report),
+          throwsA(isA<AuthError>()),
+        );
+        await expectLater(
+          SupabaseSyncRemote(await clientAs(null)).pullHiddenQuestions(userA),
+          throwsA(isA<AuthError>()),
+        );
+        await expectLater(
+          SupabaseSyncRemote(await clientAs(userB)).pullHiddenQuestions(userA),
+          throwsA(isA<AuthError>()),
+        );
+        expect(rest, isEmpty);
+      },
+    );
+
+    Future<Object?> submitError(Map<String, Object?> body, int status) async {
+      restReply = (req) => _json(req, body, status);
+      final remote = SupabaseSyncRemote(await clientAs(userA));
+      try {
+        await remote.submitReport(userA, report);
+      } on Object catch (e) {
+        return e;
+      }
+      return null;
+    }
+
+    test(
+      'MS429 (дневной лимит) — QuotaExceededError, не сеть и не отказ',
+      () async {
+        expect(
+          await submitError({'code': 'MS429', 'message': 'лимит'}, 400),
+          isA<QuotaExceededError>(),
+        );
+      },
+    );
+
+    test('23503 (колода не найдена) и 23514 (CHECK) — SyncRejectedError; '
+        '42501 — AuthError; 5xx — NetworkError', () async {
+      expect(
+        await submitError({'code': '23503', 'message': 'нет колоды'}, 409),
+        isA<SyncRejectedError>(),
+      );
+      expect(
+        await submitError({'code': '23514', 'message': 'check'}, 400),
+        isA<SyncRejectedError>(),
+      );
+      expect(
+        await submitError({'code': '42501', 'message': 'denied'}, 403),
+        isA<AuthError>(),
+      );
+      expect(
+        await submitError({'code': '55P03', 'message': 'lock'}, 500),
+        isA<NetworkError>(),
+      );
+    });
+
+    test('hidden_questions: массив строк; мусор пропускается', () async {
+      restReply = (req) => _json(req, ['a.q1', 'b.q2', 5, '', null, 'a.q1']);
+      final remote = SupabaseSyncRemote(await clientAs(userA));
+      expect(await remote.pullHiddenQuestions(userA), {'a.q1', 'b.q2'});
+      expect(rest.single.url.path, '/rest/v1/rpc/hidden_questions');
+    });
+
+    test(
+      'hidden_questions: не массив — UnexpectedError, пустой — пусто',
+      () async {
+        restReply = (req) => _json(req, {'a': 1});
+        final remote = SupabaseSyncRemote(await clientAs(userA));
+        await expectLater(
+          remote.pullHiddenQuestions(userA),
+          throwsA(isA<UnexpectedError>()),
+        );
+        restReply = (req) => _json(req, <Object>[]);
+        expect(await remote.pullHiddenQuestions(userA), isEmpty);
+      },
+    );
   });
 }

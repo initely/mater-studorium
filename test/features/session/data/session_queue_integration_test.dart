@@ -108,7 +108,7 @@ void main() {
       downloadedAt: t0,
     );
     // t.b и big.1 скрыты целиком, у t.a и big.2 скрыт первый вопрос.
-    await db.decksDao.replaceHiddenQuestions({
+    await db.decksDao.replaceServerHiddenQuestions({
       't.b.q1',
       't.b.q2',
       't.a.q1',
@@ -246,7 +246,11 @@ void main() {
   group('DriftSessionRepository', () {
     test('contentFor: версия колоды и только видимые вопросы', () async {
       final db = await dbWithDecks();
-      await db.decksDao.replaceHiddenQuestions({'t.a.q1', 't.b.q1', 't.b.q2'});
+      await db.decksDao.replaceServerHiddenQuestions({
+        't.a.q1',
+        't.b.q1',
+        't.b.q2',
+      });
 
       final content = await repositoryFor(db)
           .contentFor({'t.a', 't.b', 'big.1', 'нет'});

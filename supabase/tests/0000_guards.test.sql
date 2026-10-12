@@ -55,6 +55,14 @@ select is_empty(
 --      при p_user_id <> auth.uid() отказ 42501; лимит пакета 500; значения
 --      проверяют ограничения таблиц. Открыты только authenticated (не anon):
 --      это проверяет тест 0003_sync.test.sql.
+--    Allowlist (T20, миграция 0005_reports.sql, ADR-33):
+--    * submit_report — пишет только строку auth.uid() (user_id из JSON
+--      игнорируется), без входа и при p_user_id <> auth.uid() отказ 42501,
+--      идемпотентна по id, лимит 30 в сутки, значения проверяют ограничения
+--      таблицы. Открыта только authenticated: тест 0005_reports.test.sql.
+--    * hidden_questions — отдаёт только id вопросов с жалобами двух и более
+--      разных пользователей (кто и почему жаловался, не раскрывается); без
+--      входа отказ 42501. Читает чужие строки reports, поэтому definer.
 --    Allowlist по oid (имя плюс типы аргументов), а не по имени: иначе
 --    перегрузка `public.insert_review_logs(jsonb)` с тем же именем прошла
 --    бы страж. 5-я проверка ниже дополнительно требует, чтобы anon не имел
@@ -66,7 +74,9 @@ select is_empty(
       where n.nspname = 'public'
         and p.prosecdef
         and p.oid not in ('public.insert_review_logs(uuid,jsonb)'::regprocedure,
-                          'public.upsert_item_states(uuid,jsonb)'::regprocedure)
+                          'public.upsert_item_states(uuid,jsonb)'::regprocedure,
+                          'public.submit_report(uuid,jsonb)'::regprocedure,
+                          'public.hidden_questions()'::regprocedure)
         and (has_function_privilege('anon', p.oid, 'execute')
              or has_function_privilege('authenticated', p.oid, 'execute')) $$,
   'security definer функции не открыты клиентским ролям (кроме allowlist)'

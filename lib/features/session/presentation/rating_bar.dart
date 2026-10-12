@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/l10n/app_localizations.dart';
 import '../../srs/domain/rating.dart';
 import '../../srs/domain/rating_suggester.dart';
+import '../../srs/presentation/rating_label.dart';
 
 /// Панель оценки: четыре кнопки, предложенная выделена (заливка, галочка и
 /// подпись «предложено», не только цвет), и «Дальше», которая принимает
@@ -42,7 +43,7 @@ class RatingBar extends StatelessWidget {
         Text(
           suggested == null
               ? l10n.ratingChooseHint
-              : l10n.ratingSuggestedHint(_label(l10n, suggested)),
+              : l10n.ratingSuggestedHint(ratingLabel(l10n, suggested)),
           key: const Key('rating-hint'),
           style: theme.textTheme.bodyMedium,
         ),
@@ -61,7 +62,7 @@ class RatingBar extends StatelessWidget {
                     width: width,
                     child: _RatingButton(
                       key: Key('rating-${rating.name}'),
-                      label: _label(l10n, rating),
+                      label: ratingLabel(l10n, rating),
                       suggested: rating == suggested,
                       onPressed: enabled ? () => onRate(rating) : null,
                     ),
@@ -83,13 +84,6 @@ class RatingBar extends StatelessWidget {
     );
   }
 }
-
-String _label(AppLocalizations l10n, Rating rating) => switch (rating) {
-  Rating.again => l10n.ratingAgain,
-  Rating.hard => l10n.ratingHard,
-  Rating.good => l10n.ratingGood,
-  Rating.easy => l10n.ratingEasy,
-};
 
 class _RatingButton extends StatelessWidget {
   const _RatingButton({

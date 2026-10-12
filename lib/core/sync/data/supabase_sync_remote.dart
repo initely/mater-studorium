@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../features/catalog/domain/question_type.dart';
+import '../../../features/reports/domain/report.dart';
 import '../../../features/session/domain/grade_source.dart';
 import '../../../features/session/domain/review_log.dart';
 import '../../../features/srs/domain/item_state.dart';
@@ -117,6 +118,34 @@ class SupabaseSyncRemote implements SyncRemote {
     });
   });
 
+  @override
+  Future<bool> submitReport(String userId, Report report) =>
+      _guard(userId, () async {
+        final created = await _client.rpc<dynamic>(
+          'submit_report',
+          params: {'p_user_id': userId, 'p_report': report.toJson()},
+        );
+        if (created is! bool) {
+          throw const UnexpectedError('submit_report: ответ не bool');
+        }
+        return created;
+      });
+
+  @override
+  Future<Set<String>> pullHiddenQuestions(String userId) =>
+      _guard(userId, () async {
+        final rows = await _client.rpc<dynamic>('hidden_questions');
+        if (rows is! List) {
+          throw const UnexpectedError('hidden_questions: ответ не массив');
+        }
+        // Не строка — мусор: пропускается (лучше показать вопрос, чем
+        // потерять весь список).
+        return {
+          for (final id in rows)
+            if (id is String && id.isNotEmpty) id,
+        };
+      });
+
   PulledPage<T> _page<T>(
     List<Map<String, dynamic>> rows,
     T? Function(Map<String, dynamic> row) parse,
@@ -178,6 +207,15 @@ AppError mapSyncRemoteError(Object e) {
       final status = code != null && RegExp(r'^[1-5]\d\d$').hasMatch(code)
           ? int.parse(code)
           : null;
+      // MS429 — дневной лимит жалоб (`submit_report`, 0005_reports.sql):
+      // не сеть (иначе один исчерпанный лимит останавливал бы весь синк) и
+      // не отказ пакета; повторить можно после полуночи UTC.
+      if (code == 'MS429') {
+        return QuotaExceededError(
+          'Лимит жалоб на сегодня исчерпан: $message',
+          cause: e,
+        );
+      }
       // 55P03 — lock_timeout в RPC (запись того же пользователя ждала
       // блокировку дольше 3 с): временное, повтор с паузой.
       if ((status != null && (status >= 500 || status == 429)) ||

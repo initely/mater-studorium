@@ -2,6 +2,8 @@ import '../../../core/db/decks_dao.dart';
 import '../../../core/db/review_dao.dart';
 import '../../../core/errors/app_error.dart';
 import '../../catalog/domain/local_item.dart';
+import '../../reports/domain/report.dart';
+import '../../reports/domain/report_outbox.dart';
 import '../../srs/domain/item_state.dart';
 import '../domain/item_content.dart';
 import '../domain/review_log.dart';
@@ -78,8 +80,14 @@ class DriftSessionRepository implements SessionRepository {
   Future<void> recordReview({
     required ReviewLog log,
     required ItemState state,
+    Report? report,
   }) => _guard(
-    () => _review.recordReview(userId: _userId(), log: log, state: state),
+    () => _review.recordReview(
+      userId: _userId(),
+      log: log,
+      state: state,
+      outbox: [if (report != null) reportOutboxEntry(report, log.reviewedAt)],
+    ),
   );
 
   static Future<T> _guard<T>(Future<T> Function() action) async {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +12,10 @@ import 'package:mater_studorium/core/sync/data/sync_providers.dart';
 import 'package:mater_studorium/core/utils/clock.dart';
 import 'package:mater_studorium/core/utils/uuid.dart';
 import 'package:mater_studorium/features/catalog/domain/local_item.dart';
+import 'package:mater_studorium/features/grading/domain/open_grade.dart';
+import 'package:mater_studorium/features/reports/domain/disagreement_input.dart';
+import 'package:mater_studorium/features/reports/domain/report.dart';
+import 'package:mater_studorium/features/reports/domain/report_reason.dart';
 import 'package:mater_studorium/features/session/data/session_providers.dart';
 import 'package:mater_studorium/features/session/domain/grade_source.dart';
 import 'package:mater_studorium/features/session/domain/item_content.dart';
@@ -455,6 +460,84 @@ void main() {
     });
   });
 
+  group('«не согласен» (T20, M11)', () {
+    test('submit с disagreement: лог override и report в очереди одной '
+        'записью; выбранная оценка и вердикт', () async {
+      final h = Harness(
+        await dbWithBigDeck(n: 2),
+        ids: (() {
+          var n = 0;
+          return () =>
+              'aaaaaaaa-0000-4000-8000-${(++n).toString().padLeft(12, '0')}';
+        })(),
+      );
+      addTearDown(h.container.dispose);
+      await h.controller.start();
+      final question = h.state.current!.question;
+
+      await h.controller.submit(
+        rating: Rating.easy,
+        gradeSource: GradeSource.override,
+        durationMs: 900,
+        answerText: 'мой ответ',
+        llmScore: 0.3,
+        disagreement: const DisagreementInput(
+          verdict: GradeVerdict.incorrect,
+          comment: ' ИИ ошибся ',
+        ),
+      );
+
+      final log = (await h.db.select(h.db.reviewLogs).get()).single;
+      expect((log.gradeSource, log.rating), ('override', Rating.easy.code));
+      final queued = await h.db.select(h.db.outbox).get();
+      expect(queued.single.userId, sessionUser);
+      expect(queued.single.createdAt.toUtc(), log.reviewedAt.toUtc());
+      final report = Report.fromJson(jsonDecode(queued.single.payloadJson));
+      expect(report.id, 'aaaaaaaa-0000-4000-8000-000000000002');
+      expect(report.reason, ReportReason.gradingDisagree);
+      expect(report.questionId, question.id);
+      expect((report.deckId, report.deckVersion), ('big', 4));
+      expect(report.comment, 'ИИ ошибся');
+      expect(report.questionText, question.prompt);
+      final d = report.disagreement!;
+      expect(d.answerText, 'мой ответ');
+      expect(d.verdict, GradeVerdict.incorrect);
+      expect(d.llmScore, 0.3);
+      expect(d.userRating, Rating.easy);
+      // Сессия пошла дальше, как после обычной оценки.
+      expect(h.state.index, 1);
+    });
+
+    test('обычный submit report не создаёт', () async {
+      final h = Harness(await dbWithBigDeck(n: 2));
+      addTearDown(h.container.dispose);
+      await h.controller.start();
+      await h.submit();
+      expect(await h.db.select(h.db.outbox).get(), isEmpty);
+    });
+
+    test('сбой записи: ни лога, ни report, вопрос остаётся текущим', () async {
+      final h = Harness(await dbWithBigDeck(n: 2));
+      addTearDown(h.container.dispose);
+      await h.controller.start();
+      await h.db.customStatement('ALTER TABLE outbox RENAME TO outbox_off');
+
+      await expectLater(
+        h.controller.submit(
+          rating: Rating.hard,
+          gradeSource: GradeSource.override,
+          durationMs: 1,
+          answerText: 'a',
+          disagreement: const DisagreementInput(verdict: GradeVerdict.partial),
+        ),
+        throwsA(isA<LocalStorageError>()),
+      );
+      expect(await h.db.select(h.db.reviewLogs).get(), isEmpty);
+      expect(await h.db.select(h.db.userItemStates).get(), isEmpty);
+      expect(h.state.index, 0);
+    });
+  });
+
   group('AC3.2: сессию прервали', () {
     test('уже данные ответы сохранены, FSRS обновлён, при перезапуске очередь продолжается', () async {
       final db = await dbWithBigDeck(n: 5);
@@ -530,9 +613,10 @@ class _GatedRepository implements SessionRepository {
   Future<void> recordReview({
     required ReviewLog log,
     required ItemState state,
+    Report? report,
   }) async {
     await _gate;
-    await _inner.recordReview(log: log, state: state);
+    await _inner.recordReview(log: log, state: state, report: report);
   }
 
   @override

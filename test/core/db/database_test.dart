@@ -9,7 +9,7 @@ import '../../helpers/db_fixtures.dart';
 void main() {
   test('БД создаётся в памяти: таблицы и индексы по ТЗ', () async {
     final db = memoryDb();
-    expect(db.schemaVersion, 4);
+    expect(db.schemaVersion, 5);
 
     final master = await db
         .customSelect('SELECT type, name FROM sqlite_master')

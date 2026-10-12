@@ -3519,8 +3519,18 @@ class $HiddenQuestionsTable extends HiddenQuestions
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _sourceMeta = const VerificationMeta('source');
   @override
-  List<GeneratedColumn> get $columns => [questionId];
+  late final GeneratedColumn<String> source = GeneratedColumn<String>(
+    'source',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('server'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [questionId, source];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -3541,6 +3551,12 @@ class $HiddenQuestionsTable extends HiddenQuestions
     } else if (isInserting) {
       context.missing(_questionIdMeta);
     }
+    if (data.containsKey('source')) {
+      context.handle(
+        _sourceMeta,
+        source.isAcceptableOrUnknown(data['source']!, _sourceMeta),
+      );
+    }
     return context;
   }
 
@@ -3554,6 +3570,10 @@ class $HiddenQuestionsTable extends HiddenQuestions
         DriftSqlType.string,
         data['${effectivePrefix}question_id'],
       )!,
+      source: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source'],
+      )!,
     );
   }
 
@@ -3566,16 +3586,23 @@ class $HiddenQuestionsTable extends HiddenQuestions
 class HiddenQuestionRow extends DataClass
     implements Insertable<HiddenQuestionRow> {
   final String questionId;
-  const HiddenQuestionRow({required this.questionId});
+
+  /// `server` (по умолчанию: так хранились все скрытые до v5) или `local`.
+  final String source;
+  const HiddenQuestionRow({required this.questionId, required this.source});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['question_id'] = Variable<String>(questionId);
+    map['source'] = Variable<String>(source);
     return map;
   }
 
   HiddenQuestionsCompanion toCompanion(bool nullToAbsent) {
-    return HiddenQuestionsCompanion(questionId: Value(questionId));
+    return HiddenQuestionsCompanion(
+      questionId: Value(questionId),
+      source: Value(source),
+    );
   }
 
   factory HiddenQuestionRow.fromJson(
@@ -3585,6 +3612,7 @@ class HiddenQuestionRow extends DataClass
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return HiddenQuestionRow(
       questionId: serializer.fromJson<String>(json['questionId']),
+      source: serializer.fromJson<String>(json['source']),
     );
   }
   @override
@@ -3592,62 +3620,77 @@ class HiddenQuestionRow extends DataClass
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'questionId': serializer.toJson<String>(questionId),
+      'source': serializer.toJson<String>(source),
     };
   }
 
-  HiddenQuestionRow copyWith({String? questionId}) =>
-      HiddenQuestionRow(questionId: questionId ?? this.questionId);
+  HiddenQuestionRow copyWith({String? questionId, String? source}) =>
+      HiddenQuestionRow(
+        questionId: questionId ?? this.questionId,
+        source: source ?? this.source,
+      );
   HiddenQuestionRow copyWithCompanion(HiddenQuestionsCompanion data) {
     return HiddenQuestionRow(
       questionId: data.questionId.present
           ? data.questionId.value
           : this.questionId,
+      source: data.source.present ? data.source.value : this.source,
     );
   }
 
   @override
   String toString() {
     return (StringBuffer('HiddenQuestionRow(')
-          ..write('questionId: $questionId')
+          ..write('questionId: $questionId, ')
+          ..write('source: $source')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => questionId.hashCode;
+  int get hashCode => Object.hash(questionId, source);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is HiddenQuestionRow && other.questionId == this.questionId);
+      (other is HiddenQuestionRow &&
+          other.questionId == this.questionId &&
+          other.source == this.source);
 }
 
 class HiddenQuestionsCompanion extends UpdateCompanion<HiddenQuestionRow> {
   final Value<String> questionId;
+  final Value<String> source;
   final Value<int> rowid;
   const HiddenQuestionsCompanion({
     this.questionId = const Value.absent(),
+    this.source = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   HiddenQuestionsCompanion.insert({
     required String questionId,
+    this.source = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : questionId = Value(questionId);
   static Insertable<HiddenQuestionRow> custom({
     Expression<String>? questionId,
+    Expression<String>? source,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (questionId != null) 'question_id': questionId,
+      if (source != null) 'source': source,
       if (rowid != null) 'rowid': rowid,
     });
   }
 
   HiddenQuestionsCompanion copyWith({
     Value<String>? questionId,
+    Value<String>? source,
     Value<int>? rowid,
   }) {
     return HiddenQuestionsCompanion(
       questionId: questionId ?? this.questionId,
+      source: source ?? this.source,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3657,6 +3700,9 @@ class HiddenQuestionsCompanion extends UpdateCompanion<HiddenQuestionRow> {
     final map = <String, Expression>{};
     if (questionId.present) {
       map['question_id'] = Variable<String>(questionId.value);
+    }
+    if (source.present) {
+      map['source'] = Variable<String>(source.value);
     }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
@@ -3668,6 +3714,7 @@ class HiddenQuestionsCompanion extends UpdateCompanion<HiddenQuestionRow> {
   String toString() {
     return (StringBuffer('HiddenQuestionsCompanion(')
           ..write('questionId: $questionId, ')
+          ..write('source: $source, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -6352,11 +6399,13 @@ typedef $$OutboxTableProcessedTableManager =
 typedef $$HiddenQuestionsTableCreateCompanionBuilder =
     HiddenQuestionsCompanion Function({
       required String questionId,
+      Value<String> source,
       Value<int> rowid,
     });
 typedef $$HiddenQuestionsTableUpdateCompanionBuilder =
     HiddenQuestionsCompanion Function({
       Value<String> questionId,
+      Value<String> source,
       Value<int> rowid,
     });
 
@@ -6371,6 +6420,11 @@ class $$HiddenQuestionsTableFilterComposer
   });
   ColumnFilters<String> get questionId => $composableBuilder(
     column: $table.questionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get source => $composableBuilder(
+    column: $table.source,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -6388,6 +6442,11 @@ class $$HiddenQuestionsTableOrderingComposer
     column: $table.questionId,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$HiddenQuestionsTableAnnotationComposer
@@ -6403,6 +6462,9 @@ class $$HiddenQuestionsTableAnnotationComposer
     column: $table.questionId,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get source =>
+      $composableBuilder(column: $table.source, builder: (column) => column);
 }
 
 class $$HiddenQuestionsTableTableManager
@@ -6440,16 +6502,24 @@ class $$HiddenQuestionsTableTableManager
               $$HiddenQuestionsTableOrderingComposer($db: db, $table: table),
           createComputedFieldComposer: () =>
               $$HiddenQuestionsTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback: ({
-            Value<String> questionId = const Value.absent(),
-            Value<int> rowid = const Value.absent(),
-          }) => HiddenQuestionsCompanion(questionId: questionId, rowid: rowid),
+          updateCompanionCallback:
+              ({
+                Value<String> questionId = const Value.absent(),
+                Value<String> source = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => HiddenQuestionsCompanion(
+                questionId: questionId,
+                source: source,
+                rowid: rowid,
+              ),
           createCompanionCallback:
               ({
                 required String questionId,
+                Value<String> source = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => HiddenQuestionsCompanion.insert(
                 questionId: questionId,
+                source: source,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

@@ -3,6 +3,7 @@ import 'package:mater_studorium/features/catalog/domain/payload_parts.dart';
 import 'package:mater_studorium/features/catalog/domain/question.dart';
 import 'package:mater_studorium/features/catalog/domain/question_payload.dart';
 import 'package:mater_studorium/features/catalog/domain/question_type.dart';
+import 'package:mater_studorium/features/reports/domain/report.dart';
 import 'package:mater_studorium/features/session/domain/grade_source.dart';
 import 'package:mater_studorium/features/session/domain/item_content.dart';
 import 'package:mater_studorium/features/session/domain/review_log.dart';
@@ -126,6 +127,9 @@ class FakeSessionRepository implements SessionRepository {
   final Map<String, ItemState> states;
   final List<ReviewLog> logs;
 
+  /// Жалобы «не согласен», записанные вместе с ответом.
+  final List<Report> reports = [];
+
   /// Знания, которых `contentFor` не отдаёт (вопросы скрыли, пока строилась
   /// очередь), хотя `dueStates`/`newItems` их вернули.
   final Set<String> missingContent = {};
@@ -229,8 +233,10 @@ class FakeSessionRepository implements SessionRepository {
   Future<void> recordReview({
     required ReviewLog log,
     required ItemState state,
+    Report? report,
   }) async {
     logs.add(log);
     states[state.itemId] = state;
+    if (report != null) reports.add(report);
   }
 }

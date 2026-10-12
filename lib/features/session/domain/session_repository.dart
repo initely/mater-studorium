@@ -1,4 +1,5 @@
 import '../../catalog/domain/local_item.dart';
+import '../../reports/domain/report.dart';
 import '../../srs/domain/item_state.dart';
 import 'item_content.dart';
 import 'review_log.dart';
@@ -38,7 +39,13 @@ abstract interface class SessionRepository {
   Future<Map<String, DateTime>> lastShownAt(Set<String> itemIds);
 
   /// Пишет ответ: [log] и новое [state] одной транзакцией (CLAUDE.md,
-  /// «Как не ломать архитектуру», п. 4). Ошибка хранилища — `LocalStorageError`,
-  /// ничего не записано.
-  Future<void> recordReview({required ReviewLog log, required ItemState state});
+  /// «Как не ломать архитектуру», п. 4). Если пользователь не согласен с
+  /// оценкой ИИ, [report] (`grading_disagree`, ТЗ M11) ставится в очередь
+  /// отправки в той же транзакции: оценка и жалоба на неё не расходятся.
+  /// Ошибка хранилища — `LocalStorageError`, ничего не записано.
+  Future<void> recordReview({
+    required ReviewLog log,
+    required ItemState state,
+    Report? report,
+  });
 }

@@ -4,6 +4,10 @@ import 'package:drift/drift.dart';
 
 import '../sync/outbox_entry.dart';
 
+/// Значения `hidden_questions.source`.
+const kHiddenSourceServer = 'server';
+const kHiddenSourceLocal = 'local';
+
 // Суффикс Row: имена Deck, Question и т.п. заняты доменными моделями.
 
 /// Скачанные колоды.
@@ -156,10 +160,17 @@ class Outbox extends Table {
   IntColumn get attempts => integer().withDefault(const Constant(0))();
 }
 
-/// Вопросы, скрытые по жалобам (приходят с сервера).
+/// Скрытые вопросы (не показываются в сессии). Два источника (schema v5,
+/// T20, ADR-33): [source] `server` — вопрос скрыт по жалобам разных
+/// пользователей (pull `hidden_questions()`, заменяется целиком при каждом
+/// pull); `local` — пользователь сам пожаловался на вопрос: он скрыт у него
+/// сразу, ещё до отправки жалобы, и не возвращается решением сервера.
 @DataClassName('HiddenQuestionRow')
 class HiddenQuestions extends Table {
   TextColumn get questionId => text()();
+
+  /// `server` (по умолчанию: так хранились все скрытые до v5) или `local`.
+  TextColumn get source => text().withDefault(const Constant('server'))();
 
   @override
   Set<Column> get primaryKey => {questionId};

@@ -6,6 +6,8 @@ import '../../../core/sync/data/sync_providers.dart';
 import '../../../core/utils/clock.dart';
 import '../../../core/utils/uuid.dart';
 import '../../reminders/presentation/reminder_controller.dart';
+import '../../reports/domain/disagreement_input.dart';
+import '../../reports/domain/report.dart';
 import '../../srs/domain/rating.dart';
 import '../../srs/domain/scheduler.dart';
 import '../data/session_providers.dart';
@@ -51,12 +53,18 @@ class SessionController extends Notifier<SessionState> {
   /// вопрос, а если очередь кончилась или вышло время (начатый вопрос
   /// дописывается) — [SessionStatus.finished]. При ошибке записи
   /// (`LocalStorageError`) вопрос остаётся текущим, можно повторить.
+  ///
+  /// [disagreement] — «не согласен с оценкой ИИ» (ТЗ M11): вместе с ответом
+  /// одной транзакцией ставится в очередь отправки report `grading_disagree`
+  /// (ответ, вердикт, балл и выбранная [rating]); [gradeSource] тогда —
+  /// `override`.
   Future<void> submit({
     required Rating rating,
     required GradeSource gradeSource,
     required int durationMs,
     String? answerText,
     double? llmScore,
+    DisagreementInput? disagreement,
   }) async {
     final current = state.current;
     if (current == null || _submitting) return;
@@ -80,9 +88,23 @@ class SessionController extends Notifier<SessionState> {
         durationMs: durationMs,
         reviewedAt: now,
       );
+      final report = disagreement == null
+          ? null
+          : Report.disagreement(
+              id: ref.read(uuidGeneratorProvider)(),
+              deckId: log.deckId,
+              deckVersion: log.deckVersion,
+              questionId: log.questionId,
+              answerText: answerText ?? '',
+              verdict: disagreement.verdict,
+              userRating: rating,
+              llmScore: llmScore,
+              comment: disagreement.comment,
+              questionText: current.question.prompt,
+            );
       await ref
           .read(sessionRepositoryProvider)
-          .recordReview(log: log, state: newState);
+          .recordReview(log: log, state: newState, report: report);
       if (!ref.mounted) return;
       final next = state.index + 1;
       // Завершили вручную, пока писался ответ: остаётся finished.

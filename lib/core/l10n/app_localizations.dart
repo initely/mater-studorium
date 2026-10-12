@@ -1311,6 +1311,126 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Текст ответа отправляется внешней модели. Если выключить, вы оцениваете себя сами по эталону.'**
   String get settingsLlmConsentSubtitle;
+
+  /// Кнопка под разбором: пожаловаться на вопрос (⚑, ТЗ M11)
+  ///
+  /// In ru, this message translates to:
+  /// **'Пожаловаться'**
+  String get reportButton;
+
+  /// Кнопка после жалобы на этот вопрос: недоступна
+  ///
+  /// In ru, this message translates to:
+  /// **'Жалоба отправлена'**
+  String get reportButtonSent;
+
+  /// Заголовок шторки жалобы
+  ///
+  /// In ru, this message translates to:
+  /// **'На что пожаловаться?'**
+  String get reportSheetTitle;
+
+  /// Пояснение в шторке жалобы: вопрос скрывается у автора жалобы
+  ///
+  /// In ru, this message translates to:
+  /// **'Вопрос перестанет показываться вам сразу. Куратор проверит его.'**
+  String get reportSheetHint;
+
+  /// Причина жалобы: в вопросе или ответе фактическая ошибка
+  ///
+  /// In ru, this message translates to:
+  /// **'Неверный ответ'**
+  String get reportReasonWrongAnswer;
+
+  /// Причина жалобы: вопрос или разбор непонятны
+  ///
+  /// In ru, this message translates to:
+  /// **'Непонятно'**
+  String get reportReasonUnclear;
+
+  /// Причина жалобы: опечатка в тексте
+  ///
+  /// In ru, this message translates to:
+  /// **'Опечатка'**
+  String get reportReasonTypo;
+
+  /// Причина жалобы: ссылка не подтверждает ответ или не открывается
+  ///
+  /// In ru, this message translates to:
+  /// **'Плохой источник'**
+  String get reportReasonBadSource;
+
+  /// Причина жалобы: другое
+  ///
+  /// In ru, this message translates to:
+  /// **'Другое'**
+  String get reportReasonOther;
+
+  /// Подпись поля комментария к жалобе или к «не согласен»
+  ///
+  /// In ru, this message translates to:
+  /// **'Комментарий (необязательно)'**
+  String get reportCommentLabel;
+
+  /// Кнопка отправки жалобы
+  ///
+  /// In ru, this message translates to:
+  /// **'Отправить'**
+  String get reportSend;
+
+  /// Закрыть шторку жалобы без отправки
+  ///
+  /// In ru, this message translates to:
+  /// **'Отмена'**
+  String get reportCancel;
+
+  /// Подтверждение после жалобы на вопрос
+  ///
+  /// In ru, this message translates to:
+  /// **'Спасибо! Вопрос скрыт у вас, куратор его проверит.'**
+  String get reportThanks;
+
+  /// Запись жалобы в локальную БД не удалась
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось сохранить жалобу. Попробуйте ещё раз.'**
+  String get reportError;
+
+  /// Кнопка после вердикта ИИ: оспорить оценку (ТЗ M11)
+  ///
+  /// In ru, this message translates to:
+  /// **'Не согласен с оценкой'**
+  String get disagreeButton;
+
+  /// Заголовок шторки «не согласен»
+  ///
+  /// In ru, this message translates to:
+  /// **'Не согласен с оценкой ИИ'**
+  String get disagreeSheetTitle;
+
+  /// Что произойдёт в «не согласен»; куратор получает ответ пользователя
+  ///
+  /// In ru, this message translates to:
+  /// **'ИИ оценил ответ: «{verdict}». Выберите оценку, которую считаете верной. Куратор увидит ваш ответ, вердикт ИИ и вашу оценку.'**
+  String disagreeSheetBody(String verdict);
+
+  /// Заголовок выбора своей оценки в «не согласен»
+  ///
+  /// In ru, this message translates to:
+  /// **'Моя оценка'**
+  String get disagreeRatingLabel;
+
+  /// Кнопка «не согласен»: записать свою оценку и отправить report
+  ///
+  /// In ru, this message translates to:
+  /// **'Отправить и продолжить'**
+  String get disagreeSend;
+
+  /// Подсказка после «не согласен»
+  ///
+  /// In ru, this message translates to:
+  /// **'Спасибо! Куратор посмотрит оценку.'**
+  String get disagreeThanks;
 }
 
 class _AppLocalizationsDelegate

@@ -91,7 +91,7 @@ void main() {
         deck.copyWith(version: 3, items: [deck.items[0], deck.items[1]]),
         downloadedAt: t0,
       ); // t.c retired
-      await db.decksDao.replaceHiddenQuestions({'t.b.q1', 't.b.q2'});
+      await db.decksDao.replaceServerHiddenQuestions({'t.b.q1', 't.b.q2'});
       await db.decksDao.hideQuestion('t.a.q1'); // у t.a остался q2
 
       final due = await db.reviewDao.dueStates(user, now: t0);
@@ -128,7 +128,7 @@ void main() {
         deck.copyWith(version: 3, items: [deck.items[0], deck.items[1]]),
         downloadedAt: t0,
       ); // t.c retired
-      await db.decksDao.replaceHiddenQuestions({'t.a.q1', 't.a.q2'});
+      await db.decksDao.replaceServerHiddenQuestions({'t.a.q1', 't.a.q2'});
 
       expect((await db.reviewDao.newItems(user)).map((i) => i.id), ['t.b']);
     });
@@ -173,7 +173,7 @@ void main() {
         );
 
         // t.c скрыт целиком, значит следующий — t.b.
-        await db.decksDao.replaceHiddenQuestions({'t.c.q1', 't.c.q2'});
+        await db.decksDao.replaceServerHiddenQuestions({'t.c.q1', 't.c.q2'});
         expect(
           await db.reviewDao.nextDue(user, after: t0),
           t0.add(const Duration(hours: 5)),

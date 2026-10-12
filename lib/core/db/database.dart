@@ -44,7 +44,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -68,6 +68,12 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(outbox, outbox.userId);
         await m.createTable(syncCursors);
         await m.createIndex(idxReviewLogsUnsynced);
+      }
+      if (from < 5) {
+        // T20: источник скрытия вопроса. До v5 в таблице были только
+        // серверные скрытые (pull ещё не было, hideQuestion не вызывали), так
+        // что значение по умолчанию `server` верно для существующих строк.
+        await m.addColumn(hiddenQuestions, hiddenQuestions.source);
       }
     },
     beforeOpen: (details) async {

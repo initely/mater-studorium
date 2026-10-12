@@ -2,10 +2,14 @@ import 'dart:async';
 
 import 'package:mater_studorium/core/errors/app_error.dart';
 import 'package:mater_studorium/core/sync/domain/sync_remote.dart';
+import 'package:mater_studorium/features/reports/domain/report.dart';
+import 'package:mater_studorium/features/reports/domain/report_reason.dart';
 import 'package:mater_studorium/features/session/domain/review_log.dart';
 import 'package:mater_studorium/features/srs/domain/item_state.dart';
 
-/// Сервер синхронизации в памяти с той же семантикой, что `0003_sync.sql`:
+/// Сервер синхронизации в памяти с той же семантикой, что `0003_sync.sql` и
+/// `0005_reports.sql` (жалобы: идемпотентно по id, одна жалоба на вопрос от
+/// пользователя, лимит [reportLimit] жалоб, отказ значения — [rejectReport]):
 /// логи только вставляются (повтор id ничего не делает), состояния — LWW
 /// строго по большему `updatedAt`, `updatedAt` из будущего зажимается к
 /// `now + 2 мин`, пакет больше 500 отклоняется, данные другого пользователя
@@ -51,6 +55,18 @@ class FakeSyncServer implements SyncRemote {
 
   var _seq = 0;
   final logs = <String, ({String userId, ReviewLog log, int seq})>{};
+
+  /// Жалобы по id.
+  final reports = <String, ({String userId, Report report})>{};
+
+  /// Сколько жалоб пользователь может отправить (на «сутки» теста).
+  int reportLimit = 30;
+
+  /// Жалоба, которую «сервер» не примет (как CHECK): `SyncRejectedError`.
+  bool Function(Report report)? rejectReport;
+
+  /// Список, который отдаёт `hidden_questions()`.
+  final hidden = <String>{};
   final states = <(String, String), ({ItemState state, int seq})>{};
 
   List<ReviewLog> logsOf(String userId) => [
@@ -191,4 +207,35 @@ class FakeSyncServer implements SyncRemote {
       lastSeq: page.isEmpty ? null : page.last.seq,
     );
   });
+
+  @override
+  Future<bool> submitReport(String userId, Report report) =>
+      _call('submitReport', userId, () {
+        if (rejectReport?.call(report) ?? false) {
+          throw const SyncRejectedError('fake: жалоба отклонена');
+        }
+        if (reports.containsKey(report.id)) return false;
+        final isDisagree = report.reason == ReportReason.gradingDisagree;
+        final mine = [
+          for (final e in reports.values)
+            if (e.userId == userId) e.report,
+        ];
+        if (!isDisagree &&
+            mine.any(
+              (r) =>
+                  r.questionId == report.questionId &&
+                  r.reason != ReportReason.gradingDisagree,
+            )) {
+          return false;
+        }
+        if (mine.length >= reportLimit) {
+          throw const QuotaExceededError('fake: лимит жалоб');
+        }
+        reports[report.id] = (userId: userId, report: report);
+        return true;
+      });
+
+  @override
+  Future<Set<String>> pullHiddenQuestions(String userId) =>
+      _call('pullHiddenQuestions', userId, () => {...hidden});
 }

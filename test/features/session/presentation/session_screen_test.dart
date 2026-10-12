@@ -13,6 +13,7 @@ import 'package:mater_studorium/features/catalog/domain/question.dart';
 import 'package:mater_studorium/features/catalog/domain/question_payload.dart';
 import 'package:mater_studorium/features/catalog/domain/question_type.dart';
 import 'package:mater_studorium/features/questions/registry.dart';
+import 'package:mater_studorium/features/reports/domain/report.dart';
 import 'package:mater_studorium/features/session/data/session_providers.dart';
 import 'package:mater_studorium/features/session/domain/grade_source.dart';
 import 'package:mater_studorium/features/session/domain/item_content.dart';
@@ -61,12 +62,13 @@ class _Repo extends FakeSessionRepository {
   Future<void> recordReview({
     required ReviewLog log,
     required ItemState state,
+    Report? report,
   }) async {
     if (failWrites > 0) {
       failWrites--;
       throw const LocalStorageError('запись не удалась');
     }
-    return super.recordReview(log: log, state: state);
+    return super.recordReview(log: log, state: state, report: report);
   }
 }
 

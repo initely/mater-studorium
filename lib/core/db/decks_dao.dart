@@ -224,20 +224,38 @@ class DecksDao extends DatabaseAccessor<AppDatabase> with _$DecksDaoMixin {
     return result;
   }
 
+  /// Скрывает вопрос у самого пользователя (жалоба, ТЗ M11): `source =
+  /// local`; уже скрытый сервером вопрос становится и локально скрытым.
   Future<void> hideQuestion(String questionId) => into(hiddenQuestions).insert(
-    HiddenQuestionsCompanion.insert(questionId: questionId),
-    mode: InsertMode.insertOrIgnore,
+    HiddenQuestionsCompanion.insert(
+      questionId: questionId,
+      source: const Value(kHiddenSourceLocal),
+    ),
+    mode: InsertMode.insertOrReplace,
   );
 
-  /// Заменяет список скрытых целиком (pull с сервера, ТЗ §7.3).
-  Future<void> replaceHiddenQuestions(Set<String> questionIds) =>
+  /// Возвращает вопрос, скрытый самим пользователем (`source = local`).
+  /// Скрытое сервером остаётся скрытым.
+  Future<void> unhideLocalQuestion(String questionId) =>
+      (delete(hiddenQuestions)..where(
+            (h) =>
+                h.questionId.equals(questionId) &
+                h.source.equals(kHiddenSourceLocal),
+          ))
+          .go();
+
+  /// Заменяет серверный список скрытых целиком (pull `hidden_questions()`,
+  /// ТЗ §7.3, шаг 5); `local` не трогает, при совпадении остаётся `local`.
+  Future<void> replaceServerHiddenQuestions(Set<String> questionIds) =>
       transaction(() async {
-        await delete(hiddenQuestions).go();
+        await (delete(
+          hiddenQuestions,
+        )..where((h) => h.source.equals(kHiddenSourceServer))).go();
         await batch(
           (b) => b.insertAll(hiddenQuestions, [
             for (final id in questionIds)
               HiddenQuestionsCompanion.insert(questionId: id),
-          ]),
+          ], mode: InsertMode.insertOrIgnore),
         );
       });
 

@@ -1,3 +1,4 @@
+import '../../../features/reports/domain/report.dart';
 import '../../../features/session/domain/review_log.dart';
 import '../../../features/srs/domain/item_state.dart';
 
@@ -58,6 +59,18 @@ abstract interface class SyncRemote {
     required int afterSeq,
     required int limit,
   });
+
+  /// Отправляет жалобу или «не согласен» (RPC `submit_report`, ТЗ M11, ADR-33).
+  /// Идемпотентно по `report.id`. Возвращает `true`, если сервер создал
+  /// строку, и `false`, если она уже была (повтор) или это вторая жалоба
+  /// пользователя на тот же вопрос. Дневной лимит жалоб — `QuotaExceededError`
+  /// (повторить после полуночи UTC), отказ сервера по значению —
+  /// `SyncRejectedError`.
+  Future<bool> submitReport(String userId, Report report);
+
+  /// Вопросы, скрытые по жалобам (RPC `hidden_questions`, ТЗ §5.3 п. 5,
+  /// шаг 5 §7.3): весь список целиком, не страница.
+  Future<Set<String>> pullHiddenQuestions(String userId);
 }
 
 /// Предел пакета на сервере (`0003_sync.sql`): больше — отказ всего пакета.

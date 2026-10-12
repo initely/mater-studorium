@@ -169,18 +169,43 @@ void main() {
     // Вопросы других знаний не затронуты.
     expect(await db.decksDao.visibleQuestions('t.b'), hasLength(2));
 
-    // Pull с сервера заменяет список целиком.
-    await db.decksDao.replaceHiddenQuestions({'t.b.q1', 't.b.q2'});
-    expect(await db.decksDao.hiddenQuestionIds(), {'t.b.q1', 't.b.q2'});
-    expect(await db.decksDao.visibleQuestions('t.a'), hasLength(2));
-    expect(await db.decksDao.visibleQuestions('t.b'), isEmpty);
+    // Pull с сервера заменяет серверный список целиком, а скрытое самим
+    // пользователем (жалоба) остаётся: решение сервера его не возвращает.
+    await db.decksDao.replaceServerHiddenQuestions({'t.b.q1', 't.b.q2'});
+    expect(await db.decksDao.hiddenQuestionIds(), {
+      't.a.q2',
+      't.b.q1',
+      't.b.q2',
+    });
+    await db.decksDao.replaceServerHiddenQuestions({'t.b.q1'});
+    expect(await db.decksDao.hiddenQuestionIds(), {'t.a.q2', 't.b.q1'});
+    await db.decksDao.replaceServerHiddenQuestions({});
+    expect(await db.decksDao.hiddenQuestionIds(), {'t.a.q2'});
+    expect((await db.decksDao.visibleQuestions('t.a')).map((q) => q.id), [
+      't.a.q1',
+    ]);
+    expect(await db.decksDao.visibleQuestions('t.b'), hasLength(2));
+
+    // Пользователь сам возвращает вопрос; серверное скрытие так не снять.
+    await db.decksDao.replaceServerHiddenQuestions({'t.a.q1'});
+    await db.decksDao.unhideLocalQuestion('t.a.q2');
+    await db.decksDao.unhideLocalQuestion('t.a.q1');
+    expect(await db.decksDao.hiddenQuestionIds(), {'t.a.q1'});
+    // Жалоба на уже скрытый сервером вопрос делает его и локально скрытым.
+    await db.decksDao.hideQuestion('t.a.q1');
+    await db.decksDao.replaceServerHiddenQuestions({});
+    expect(await db.decksDao.hiddenQuestionIds(), {'t.a.q1'});
   });
 
   test('visibleQuestionsFor: вопросы нескольких знаний без скрытых', () async {
     final db = memoryDb();
     await db.decksDao.replaceDeck(goodDeck(), downloadedAt: t0);
     await db.decksDao.hideQuestion('t.a.q1');
-    await db.decksDao.replaceHiddenQuestions({'t.a.q1', 't.b.q1', 't.b.q2'});
+    await db.decksDao.replaceServerHiddenQuestions({
+      't.a.q1',
+      't.b.q1',
+      't.b.q2',
+    });
 
     final result = await db.decksDao.visibleQuestionsFor({
       't.a',

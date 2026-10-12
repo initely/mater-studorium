@@ -66,6 +66,12 @@ abstract interface class SyncStore {
     required DateTime syncedAt,
   });
 
+  /// Список скрытых по жалобам вопросов с сервера заменяет прежний серверный
+  /// список (одной транзакцией). Вопросы, скрытые самим пользователем жалобой
+  /// (`source = local`), остаются: сервер о них может ещё не знать (жалоба
+  /// в очереди), а после решения куратора пользователь вернул бы их сам.
+  Future<void> replaceServerHiddenQuestions(Set<String> questionIds);
+
   /// Записи outbox пользователя по возрастанию `id`, строго после [afterId].
   Future<List<OutboxEntry>> pendingOutbox(
     String userId, {

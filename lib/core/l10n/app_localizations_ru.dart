@@ -764,4 +764,68 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get settingsLlmConsentSubtitle =>
       'Текст ответа отправляется внешней модели. Если выключить, вы оцениваете себя сами по эталону.';
+
+  @override
+  String get reportButton => 'Пожаловаться';
+
+  @override
+  String get reportButtonSent => 'Жалоба отправлена';
+
+  @override
+  String get reportSheetTitle => 'На что пожаловаться?';
+
+  @override
+  String get reportSheetHint =>
+      'Вопрос перестанет показываться вам сразу. Куратор проверит его.';
+
+  @override
+  String get reportReasonWrongAnswer => 'Неверный ответ';
+
+  @override
+  String get reportReasonUnclear => 'Непонятно';
+
+  @override
+  String get reportReasonTypo => 'Опечатка';
+
+  @override
+  String get reportReasonBadSource => 'Плохой источник';
+
+  @override
+  String get reportReasonOther => 'Другое';
+
+  @override
+  String get reportCommentLabel => 'Комментарий (необязательно)';
+
+  @override
+  String get reportSend => 'Отправить';
+
+  @override
+  String get reportCancel => 'Отмена';
+
+  @override
+  String get reportThanks =>
+      'Спасибо! Вопрос скрыт у вас, куратор его проверит.';
+
+  @override
+  String get reportError => 'Не удалось сохранить жалобу. Попробуйте ещё раз.';
+
+  @override
+  String get disagreeButton => 'Не согласен с оценкой';
+
+  @override
+  String get disagreeSheetTitle => 'Не согласен с оценкой ИИ';
+
+  @override
+  String disagreeSheetBody(String verdict) {
+    return 'ИИ оценил ответ: «$verdict». Выберите оценку, которую считаете верной. Куратор увидит ваш ответ, вердикт ИИ и вашу оценку.';
+  }
+
+  @override
+  String get disagreeRatingLabel => 'Моя оценка';
+
+  @override
+  String get disagreeSend => 'Отправить и продолжить';
+
+  @override
+  String get disagreeThanks => 'Спасибо! Куратор посмотрит оценку.';
 }

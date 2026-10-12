@@ -178,6 +178,10 @@ class SyncDao extends DatabaseAccessor<AppDatabase>
   });
 
   @override
+  Future<void> replaceServerHiddenQuestions(Set<String> questionIds) =>
+      attachedDatabase.decksDao.replaceServerHiddenQuestions(questionIds);
+
+  @override
   Future<List<OutboxEntry>> pendingOutbox(
     String userId, {
     required int limit,

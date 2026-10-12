@@ -7,6 +7,7 @@ import '../../generated/schema.dart';
 import '../../generated/schema_v1.dart' as v1;
 import '../../generated/schema_v2.dart' as v2;
 import '../../generated/schema_v3.dart' as v3;
+import '../../generated/schema_v4.dart' as v4;
 
 void main() {
   late SchemaVerifier verifier;
@@ -29,7 +30,7 @@ void main() {
     final db = AppDatabase(schema.newConnection());
     addTearDown(db.close);
     // Схема после миграции совпадает с эталонной v2 (таблицы, индексы).
-    await verifier.migrateAndValidate(db, 4);
+    await verifier.migrateAndValidate(db, 5);
 
     final index = await db
         .customSelect(
@@ -55,7 +56,7 @@ void main() {
 
       final db = AppDatabase(schema.newConnection());
       addTearDown(db.close);
-      await verifier.migrateAndValidate(db, 4);
+      await verifier.migrateAndValidate(db, 5);
 
       final deck = await db.decksDao.getDeck('d');
       expect(deck?.title, 'Колода');
@@ -89,7 +90,7 @@ void main() {
 
     final db = AppDatabase(schema.newConnection());
     addTearDown(db.close);
-    await verifier.migrateAndValidate(db, 4);
+    await verifier.migrateAndValidate(db, 5);
 
     // Неотправленное осталось неотправленным.
     final logs = await db.syncDao.unsyncedLogs('u', limit: 10);
@@ -110,10 +111,37 @@ void main() {
     expect(index, hasLength(1));
   });
 
-  test('схема приложения совпадает с дампом v4 (дамп не забыт)', () async {
+  test('v4 -> v5: hidden_questions.source, прежние скрытые — серверные, '
+      'жалобы и очередь не тронуты', () async {
     final schema = await verifier.schemaAt(4);
+    final oldDb = v4.DatabaseAtV4(schema.newConnection());
+    await oldDb.customStatement(
+      "INSERT INTO hidden_questions (question_id) VALUES ('t.a.q1')",
+    );
+    await oldDb.customStatement(
+      "INSERT INTO outbox (user_id, kind, payload_json, created_at) "
+      "VALUES ('u', 'report', '{}', 1700000000)",
+    );
+    await oldDb.close();
+
     final db = AppDatabase(schema.newConnection());
     addTearDown(db.close);
-    await verifier.migrateAndValidate(db, 4);
+    await verifier.migrateAndValidate(db, 5);
+
+    final hidden = await db.select(db.hiddenQuestions).getSingle();
+    expect(hidden.questionId, 't.a.q1');
+    expect(hidden.source, 'server');
+    // Серверный список заменяется, локально скрытое остаётся.
+    await db.decksDao.hideQuestion('t.a.q2');
+    await db.decksDao.replaceServerHiddenQuestions({'t.b.q1'});
+    expect(await db.decksDao.hiddenQuestionIds(), {'t.a.q2', 't.b.q1'});
+    expect(await db.syncDao.pendingOutbox('u', limit: 10), hasLength(1));
+  });
+
+  test('схема приложения совпадает с дампом v5 (дамп не забыт)', () async {
+    final schema = await verifier.schemaAt(5);
+    final db = AppDatabase(schema.newConnection());
+    addTearDown(db.close);
+    await verifier.migrateAndValidate(db, 5);
   });
 }
