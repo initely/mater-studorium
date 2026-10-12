@@ -215,7 +215,7 @@ void main() {
       expect(first.logsPushed, 1);
       expect(first.hiddenQuestions, 1);
       final waiting = (await outbox()).single;
-      expect(waiting.attempts, 1);
+      expect(waiting.attempts, 0, reason: 'ожидание лимита не попытка');
 
       // Сутки сменились (лимит снова есть).
       server.reportLimit = 30;
@@ -223,6 +223,43 @@ void main() {
       expect(next.outboxSent, 1);
       expect(await outbox(), isEmpty);
       expect(server.reports, hasLength(2));
+    });
+
+    test('лимит не «ядовитит» жалобу: ожидание сколь угодно долго не '
+        'расходует попытки, остальные не бьются в лимит, после сброса '
+        'уходят', () async {
+      server.reportLimit = 0;
+      await report('a.q1');
+      await report('b.q1');
+      await report('c.q1');
+      for (var run = 0; run < 5; run++) {
+        server.callLog.clear();
+        final r = await d.service.sync();
+        expect(r.outcome, SyncOutcome.success, reason: '$r');
+        expect(r.outboxSent, 0);
+        expect(
+          server.callLog.where((c) => c == 'submitReport'),
+          hasLength(1),
+          reason: 'после первого отказа по лимиту остальные не отправляются',
+        );
+      }
+      expect((await outbox()).map((e) => e.attempts), [0, 0, 0]);
+
+      // Первый же отказ сервера после долгого ожидания лимита не отбрасывает
+      // жалобу (раньше ожидание лимита засчитывалось как неудачные попытки).
+      server
+        ..reportLimit = 30
+        ..rejectReport = (r) => r.questionId == 'a.q1';
+      await d.service.sync();
+      expect((await outbox()).map((e) => e.attempts), [
+        1,
+      ], reason: 'a.q1 отвергнута один раз и осталась, остальные ушли');
+      expect(server.reports, hasLength(2));
+
+      server.rejectReport = null;
+      await d.service.sync();
+      expect(await outbox(), isEmpty);
+      expect(server.reports, hasLength(3));
     });
 
     test('жалобы другого пользователя не уходят под чужой сессией', () async {

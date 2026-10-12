@@ -19,8 +19,9 @@ const kMaxRejectedReportAttempts = 3;
 ///   — отбрасывается (обработчик возвращается без ошибки, запись удаляется);
 /// - сервер её отверг ([SyncRejectedError]: 22xxx, 23xxx и т. п.) — повтор
 ///   до [kMaxRejectedReportAttempts], затем отбрасывается;
-/// - дневной лимит ([QuotaExceededError]) — запись остаётся, `attempts + 1`
-///   (сервис), следующий прогон попробует снова;
+/// - дневной лимит ([QuotaExceededError]) пробрасывается: запись остаётся,
+///   попытка не засчитывается, остальные жалобы прогона не отправляются
+///   (сервис, `_pushOutbox`), следующий прогон попробует снова;
 /// - сеть и доступ ([NetworkError], [AuthError]) пробрасываются: прогон
 ///   прерывается, запись остаётся.
 OutboxHandler reportOutboxHandler(SyncRemote remote) => (userId, entry) async {

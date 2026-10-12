@@ -74,6 +74,15 @@ void main() {
       expect(utf8.decode(utf8.encode(cleaned)), cleaned);
     });
 
+    test('невидимые символы (Cf) вырезаются; из одних них — null', () {
+      expect(
+        sanitizeReportText('\u200b\u00a0\u3000\u202e\ufeff\u2060', max: 50),
+        isNull,
+      );
+      expect(sanitizeReportText('при\u202eве\u200bт\ufeff', max: 50), 'привет');
+      expect(sanitizeReportText('\u00a0 текст \u3000', max: 50), 'текст');
+    });
+
     test('обрезка по длине не рвёт суррогатную пару', () {
       expect(sanitizeReportText('ab😀cd', max: 3), 'ab');
       expect(sanitizeReportText('ab😀cd', max: 4), 'ab😀');
@@ -124,6 +133,21 @@ void main() {
       expect(back.toJson(), json);
       expect(back.disagreement!.userRating, Rating.good);
       expect(back.disagreement!.verdict, GradeVerdict.partial);
+    });
+
+    test('балл округляется до 4 знаков: 1e-50 не уходит на сервер', () {
+      expect(_disagree(score: 1e-50).disagreement!.llmScore, 0.0);
+      expect(_disagree(score: 0.55555).disagreement!.llmScore, 0.5556);
+      expect(_disagree(score: 1.0).disagreement!.llmScore, 1.0);
+      expect(
+        jsonEncode(_disagree(score: 1e-50).toJson()),
+        isNot(contains('e-')),
+      );
+      expect(_disagree(score: null).disagreement!.llmScore, isNull);
+      // NaN не округляется (round бросил бы), но отчёт невалиден.
+      final nan = _disagree(score: double.nan);
+      expect(nan.disagreement!.llmScore!.isNaN, isTrue);
+      expect(isValidReport(nan), isFalse);
     });
 
     test('у обычной жалобы нет полей спора', () {

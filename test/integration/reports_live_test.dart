@@ -9,7 +9,11 @@
 //
 // Каждый тест создаёт своих анонимных пользователей и свою колоду и удаляет их
 // в конце (жалобы уходят каскадом). Ключ service role берётся только из
-// окружения: проверка строк на сервере, inbox и уборка. Все live-тесты вместе
+// окружения: проверка строк на сервере, inbox и уборка. Возраст аккаунтов
+// (голос в скрытии считается, если аккаунту ≥ 24 ч, ADR-33 п. 4) ставится
+// через `docker exec <контейнер БД> psql` (LIVE_SUPABASE_DB_CONTAINER, по
+// умолчанию supabase_db_mater_studorium): через HTTP `auth.users.created_at`
+// не изменить. Все live-тесты вместе
 // запускать с `-j 1`: публичная колода этого теста видна каталогу, и
 // параллельный catalog_live_test пытался бы её скачать.
 @Tags(['live'])
@@ -147,12 +151,55 @@ void main() {
     comment: comment,
   );
 
+  /// Делает аккаунты «взрослыми» (30 суток): их жалобы голосуют.
+  Future<void> ageUsers(List<String> ids) async {
+    final container =
+        _env('LIVE_SUPABASE_DB_CONTAINER') ?? 'supabase_db_mater_studorium';
+    final list = ids.map((i) => "'$i'").join(',');
+    final r = await Process.run('docker', [
+      'exec',
+      '-i',
+      container,
+      'psql',
+      '-U',
+      'postgres',
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-qtAX',
+      '-c',
+      "update auth.users set created_at = now() - interval '30 days' "
+          'where id in ($list)',
+    ]);
+    expect(r.exitCode, 0, reason: '${r.stderr}');
+  }
+
+  /// Пользователь отвечал на вопрос: лог уходит на сервер (условие голоса).
+  Future<void> answered(
+    ({AppDatabase db, DriftReportsRepository reports, SyncService sync}) d,
+    String userId,
+    String question,
+  ) async {
+    final at = DateTime.utc(2026, 10, 12, 11);
+    await repositoryFor(d.db, user: userId).recordReview(
+      log: syncLog(
+        '$question.item',
+        at,
+      ).copyWith(deckId: deckId, questionId: question),
+      state: syncState('$question.item', at).copyWith(deckId: deckId),
+    );
+    expect((await d.sync.sync()).outcome, SyncOutcome.success);
+  }
+
   liveTest('AC11.1/AC11.2: две жалобы разных пользователей на вопрос — на '
-      'сервере, в inbox, и вопрос скрыт у обоих после синка', () async {
-    final (a, _) = await signIn();
-    final (b, _) = await signIn();
+      'сервере, в inbox, и вопрос скрыт у обоих после синка; молодые аккаунты '
+      'не голосуют', () async {
+    final (a, aId) = await signIn();
+    final (b, bId) = await signIn();
     final da = deviceFor(a);
     final db = deviceFor(b);
+    await ageUsers([aId, bId]);
+    await answered(da, aId, 'live.q1');
+    await answered(db, bId, 'live.q1');
 
     await report(da.reports, 'live.q1', comment: 'ответ в разборе неверен');
     // До синка скрыт только у автора жалобы.
@@ -192,6 +239,22 @@ void main() {
     final cRows = await dc.db.select(dc.db.hiddenQuestions).get();
     expect(cRows.map((r) => (r.questionId, r.source)), [('live.q1', 'server')]);
 
+    // Молодые аккаунты (нет суток) с ответом на вопрос не голосуют: две
+    // жалобы с пачки свежих анонимов вопрос не скрывают (S1).
+    final (y1, y1Id) = await signIn();
+    final (y2, y2Id) = await signIn();
+    final dy1 = deviceFor(y1);
+    final dy2 = deviceFor(y2);
+    await answered(dy1, y1Id, 'young.q1');
+    await answered(dy2, y2Id, 'young.q1');
+    await report(dy1.reports, 'young.q1');
+    await report(dy2.reports, 'young.q1');
+    await dy1.sync.sync();
+    await dy2.sync.sync();
+    expect(await serverReports('young.q1'), hasLength(2));
+    expect((await dc.sync.sync()).hiddenQuestions, 1, reason: 'только live.q1');
+    expect(await dc.db.decksDao.hiddenQuestionIds(), {'live.q1'});
+
     // Куратор в Dashboard: reports_inbox.
     final inbox = await admin
         .from('reports_inbox')
@@ -204,6 +267,18 @@ void main() {
     expect(inbox['flagged'], isTrue);
     expect(inbox['wrong_answer'], 1);
     expect(inbox['typo'], 1);
+
+    // Подтверждение куратора скрывает вопрос само по себе, даже с молодых
+    // аккаунтов.
+    await admin
+        .from('reports')
+        .update({'status': 'accepted'})
+        .eq('question_id', 'young.q1');
+    expect((await dc.sync.sync()).hiddenQuestions, 2);
+    await admin
+        .from('reports')
+        .update({'status': 'rejected'})
+        .eq('question_id', 'young.q1');
 
     // Решение куратора: отклонил одну — вопрос возвращается, после синка
     // серверное скрытие у третьего пропадает.
@@ -396,7 +471,7 @@ void main() {
       final waiting = await da.sync.sync();
       expect(waiting.outcome, SyncOutcome.success, reason: '$waiting');
       expect(await da.db.select(da.db.outbox).get(), hasLength(1));
-      expect((await da.db.select(da.db.outbox).getSingle()).attempts, 1);
+      expect((await da.db.select(da.db.outbox).getSingle()).attempts, 0);
     },
   );
 

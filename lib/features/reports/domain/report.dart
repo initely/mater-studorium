@@ -28,6 +28,14 @@ class GradingDisagreement {
   final Rating userRating;
 }
 
+/// Балл до 4 знаков: 1e-50 и подобное сервер при разборе JSON отвергал бы
+/// (`22003`), а куратору нужна не точность, а порядок величины. Нечисловое
+/// (NaN, ∞) оставляется как есть: `isValidReport` такой отчёт отвергнет.
+double? _roundScore(double? score) {
+  if (score == null || !score.isFinite) return score;
+  return (score * 10000).round() / 10000;
+}
+
 /// Жалоба или «не согласен» (ТЗ M11, §7.2): запись очереди отправки и тело
 /// RPC `submit_report`. Значения приводятся к границам сервера при создании:
 /// тексты очищаются и обрезаются (`sanitizeReportText`).
@@ -99,7 +107,7 @@ class Report {
       answerText:
           sanitizeReportText(answerText, max: kMaxReportAnswerChars) ?? '',
       verdict: verdict,
-      llmScore: llmScore,
+      llmScore: _roundScore(llmScore),
       userRating: userRating,
     ),
   );

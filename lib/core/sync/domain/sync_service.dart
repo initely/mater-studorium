@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import '../../../features/session/domain/review_log.dart';
 import '../../../features/srs/domain/item_state.dart';
 import '../../errors/app_error.dart';
+import '../outbox_entry.dart';
 import 'outbox_handler.dart';
 import 'sync_remote.dart';
 import 'sync_report.dart';
@@ -234,6 +235,11 @@ class SyncService {
 
   Future<void> _pushOutbox(String userId, _Counters r) async {
     int? after;
+    // Виды записей, у которых сервер сказал «лимит» (QuotaExceededError):
+    // остальные записи того же вида в этом прогоне не отправляются (заведомо
+    // получили бы тот же отказ), а попытка не засчитывается: ожидание лимита
+    // не делает запись «ядовитой» (ADR-33, п. 5).
+    final waitingForQuota = <OutboxKind>{};
     while (true) {
       final batch = await _store.pendingOutbox(
         userId,
@@ -244,7 +250,7 @@ class SyncService {
       after = batch.last.id;
       for (final entry in batch) {
         final handler = _outboxHandlers[entry.kind];
-        if (handler == null) continue;
+        if (handler == null || waitingForQuota.contains(entry.kind)) continue;
         _ensureUser(userId);
         try {
           await handler(userId, entry);
@@ -252,6 +258,9 @@ class SyncService {
           rethrow;
         } on AuthError {
           rethrow;
+        } on QuotaExceededError {
+          waitingForQuota.add(entry.kind);
+          continue;
         } on AppError {
           await _store.markOutboxAttempt(entry.id!);
           continue;

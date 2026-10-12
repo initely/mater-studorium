@@ -11,19 +11,44 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(142);
+select plan(209);
 
-insert into auth.users (id, aud, role, email, is_anonymous)
+-- Возраст аккаунта влияет на то, чей голос считается (ADR-33 п. 4): A, B, C и
+-- пары U1/U2, E, F — «старые» (30 суток), U3 моложе суток, у U4 ровно 24 ч.
+insert into auth.users (id, aud, role, email, is_anonymous, created_at)
 values
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'authenticated', 'authenticated', null, true),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'authenticated', 'authenticated', null, true),
-  ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'authenticated', 'authenticated', null, true);
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'authenticated', 'authenticated', null, true, now() - interval '30 days'),
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'authenticated', 'authenticated', null, true, now() - interval '30 days'),
+  ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'authenticated', 'authenticated', null, true, now() - interval '30 days'),
+  ('11111111-1111-4111-8111-111111111111', 'authenticated', 'authenticated', null, true, now() - interval '30 days'),
+  ('22222222-2222-4222-8222-222222222222', 'authenticated', 'authenticated', null, true, now() - interval '30 days'),
+  ('33333333-3333-4333-8333-333333333333', 'authenticated', 'authenticated', null, true, now() - interval '23 hours'),
+  ('44444444-4444-4444-8444-444444444444', 'authenticated', 'authenticated', null, true, now() - interval '24 hours'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'authenticated', 'authenticated', null, true, now() - interval '30 days'),
+  ('ffffffff-ffff-4fff-8fff-ffffffffffff', 'authenticated', 'authenticated', null, true, now() - interval '30 days');
 
 -- Колоды: публичная (версия 2) и приватная колода B.
 insert into public.decks (id, title, topic, lang, version, owner_id, visibility, storage_path, item_count)
 values
   ('infosec', 'ИБ', 'infosec', 'ru', 2, null, 'public', 'infosec/v2.json', 1),
-  ('privb', 'Приватная B', 'x', 'ru', 1, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'private', 'privb/v1.json', 1);
+  ('privb', 'Приватная B', 'x', 'ru', 1, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'private', 'privb/v1.json', 1),
+  ('unl', 'Скрытая по ссылке B', 'x', 'ru', 1, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'unlisted', 'unl/v1.json', 1);
+
+-- Помощники владельца: ответ пользователя на вопрос (условие голоса) и список
+-- скрытых вопросов для зрителя.
+create function pg_temp.addlog(u uuid, q text) returns void language sql as $$
+  insert into public.review_logs (id, user_id, deck_id, deck_version, item_id, question_id,
+    question_type, rating, grade_source, duration_ms, reviewed_at, sync_seq)
+  values (gen_random_uuid(), u, 'infosec', 1, 'i-' || q, q, 'mcq', 3, 'auto', 500, now(), 0);
+$$;
+create function pg_temp.hid(viewer uuid) returns text[] language sql as $$
+  select coalesce(array_agg(h order by h), '{}') from private.hidden_question_ids(viewer) h;
+$$;
+-- Ответы A и B на спорные вопросы выше (иначе их жалобы не голосуют).
+select pg_temp.addlog('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'xss.q1');
+select pg_temp.addlog('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'xss.q1');
+select pg_temp.addlog('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'hq.st');
+select pg_temp.addlog('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'hq.st');
 
 -- Помощники: корректный отчёт как JSON (поля перекрываются extra).
 create function pg_temp.rp(id text, q text, extra jsonb default '{}')
@@ -74,6 +99,21 @@ select is_empty(
       where table_schema = 'public' and table_name = 'reports'
         and grantee in ('anon', 'authenticated') and privilege_type <> 'SELECT' $$,
   'у клиентских ролей нет и колоночных прав записи на reports');
+-- Колоночных прав нет вовсе: всё через табличные (иначе `grant select (question_id)
+-- to anon` обошёл бы RLS-цель «anon ничего»). Смотрим pg_attribute.attacl, а не
+-- information_schema (она показывает только видимое текущей роли).
+select is_empty(
+  $$ select attname from pg_attribute
+      where attrelid in ('public.reports'::regclass, 'public.reports_inbox'::regclass)
+        and attnum > 0 and not attisdropped and attacl is not null $$,
+  'у reports и reports_inbox нет колоночных прав');
+select ok(
+  not has_column_privilege('anon', 'public.reports', 'question_id', 'select')
+  and not has_column_privilege('anon', 'public.reports', 'status', 'select')
+  and not has_column_privilege('anon', 'public.reports_inbox', 'question_id', 'select')
+  and not has_column_privilege('authenticated', 'public.reports', 'question_id', 'update')
+  and not has_column_privilege('authenticated', 'public.reports', 'status', 'insert'),
+  'anon не читает колонки, authenticated не пишет колонки');
 select ok(has_function_privilege('authenticated', 'public.submit_report(uuid, jsonb)', 'execute'),
   'authenticated исполняет submit_report');
 select ok(has_function_privilege('authenticated', 'public.hidden_questions()', 'execute'),
@@ -117,8 +157,37 @@ select matches(pg_get_functiondef('public.submit_report(uuid, jsonb)'::regproced
   'x\.user_id = v_uid and x\.created_at >= v_day_start',
   'submit_report: лимит считается по строкам пользователя за UTC-сутки');
 select matches(pg_get_functiondef('public.hidden_questions()'::regprocedure),
-  E'where r\\.status in \\(''new'', ''accepted''\\)\\s+and r\\.reason <> ''grading_disagree''\\s+group by r\\.question_id\\s+having pg_catalog\\.count\\(distinct r\\.user_id\\) >= 2',
-  'hidden_questions: new/accepted, не grading_disagree, ≥ 2 разных пользователей');
+  'from private\.hidden_question_ids\(v_uid\) h',
+  'hidden_questions: список из private.hidden_question_ids(зритель)');
+-- private.hidden_question_ids: каждая мера защиты от накрутки закреплена в теле.
+select matches(pg_get_functiondef('private.hidden_question_ids(uuid)'::regprocedure),
+  E'where r\\.status in \\(''new'', ''accepted''\\)\\s+and r\\.reason <> ''grading_disagree''',
+  'hidden_question_ids: new/accepted, не grading_disagree');
+select matches(pg_get_functiondef('private.hidden_question_ids(uuid)'::regprocedure),
+  E'u\\.created_at <= v\\.created_at - interval ''24 hours''',
+  'hidden_question_ids: аккаунту не меньше 24 ч на момент жалобы');
+select matches(pg_get_functiondef('private.hidden_question_ids(uuid)'::regprocedure),
+  E'exists \\(\\s+select 1 from public\\.review_logs l\\s+where l\\.user_id = v\\.user_id and l\\.question_id = v\\.question_id',
+  'hidden_question_ids: автор отвечал на вопрос');
+select matches(pg_get_functiondef('private.hidden_question_ids(uuid)'::regprocedure),
+  E'having pg_catalog\\.count\\(distinct e\\.user_id\\) >= 2\\s+order by pg_catalog\\.min\\(e\\.created_at\\), e\\.question_id\\s+limit 20',
+  'hidden_question_ids: ≥ 2 разных пользователей, потолок 20 по порядку первой жалобы');
+select matches(pg_get_functiondef('private.hidden_question_ids(uuid)'::regprocedure),
+  E'd\\.visibility = ''public'' or d\\.owner_id = p_viewer',
+  'hidden_question_ids: колода видна зрителю (public или своя)');
+select matches(pg_get_functiondef('private.hidden_question_ids(uuid)'::regprocedure),
+  E'select a\\.question_id from accepted a\\s+union all\\s+select vt\\.question_id from voted vt',
+  'hidden_question_ids: accepted скрывает сам по себе');
+select ok((select prosecdef from pg_proc where oid = 'private.hidden_question_ids(uuid)'::regprocedure),
+  'hidden_question_ids: security definer');
+select is((select proconfig from pg_proc where oid = 'private.hidden_question_ids(uuid)'::regprocedure),
+  array['search_path=""', 'lock_timeout=3s'], 'hidden_question_ids: search_path пуст, lock_timeout 3 с');
+select ok(not has_function_privilege('authenticated', 'private.hidden_question_ids(uuid)', 'execute')
+      and not has_function_privilege('anon', 'private.hidden_question_ids(uuid)', 'execute')
+      and has_function_privilege('service_role', 'private.hidden_question_ids(uuid)', 'execute'),
+  'hidden_question_ids: execute только у service_role (и владельца)');
+select matches(pg_get_viewdef('public.reports_inbox'::regclass),
+  'hidden_question_ids\(NULL', 'reports_inbox.flagged считает та же функция (viewer = NULL)');
 select is((select provolatile from pg_proc where oid = 'public.hidden_questions()'::regprocedure),
   's', 'hidden_questions: stable');
 
@@ -308,6 +377,69 @@ select throws_ok($$ delete from public.reports $$,
 select throws_ok($$ select * from public.reports_inbox $$,
   '42501', null, 'A не читает reports_inbox');
 
+-- Дубль-проверка не путает типы: «не согласен» первым не съедает обычную жалобу
+-- (иначе жалоба молча терялась бы: false, клиент удаляет запись).
+select is(
+  public.submit_report('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    pg_temp.dg('aaaaaaaa-0000-4000-8000-0000000000c1', 'dgfirst.q1')),
+  true, '«не согласен» по вопросу принят');
+select is(
+  public.submit_report('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    pg_temp.rp('aaaaaaaa-0000-4000-8000-0000000000c2', 'dgfirst.q1')),
+  true, 'после «не согласен» обычная жалоба на тот же вопрос принимается');
+select is(
+  public.submit_report('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    pg_temp.rp('aaaaaaaa-0000-4000-8000-0000000000c3', 'dgfirst.q1', '{"reason":"typo"}')),
+  false, 'а вторая обычная жалоба на него — уже дубль');
+
+-- Невидимые символы и «пустые» комментарии (N2); оценка 1e-50 (N1); управляющие
+-- символы в answer_text и question_text вырезаются так же, как в комментарии.
+select is(
+  public.submit_report('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    pg_temp.rp('aaaaaaaa-0000-4000-8000-0000000000c4', 'inv.q1',
+      jsonb_build_object('comment', E'\u200b\u00a0\u3000\u202e\ufeff'))),
+  true, 'комментарий из одних невидимых символов принимается');
+select is((select comment from public.reports where id = 'aaaaaaaa-0000-4000-8000-0000000000c4'),
+  null, 'комментарий из одних невидимых символов хранится как null');
+select is(
+  public.submit_report('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    pg_temp.rp('aaaaaaaa-0000-4000-8000-0000000000c5', 'inv.q2',
+      jsonb_build_object('comment', E'при\u202eве\u200bт\u00a0'))),
+  true, 'bidi и нулевая ширина внутри комментария вырезаются');
+select is((select comment from public.reports where id = 'aaaaaaaa-0000-4000-8000-0000000000c5'),
+  'привет', 'комментарий очищен от невидимых символов, края обрезаны');
+select is(
+  public.submit_report('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    pg_temp.dg('aaaaaaaa-0000-4000-8000-0000000000c6', 'san.q1',
+      jsonb_build_object('answer_text', E'отв\x02ет\u200b', 'question_text', E'вопр\x02ос\u200f',
+                         'llm_score', 1e-50))),
+  true, 'answer_text, question_text с управляющими и llm_score 1e-50 принимаются');
+select results_eq(
+  $$ select answer_text, question_text, llm_score = 1e-50 from public.reports
+      where id = 'aaaaaaaa-0000-4000-8000-0000000000c6' $$,
+  $$ values ('ответ'::text, 'вопрос'::text, true) $$,
+  'answer_text и question_text сохранены очищенными, llm_score не потерян');
+select throws_ok(
+  $$ select public.submit_report('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+       pg_temp.dg('aaaaaaaa-0000-4000-8000-0000000000c7', 'san.q2',
+         jsonb_build_object('answer_text', E'\u200b\u00a0'))) $$,
+  '23514', null, '«не согласен» с ответом из одних невидимых символов отклоняется');
+select throws_ok(
+  $$ select public.submit_report('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+       pg_temp.rp('aaaaaaaa-0000-4000-8000-0000000000c8', 'big.q1',
+         jsonb_build_object('pad', repeat('x', 17000)))) $$,
+  '54000', null, 'тело больше 16 КБ отклоняется');
+select lives_ok(
+  $$ select public.submit_report('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+       pg_temp.rp('aaaaaaaa-0000-4000-8000-0000000000c9', 'big.q2',
+         jsonb_build_object('pad', repeat('x', 3000)))) $$,
+  'лишнее поле умеренного размера допустимо (игнорируется)');
+-- Чужая unlisted-колода, как и private, недоступна для жалобы.
+select throws_ok(
+  $$ select public.submit_report('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+       pg_temp.rp('aaaaaaaa-0000-4000-8000-0000000000ca', 'unl.q1', '{"deck_id":"unl"}')) $$,
+  '23503', null, 'unlisted-колода другого пользователя отклоняется');
+
 -- ---------- валидация ----------
 select throws_ok(
   $$ select public.submit_report('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
@@ -410,16 +542,15 @@ select is_empty(
   'отклонённые жалобы не записаны');
 
 -- ---------- лимит 30 в сутки ----------
--- У A сейчас 10 жалоб (записаны выше): добираем до 30.
-select is(
-  (select count(*)::int from public.reports), 10,
-  'предусловие: у A записано 10 жалоб');
+-- Добираем жалобы A до 30.
+select ok((select count(*) from public.reports) < 30, 'предусловие: лимит у A ещё не исчерпан');
 select is(
   (select count(*) filter (where public.submit_report('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
             pg_temp.rp(('aaaaaaaa-0000-4000-8000-0000000002' || lpad(g::text, 2, '0')),
                        'lim.q' || g)))::int
-     from generate_series(1, 20) g),
-  20, 'до лимита добавлено ещё 20 жалоб (всего 30)');
+     from generate_series(1, 30 - (select count(*)::int from public.reports)) g),
+  30 - (select count(*)::int from public.reports),
+  'до лимита добавлено недостающее число жалоб (всего 30)');
 select is((select count(*)::int from public.reports), 30, 'у A 30 жалоб');
 select throws_ok(
   $$ select public.submit_report('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
@@ -564,6 +695,60 @@ select throws_ok(
      values (gen_random_uuid(), 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'infosec', 1, 'svc.q1',
              'typo', E'мусор\x02') $$,
   '23514', null, 'service_role не вставляет управляющие символы');
+select throws_ok(
+  $$ insert into public.reports (id, user_id, deck_id, deck_version, question_id, reason, question_text)
+     values (gen_random_uuid(), 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'infosec', 1, 'svc.q2',
+             'typo', E'мусор\x02') $$,
+  '23514', null, 'service_role: управляющие символы в question_text запрещены');
+select throws_ok(
+  $$ insert into public.reports (id, user_id, deck_id, deck_version, question_id, reason,
+       answer_text, llm_verdict, user_rating)
+     values (gen_random_uuid(), 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'infosec', 1, 'svc.q3',
+             'grading_disagree', E'мусор\x02', 'correct', 1) $$,
+  '23514', null, 'service_role: управляющие символы в answer_text запрещены');
+select throws_ok(
+  $$ insert into public.reports (id, user_id, deck_id, deck_version, question_id, reason, comment)
+     values (gen_random_uuid(), 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'infosec', 1, 'svc.q4',
+             'typo', E'bidi\u202eтекст') $$,
+  '23514', null, 'service_role: bidi и невидимые символы запрещены');
+-- Триггер неизменяемости закрывает каждый столбец (кроме status).
+select throws_ok(
+  $$ update public.reports set question_text = 'подмена' where id = 'aaaaaaaa-0000-4000-8000-000000000001' $$,
+  '42501', null, 'service_role не меняет question_text');
+select throws_ok(
+  $$ update public.reports set answer_text = 'подмена' where id = 'aaaaaaaa-0000-4000-8000-000000000003' $$,
+  '42501', null, 'service_role не меняет answer_text');
+select throws_ok(
+  $$ update public.reports set created_at = now() - interval '5 days' where id = 'aaaaaaaa-0000-4000-8000-000000000001' $$,
+  '42501', null, 'service_role не меняет created_at (по нему лимит)');
+select throws_ok(
+  $$ update public.reports set deck_id = 'privb' where id = 'aaaaaaaa-0000-4000-8000-000000000001' $$,
+  '42501', null, 'service_role не меняет deck_id');
+select throws_ok(
+  $$ update public.reports set comment = 'подмена' where id = 'aaaaaaaa-0000-4000-8000-000000000001' $$,
+  '42501', null, 'service_role не меняет comment');
+select throws_ok(
+  $$ update public.reports set user_id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
+      where id = 'aaaaaaaa-0000-4000-8000-000000000001' $$,
+  '42501', null, 'service_role не меняет автора');
+select throws_ok(
+  $$ update public.reports set llm_verdict = 'correct' where id = 'aaaaaaaa-0000-4000-8000-000000000003' $$,
+  '42501', null, 'service_role не меняет вердикт ИИ');
+select throws_ok(
+  $$ update public.reports set llm_score = 0.99 where id = 'aaaaaaaa-0000-4000-8000-000000000003' $$,
+  '42501', null, 'service_role не меняет балл ИИ');
+select throws_ok(
+  $$ update public.reports set user_rating = 1 where id = 'aaaaaaaa-0000-4000-8000-000000000003' $$,
+  '42501', null, 'service_role не меняет оценку пользователя');
+select throws_ok(
+  $$ update public.reports set question_id = 'other.q1' where id = 'aaaaaaaa-0000-4000-8000-000000000001' $$,
+  '42501', null, 'service_role не меняет question_id (иначе жалобу можно перенести на другой вопрос)');
+select throws_ok(
+  $$ update public.reports set deck_version = 2 where id = 'aaaaaaaa-0000-4000-8000-000000000001' $$,
+  '42501', null, 'service_role не меняет deck_version');
+select throws_ok(
+  $$ update public.reports set id = gen_random_uuid() where id = 'aaaaaaaa-0000-4000-8000-000000000001' $$,
+  '42501', null, 'service_role не меняет id (идемпотентность по нему)');
 
 -- reports_inbox (AC11.2): агрегат по вопросу для куратора.
 select results_eq(
@@ -597,6 +782,166 @@ select is_empty(
       except select question_id from public.reports_inbox where flagged $$,
   'hidden_questions() ⊆ inbox.flagged');
 
+-- ---------- скрытие: защита от накрутки (ADR-33 п. 4, S1/S2) ----------
+-- Жалобы пишет владелец (в обход RPC): так можно задать возраст и время. Голос
+-- считается, если аккаунту ≥ 24 ч на момент жалобы И автор отвечал на вопрос.
+-- U1, U2 — старые; U3 — моложе суток; U4 — ровно 24 ч (граница включается).
+select set_config('request.jwt.claims', '{}', true);
+select pg_temp.addlog(u, q)
+  from (values
+    ('11111111-1111-4111-8111-111111111111'::uuid, 's1.young'),
+    ('33333333-3333-4333-8333-333333333333', 's1.young'),
+    ('11111111-1111-4111-8111-111111111111', 's1.nolog'),
+    ('11111111-1111-4111-8111-111111111111', 's1.ok'),
+    ('22222222-2222-4222-8222-222222222222', 's1.ok'),
+    ('11111111-1111-4111-8111-111111111111', 's1.edge'),
+    ('44444444-4444-4444-8444-444444444444', 's1.edge'),
+    ('11111111-1111-4111-8111-111111111111', 's1.dis'),
+    ('22222222-2222-4222-8222-222222222222', 's1.dis')
+  ) l(u, q);
+insert into public.reports (id, user_id, deck_id, deck_version, question_id, reason)
+values
+  (gen_random_uuid(), '11111111-1111-4111-8111-111111111111', 'infosec', 1, 's1.young', 'typo'),
+  (gen_random_uuid(), '33333333-3333-4333-8333-333333333333', 'infosec', 1, 's1.young', 'typo'),
+  (gen_random_uuid(), '11111111-1111-4111-8111-111111111111', 'infosec', 1, 's1.nolog', 'typo'),
+  (gen_random_uuid(), '22222222-2222-4222-8222-222222222222', 'infosec', 1, 's1.nolog', 'typo'),
+  (gen_random_uuid(), '11111111-1111-4111-8111-111111111111', 'infosec', 1, 's1.ok', 'typo'),
+  (gen_random_uuid(), '22222222-2222-4222-8222-222222222222', 'infosec', 1, 's1.ok', 'typo'),
+  (gen_random_uuid(), '11111111-1111-4111-8111-111111111111', 'infosec', 1, 's1.edge', 'typo'),
+  (gen_random_uuid(), '44444444-4444-4444-8444-444444444444', 'infosec', 1, 's1.edge', 'typo');
+insert into public.reports (id, user_id, deck_id, deck_version, question_id, reason, answer_text, llm_verdict, user_rating)
+values
+  (gen_random_uuid(), '11111111-1111-4111-8111-111111111111', 'infosec', 1, 's1.dis', 'grading_disagree', 'a', 'correct', 1),
+  (gen_random_uuid(), '22222222-2222-4222-8222-222222222222', 'infosec', 1, 's1.dis', 'grading_disagree', 'b', 'correct', 1);
+-- Жалоба молодого пользователя без ответа, принятая куратором.
+insert into public.reports (id, user_id, deck_id, deck_version, question_id, reason, status)
+values (gen_random_uuid(), '33333333-3333-4333-8333-333333333333', 'infosec', 1, 's1.acc', 'wrong_answer', 'accepted');
+insert into public.reports (id, user_id, deck_id, deck_version, question_id, reason, answer_text, llm_verdict, user_rating, status)
+values (gen_random_uuid(), '33333333-3333-4333-8333-333333333333', 'infosec', 1, 's1.accdis', 'grading_disagree', 'a', 'correct', 1, 'accepted');
+
+select is((select 's1.young' = any (pg_temp.hid('cccccccc-cccc-cccc-cccc-cccccccccccc'))), false,
+  'S1: молодой аккаунт (23 ч) не голосует: одной взрослой жалобы мало');
+select is((select 's1.nolog' = any (pg_temp.hid('cccccccc-cccc-cccc-cccc-cccccccccccc'))), false,
+  'S1: автор, не отвечавший на вопрос, не голосует');
+select is((select 's1.ok' = any (pg_temp.hid('cccccccc-cccc-cccc-cccc-cccccccccccc'))), true,
+  'S1: два взрослых аккаунта, оба отвечали на вопрос — вопрос скрыт');
+select is((select 's1.edge' = any (pg_temp.hid('cccccccc-cccc-cccc-cccc-cccccccccccc'))), true,
+  'S1: аккаунту ровно 24 ч — голос считается (граница включается)');
+select is((select 's1.dis' = any (pg_temp.hid('cccccccc-cccc-cccc-cccc-cccccccccccc'))), false,
+  'S1: grading_disagree не голосует, даже от взрослых аккаунтов с ответом');
+select is((select 's1.acc' = any (pg_temp.hid('cccccccc-cccc-cccc-cccc-cccccccccccc'))), true,
+  'S1: accepted скрывает вопрос сам по себе (молодой автор, без ответа)');
+select is((select 's1.accdis' = any (pg_temp.hid('cccccccc-cccc-cccc-cccc-cccccccccccc'))), false,
+  'S1: принятый grading_disagree вопрос не скрывает');
+-- Как видит клиент (RPC с JWT), а не только функция.
+select set_config('request.jwt.claims',
+  '{"sub":"cccccccc-cccc-cccc-cccc-cccccccccccc","role":"authenticated"}', true);
+select is((select 's1.ok' = any (public.hidden_questions())
+            and not 's1.young' = any (public.hidden_questions())), true,
+  'S1: hidden_questions() отдаёт то же, что private.hidden_question_ids');
+select set_config('request.jwt.claims', '{}', true);
+
+-- Решения куратора по s1.ok: rejected и fixed возвращают, accepted скрывает сам.
+update public.reports set status = 'rejected' where question_id = 's1.ok';
+select is((select 's1.ok' = any (pg_temp.hid('cccccccc-cccc-cccc-cccc-cccccccccccc'))), false,
+  'S1: обе жалобы rejected — вопрос возвращён');
+update public.reports set status = 'fixed' where question_id = 's1.ok';
+select is((select 's1.ok' = any (pg_temp.hid('cccccccc-cccc-cccc-cccc-cccccccccccc'))), false,
+  'S1: обе жалобы fixed — вопрос возвращён');
+update public.reports set status = 'accepted'
+ where question_id = 's1.ok' and user_id = '11111111-1111-4111-8111-111111111111';
+select is((select 's1.ok' = any (pg_temp.hid('cccccccc-cccc-cccc-cccc-cccccccccccc'))), true,
+  'S1: одна accepted (вторая fixed) — вопрос скрыт, голосов не нужно');
+update public.reports set status = 'fixed' where question_id = 's1.ok';
+update public.reports set status = 'new' where question_id = 's1.ok';
+
+-- S2: id вопросов чужих private/unlisted/удалённых колод не раскрываются.
+select pg_temp.addlog(u, q)
+  from (values
+    ('11111111-1111-4111-8111-111111111111'::uuid, 's2.priv'),
+    ('22222222-2222-4222-8222-222222222222', 's2.priv'),
+    ('11111111-1111-4111-8111-111111111111', 's2.unl'),
+    ('22222222-2222-4222-8222-222222222222', 's2.unl'),
+    ('11111111-1111-4111-8111-111111111111', 's2.gone'),
+    ('22222222-2222-4222-8222-222222222222', 's2.gone')
+  ) l(u, q);
+insert into public.reports (id, user_id, deck_id, deck_version, question_id, reason)
+values
+  (gen_random_uuid(), '11111111-1111-4111-8111-111111111111', 'privb', 1, 's2.priv', 'typo'),
+  (gen_random_uuid(), '22222222-2222-4222-8222-222222222222', 'privb', 1, 's2.priv', 'typo'),
+  (gen_random_uuid(), '11111111-1111-4111-8111-111111111111', 'unl', 1, 's2.unl', 'typo'),
+  (gen_random_uuid(), '22222222-2222-4222-8222-222222222222', 'unl', 1, 's2.unl', 'typo'),
+  (gen_random_uuid(), '11111111-1111-4111-8111-111111111111', 'deleted', 1, 's2.gone', 'typo'),
+  (gen_random_uuid(), '22222222-2222-4222-8222-222222222222', 'deleted', 1, 's2.gone', 'typo');
+insert into public.reports (id, user_id, deck_id, deck_version, question_id, reason, status)
+values (gen_random_uuid(), '11111111-1111-4111-8111-111111111111', 'privb', 1, 's2.privacc', 'typo', 'accepted');
+select is(
+  (select array_agg(q order by q) from unnest(pg_temp.hid('cccccccc-cccc-cccc-cccc-cccccccccccc')) q
+    where q like 's2.%'),
+  null, 'S2: чужой зритель не получает id вопросов private/unlisted/удалённых колод');
+select is(
+  (select array_agg(q order by q) from unnest(pg_temp.hid('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb')) q
+    where q like 's2.%'),
+  array['s2.priv', 's2.privacc', 's2.unl'],
+  'S2: владелец колод получает свои id; удалённая колода не раскрывается никому');
+select is(
+  (select array_agg(q order by q) from unnest(pg_temp.hid('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa')) q
+    where q like 's2.%'),
+  null, 'S2: владелец другой колоды их не получает');
+-- Куратор (viewer null) видит существующие колоды целиком.
+select is((select flagged from public.reports_inbox where question_id = 's2.priv'), true,
+  'S2: reports_inbox показывает flagged для вопроса приватной колоды (куратор)');
+select is((select flagged from public.reports_inbox where question_id = 's2.gone'), false,
+  'S2: вопрос удалённой колоды не flagged');
+select is((select question_text_variants::int from public.reports_inbox where question_id = 'xss.q1'),
+  1, 'inbox: один вариант текста вопроса у xss.q1');
+delete from public.reports where question_id like 's2.%';
+
+-- Расхождение «текстов вопроса» от клиентов заметно куратору.
+insert into public.reports (id, user_id, deck_id, deck_version, question_id, reason, question_text)
+values
+  (gen_random_uuid(), '11111111-1111-4111-8111-111111111111', 'infosec', 1, 'var.q1', 'typo', 'Что такое XSS?'),
+  (gen_random_uuid(), '22222222-2222-4222-8222-222222222222', 'infosec', 1, 'var.q1', 'typo', 'Совсем другой текст');
+select is((select question_text_variants::int from public.reports_inbox where question_id = 'var.q1'),
+  2, 'inbox: разные тексты вопроса от клиентов видны (question_text_variants = 2)');
+delete from public.reports where question_id = 'var.q1';
+
+-- Потолок автоскрытий: не больше 20 вопросов по голосам (new), по порядку
+-- первой жалобы; accepted потолком не ограничен. 22 вопроса U1+U2 «в прошлом».
+select pg_temp.addlog(w.u, 'cap.' || lpad(g::text, 2, '0'))
+  from generate_series(1, 22) g,
+       (values ('11111111-1111-4111-8111-111111111111'::uuid),
+               ('22222222-2222-4222-8222-222222222222')) w(u);
+insert into public.reports (id, user_id, deck_id, deck_version, question_id, reason, created_at)
+select gen_random_uuid(), w.u, 'infosec', 1, 'cap.' || lpad(g::text, 2, '0'), 'typo',
+       now() - interval '10 days' + g * interval '1 minute'
+  from generate_series(1, 22) g,
+       (values ('11111111-1111-4111-8111-111111111111'::uuid),
+               ('22222222-2222-4222-8222-222222222222')) w(u);
+select is(
+  (select count(*)::int from unnest(pg_temp.hid('cccccccc-cccc-cccc-cccc-cccccccccccc')) q where q like 'cap.%'),
+  20, 'S1: из 22 кандидатов автоскрыто 20 (потолок)');
+select is((select 'cap.20' = any (pg_temp.hid('cccccccc-cccc-cccc-cccc-cccccccccccc'))
+            and not 'cap.21' = any (pg_temp.hid('cccccccc-cccc-cccc-cccc-cccccccccccc'))
+            and not 'cap.22' = any (pg_temp.hid('cccccccc-cccc-cccc-cccc-cccccccccccc'))), true,
+  'S1: потолок оставляет самые ранние по первой жалобе, cap.21 и cap.22 ждут куратора');
+select is(
+  (select count(*)::int from unnest(pg_temp.hid('cccccccc-cccc-cccc-cccc-cccccccccccc')) q
+    where q not in (select question_id from public.reports where status = 'accepted')),
+  20, 'S1: по голосам скрыто ровно 20, остальные скрытые — accepted');
+select is((select 's1.edge' = any (pg_temp.hid('cccccccc-cccc-cccc-cccc-cccccccccccc'))), false,
+  'S1: вопрос, набравший голоса позже, ждёт куратора, пока потолок занят');
+select is((select 's1.acc' = any (pg_temp.hid('cccccccc-cccc-cccc-cccc-cccccccccccc'))), true,
+  'S1: accepted скрыт независимо от потолка');
+update public.reports set status = 'rejected' where question_id = 'cap.01';
+select is((select 'cap.21' = any (pg_temp.hid('cccccccc-cccc-cccc-cccc-cccccccccccc'))
+            and not 'cap.01' = any (pg_temp.hid('cccccccc-cccc-cccc-cccc-cccccccccccc'))), true,
+  'S1: отклонённый вопрос освобождает место в потолке');
+update public.reports set status = 'accepted' where question_id = 'cap.22';
+select is((select 'cap.22' = any (pg_temp.hid('cccccccc-cccc-cccc-cccc-cccccccccccc'))), true,
+  'S1: accepted поверх потолка скрывает вопрос');
+delete from public.reports where question_id like 'cap.%';
+
 -- ---------- удаление пользователя ----------
 select set_config('request.jwt.claims', '{}', true);
 select ok((select count(*) from public.reports where user_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa') > 0,
@@ -621,6 +966,32 @@ select is(
   public.submit_report('cccccccc-cccc-cccc-cccc-cccccccccccc',
     pg_temp.rp('cccccccc-0000-4000-8000-000000000003', 'today.q1')),
   true, 'жалобы прошлых суток не входят в сегодняшний лимит');
+
+-- Граница суток — UTC, а не пояс сервера: E — 30 жалоб за секунду до UTC-
+-- полуночи (вчера, не считаются), F — 30 жалоб ровно в UTC-полночь (сегодня).
+reset role;
+select set_config('request.jwt.claims', '{}', true);
+insert into public.reports (id, user_id, deck_id, deck_version, question_id, reason, created_at)
+select gen_random_uuid(), 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'infosec', 1, 'edge.e' || g, 'typo',
+       date_trunc('day', now() at time zone 'utc') at time zone 'utc' - interval '1 second'
+  from generate_series(1, 30) g;
+insert into public.reports (id, user_id, deck_id, deck_version, question_id, reason, created_at)
+select gen_random_uuid(), 'ffffffff-ffff-4fff-8fff-ffffffffffff', 'infosec', 1, 'edge.f' || g, 'typo',
+       date_trunc('day', now() at time zone 'utc') at time zone 'utc'
+  from generate_series(1, 30) g;
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee","role":"authenticated"}', true);
+select is(
+  public.submit_report('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+    pg_temp.rp('eeeeeeee-0000-4000-8000-000000000001', 'edge.new')),
+  true, 'граница суток: жалобы за секунду до UTC-полуночи в лимит не входят');
+select set_config('request.jwt.claims',
+  '{"sub":"ffffffff-ffff-4fff-8fff-ffffffffffff","role":"authenticated"}', true);
+select throws_ok(
+  $$ select public.submit_report('ffffffff-ffff-4fff-8fff-ffffffffffff',
+       pg_temp.rp('ffffffff-0000-4000-8000-000000000001', 'edge.new')) $$,
+  'MS429', null, 'граница суток: жалобы ровно в UTC-полночь входят в лимит');
 
 select * from finish();
 rollback;
