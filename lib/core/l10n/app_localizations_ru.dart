@@ -156,6 +156,101 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String sessionSummaryCorrect(int count) {
+    return 'Верно: $count';
+  }
+
+  @override
+  String sessionSummaryIncorrect(int count) {
+    return 'Неверно: $count';
+  }
+
+  @override
+  String sessionSummarySelf(int count) {
+    return 'По самооценке: $count';
+  }
+
+  @override
+  String sessionSummaryTime(String time) {
+    return 'Время: $time';
+  }
+
+  @override
+  String get sessionSummaryUpcomingTitle => 'Скоро повторить';
+
+  @override
+  String get sessionSummaryUpcomingNow => 'пора сейчас';
+
+  @override
+  String sessionSummaryUpcomingItem(String title, String when) {
+    return '$title: $when';
+  }
+
+  @override
+  String sessionSummaryUpcomingMore(int count) {
+    return 'и ещё $count';
+  }
+
+  @override
+  String get sessionMore => 'Ещё 5 минут';
+
+  @override
+  String durationSeconds(int n) {
+    return '$n с';
+  }
+
+  @override
+  String durationMinutesOnly(int m) {
+    return '$m мин';
+  }
+
+  @override
+  String durationMinutesSeconds(int m, int s) {
+    return '$m мин $s с';
+  }
+
+  @override
+  String get explanationShortToggle => 'Коротко';
+
+  @override
+  String get explanationLongToggle => 'Подробнее';
+
+  @override
+  String get explanationEmpty => 'К этому знанию разбора нет.';
+
+  @override
+  String get explanationSourcesTitle => 'Источники';
+
+  @override
+  String explanationLicense(String license) {
+    return 'Лицензия: $license';
+  }
+
+  @override
+  String explanationQuote(String quote) {
+    return '«$quote»';
+  }
+
+  @override
+  String get explanationOpenSource => 'Открыть источник';
+
+  @override
+  String explanationOpenSourceLabel(String title) {
+    return 'Открыть источник «$title» в браузере';
+  }
+
+  @override
+  String get explanationLinkNotHttps =>
+      'Ссылка не открывается из приложения: разрешены только адреса https.';
+
+  @override
+  String get explanationLinkFailed => 'Не удалось открыть ссылку.';
+
+  @override
+  String get explanationLinkBlocked =>
+      'Эта ссылка не входит в источники колоды, поэтому не открыта.';
+
+  @override
   String get sessionEmptyTitle => 'Всё повторено 🎉';
 
   @override

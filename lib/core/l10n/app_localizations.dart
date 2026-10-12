@@ -322,7 +322,7 @@ abstract class AppLocalizations {
   /// **'На главную'**
   String get sessionHome;
 
-  /// Заглушка итогов (полные итоги — T14)
+  /// Заголовок итогов сессии
   ///
   /// In ru, this message translates to:
   /// **'Сессия завершена'**
@@ -333,6 +333,144 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Повторено: {count}'**
   String sessionSummaryReviewed(int count);
+
+  /// Итоги: ответов с оценкой выше «Снова» при автопроверке или оценке модели
+  ///
+  /// In ru, this message translates to:
+  /// **'Верно: {count}'**
+  String sessionSummaryCorrect(int count);
+
+  /// Итоги: ответов с оценкой «Снова» при автопроверке или оценке модели
+  ///
+  /// In ru, this message translates to:
+  /// **'Неверно: {count}'**
+  String sessionSummaryIncorrect(int count);
+
+  /// Итоги: ответов, которые пользователь оценил сам (без вердикта)
+  ///
+  /// In ru, this message translates to:
+  /// **'По самооценке: {count}'**
+  String sessionSummarySelf(int count);
+
+  /// Итоги: сколько длилась сессия
+  ///
+  /// In ru, this message translates to:
+  /// **'Время: {time}'**
+  String sessionSummaryTime(String time);
+
+  /// Итоги: заголовок списка ближайших повторений
+  ///
+  /// In ru, this message translates to:
+  /// **'Скоро повторить'**
+  String get sessionSummaryUpcomingTitle;
+
+  /// Итоги: знание уже пора повторять
+  ///
+  /// In ru, this message translates to:
+  /// **'пора сейчас'**
+  String get sessionSummaryUpcomingNow;
+
+  /// Итоги: строка списка ближайших повторений («Название: через 3 ч»)
+  ///
+  /// In ru, this message translates to:
+  /// **'{title}: {when}'**
+  String sessionSummaryUpcomingItem(String title, String when);
+
+  /// Итоги: сколько ближайших повторений не поместилось в список
+  ///
+  /// In ru, this message translates to:
+  /// **'и ещё {count}'**
+  String sessionSummaryUpcomingMore(int count);
+
+  /// Итоги: кнопка новой сессии (длительность сессии — kSessionDuration, 5 минут)
+  ///
+  /// In ru, this message translates to:
+  /// **'Ещё 5 минут'**
+  String get sessionMore;
+
+  /// Длительность: секунды
+  ///
+  /// In ru, this message translates to:
+  /// **'{n} с'**
+  String durationSeconds(int n);
+
+  /// Длительность: целые минуты
+  ///
+  /// In ru, this message translates to:
+  /// **'{m} мин'**
+  String durationMinutesOnly(int m);
+
+  /// Длительность: минуты и секунды
+  ///
+  /// In ru, this message translates to:
+  /// **'{m} мин {s} с'**
+  String durationMinutesSeconds(int m, int s);
+
+  /// Кнопка разбора: короткий разбор (explanation_short)
+  ///
+  /// In ru, this message translates to:
+  /// **'Коротко'**
+  String get explanationShortToggle;
+
+  /// Кнопка разбора: развёрнутый разбор и источники (explanation_long)
+  ///
+  /// In ru, this message translates to:
+  /// **'Подробнее'**
+  String get explanationLongToggle;
+
+  /// Пустое состояние: у знания нет заранее написанного разбора
+  ///
+  /// In ru, this message translates to:
+  /// **'К этому знанию разбора нет.'**
+  String get explanationEmpty;
+
+  /// Заголовок списка источников под развёрнутым разбором
+  ///
+  /// In ru, this message translates to:
+  /// **'Источники'**
+  String get explanationSourcesTitle;
+
+  /// Лицензия источника
+  ///
+  /// In ru, this message translates to:
+  /// **'Лицензия: {license}'**
+  String explanationLicense(String license);
+
+  /// Цитата из источника, подтверждающая факт
+  ///
+  /// In ru, this message translates to:
+  /// **'«{quote}»'**
+  String explanationQuote(String quote);
+
+  /// Кнопка открытия ссылки на источник во внешнем браузере
+  ///
+  /// In ru, this message translates to:
+  /// **'Открыть источник'**
+  String get explanationOpenSource;
+
+  /// Подпись кнопки открытия источника для скринридера
+  ///
+  /// In ru, this message translates to:
+  /// **'Открыть источник «{title}» в браузере'**
+  String explanationOpenSourceLabel(String title);
+
+  /// Ссылка источника не https: показывается текстом
+  ///
+  /// In ru, this message translates to:
+  /// **'Ссылка не открывается из приложения: разрешены только адреса https.'**
+  String get explanationLinkNotHttps;
+
+  /// Внешнее приложение или браузер не открылись
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось открыть ссылку.'**
+  String get explanationLinkFailed;
+
+  /// Ссылка внутри текста разбора, которой нет среди источников колоды
+  ///
+  /// In ru, this message translates to:
+  /// **'Эта ссылка не входит в источники колоды, поэтому не открыта.'**
+  String get explanationLinkBlocked;
 
   /// Нечего повторять (ТЗ §8.5)
   ///

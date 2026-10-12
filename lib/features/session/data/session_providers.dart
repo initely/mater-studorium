@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/db/database_providers.dart';
 import '../../../core/errors/app_error.dart';
 import '../../../core/supabase/supabase_init.dart';
+import '../../../core/utils/clock.dart';
 import '../../../core/utils/uuid.dart';
 import '../../questions/registry.dart';
 import '../domain/local_day.dart';
 import '../domain/session_queue_builder.dart';
 import '../domain/session_repository.dart';
 import '../domain/session_settings.dart';
+import '../domain/upcoming_reviews.dart';
 import 'drift_session_repository.dart';
 
 /// Id текущего пользователя (`auth.uid`). Без сессии — [AuthError]; в
@@ -54,5 +56,15 @@ final sessionQueueBuilderProvider = Provider<SessionQueueBuilder>(
     utcOffsetAt: ref.watch(utcOffsetProvider),
     // Форматы без модуля в реестре в очередь не попадают (T13).
     supportedTypes: ref.watch(supportedQuestionTypesProvider),
+  ),
+);
+
+/// Ближайшие повторения для экрана итогов (ТЗ §8.2, п. 5). Читается один раз
+/// при показе итогов; autoDispose — к следующему показу данные свежие.
+final upcomingReviewsProvider = FutureProvider.autoDispose<UpcomingReviews>(
+  (ref) => UpcomingReviews.load(
+    ref.watch(sessionRepositoryProvider),
+    now: ref.read(clockProvider)(),
+    deckIds: ref.watch(sessionSettingsProvider).deckIds,
   ),
 );

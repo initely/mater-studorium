@@ -5,6 +5,8 @@ import '../../../core/errors/app_error.dart';
 import '../../../core/l10n/app_localizations.dart';
 import '../../../core/utils/clock.dart';
 import '../../../core/utils/stable_seed.dart';
+import '../../explanations/domain/explanation.dart';
+import '../../explanations/presentation/explanation_panel.dart';
 import '../../questions/question_request.dart';
 import '../../questions/question_result.dart';
 import '../../questions/registry.dart';
@@ -157,8 +159,6 @@ class _SessionQuestionStepState extends ConsumerState<SessionQuestionStep> {
               if (result != null) ...[
                 const SizedBox(height: 16),
                 VerdictBanner(outcome: result.outcome),
-                // T14: ниже вердикта — ExplanationPanel («Коротко», «Подробнее»).
-                // T20: рядом с ним — ⚑ «Пожаловаться».
                 const SizedBox(height: 16),
                 KeyedSubtree(
                   key: _panelKey,
@@ -179,6 +179,13 @@ class _SessionQuestionStepState extends ConsumerState<SessionQuestionStep> {
                     ),
                   ),
                 ],
+                // Разбор по желанию (ТЗ §8.2, п. 3, M6) ниже панели оценки:
+                // не блокирует ни оценку, ни «Дальше» (AC6.1).
+                // T20: рядом с ним — ⚑ «Пожаловаться».
+                const SizedBox(height: 16),
+                ExplanationPanel(
+                  explanation: Explanation.of(widget.item.item, question),
+                ),
               ],
             ],
           ),

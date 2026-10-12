@@ -96,12 +96,94 @@
   "sessionHome": "На главную",
   "@sessionHome": {"description": "Кнопка возврата на главный экран с итогов и пустых состояний"},
   "sessionSummaryTitle": "Сессия завершена",
-  "@sessionSummaryTitle": {"description": "Заглушка итогов (полные итоги — T14)"},
+  "@sessionSummaryTitle": {"description": "Заголовок итогов сессии"},
   "sessionSummaryReviewed": "Повторено: {count}",
   "@sessionSummaryReviewed": {
     "description": "Сколько вопросов отвечено за сессию",
     "placeholders": { "count": {"type": "int"} }
   },
+  "sessionSummaryCorrect": "Верно: {count}",
+  "@sessionSummaryCorrect": {
+    "description": "Итоги: ответов с оценкой выше «Снова» при автопроверке или оценке модели",
+    "placeholders": { "count": {"type": "int"} }
+  },
+  "sessionSummaryIncorrect": "Неверно: {count}",
+  "@sessionSummaryIncorrect": {
+    "description": "Итоги: ответов с оценкой «Снова» при автопроверке или оценке модели",
+    "placeholders": { "count": {"type": "int"} }
+  },
+  "sessionSummarySelf": "По самооценке: {count}",
+  "@sessionSummarySelf": {
+    "description": "Итоги: ответов, которые пользователь оценил сам (без вердикта)",
+    "placeholders": { "count": {"type": "int"} }
+  },
+  "sessionSummaryTime": "Время: {time}",
+  "@sessionSummaryTime": {
+    "description": "Итоги: сколько длилась сессия",
+    "placeholders": { "time": {"type": "String"} }
+  },
+  "sessionSummaryUpcomingTitle": "Скоро повторить",
+  "@sessionSummaryUpcomingTitle": {"description": "Итоги: заголовок списка ближайших повторений"},
+  "sessionSummaryUpcomingNow": "пора сейчас",
+  "@sessionSummaryUpcomingNow": {"description": "Итоги: знание уже пора повторять"},
+  "sessionSummaryUpcomingItem": "{title}: {when}",
+  "@sessionSummaryUpcomingItem": {
+    "description": "Итоги: строка списка ближайших повторений («Название: через 3 ч»)",
+    "placeholders": { "title": {"type": "String"}, "when": {"type": "String"} }
+  },
+  "sessionSummaryUpcomingMore": "и ещё {count}",
+  "@sessionSummaryUpcomingMore": {
+    "description": "Итоги: сколько ближайших повторений не поместилось в список",
+    "placeholders": { "count": {"type": "int"} }
+  },
+  "sessionMore": "Ещё 5 минут",
+  "@sessionMore": {"description": "Итоги: кнопка новой сессии (длительность сессии — kSessionDuration, 5 минут)"},
+  "durationSeconds": "{n} с",
+  "@durationSeconds": {
+    "description": "Длительность: секунды",
+    "placeholders": { "n": {"type": "int"} }
+  },
+  "durationMinutesOnly": "{m} мин",
+  "@durationMinutesOnly": {
+    "description": "Длительность: целые минуты",
+    "placeholders": { "m": {"type": "int"} }
+  },
+  "durationMinutesSeconds": "{m} мин {s} с",
+  "@durationMinutesSeconds": {
+    "description": "Длительность: минуты и секунды",
+    "placeholders": { "m": {"type": "int"}, "s": {"type": "int"} }
+  },
+  "explanationShortToggle": "Коротко",
+  "@explanationShortToggle": {"description": "Кнопка разбора: короткий разбор (explanation_short)"},
+  "explanationLongToggle": "Подробнее",
+  "@explanationLongToggle": {"description": "Кнопка разбора: развёрнутый разбор и источники (explanation_long)"},
+  "explanationEmpty": "К этому знанию разбора нет.",
+  "@explanationEmpty": {"description": "Пустое состояние: у знания нет заранее написанного разбора"},
+  "explanationSourcesTitle": "Источники",
+  "@explanationSourcesTitle": {"description": "Заголовок списка источников под развёрнутым разбором"},
+  "explanationLicense": "Лицензия: {license}",
+  "@explanationLicense": {
+    "description": "Лицензия источника",
+    "placeholders": { "license": {"type": "String"} }
+  },
+  "explanationQuote": "«{quote}»",
+  "@explanationQuote": {
+    "description": "Цитата из источника, подтверждающая факт",
+    "placeholders": { "quote": {"type": "String"} }
+  },
+  "explanationOpenSource": "Открыть источник",
+  "@explanationOpenSource": {"description": "Кнопка открытия ссылки на источник во внешнем браузере"},
+  "explanationOpenSourceLabel": "Открыть источник «{title}» в браузере",
+  "@explanationOpenSourceLabel": {
+    "description": "Подпись кнопки открытия источника для скринридера",
+    "placeholders": { "title": {"type": "String"} }
+  },
+  "explanationLinkNotHttps": "Ссылка не открывается из приложения: разрешены только адреса https.",
+  "@explanationLinkNotHttps": {"description": "Ссылка источника не https: показывается текстом"},
+  "explanationLinkFailed": "Не удалось открыть ссылку.",
+  "@explanationLinkFailed": {"description": "Внешнее приложение или браузер не открылись"},
+  "explanationLinkBlocked": "Эта ссылка не входит в источники колоды, поэтому не открыта.",
+  "@explanationLinkBlocked": {"description": "Ссылка внутри текста разбора, которой нет среди источников колоды"},
   "sessionEmptyTitle": "Всё повторено 🎉",
   "@sessionEmptyTitle": {"description": "Нечего повторять (ТЗ §8.5)"},
   "sessionEmptyNext": "Следующее повторение — {when}",

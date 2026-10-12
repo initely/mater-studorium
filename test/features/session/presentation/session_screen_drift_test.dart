@@ -9,6 +9,7 @@ import 'package:mater_studorium/core/db/database_providers.dart';
 import 'package:mater_studorium/core/utils/clock.dart';
 import 'package:mater_studorium/core/utils/uuid.dart';
 import 'package:mater_studorium/features/catalog/domain/deck.dart';
+import 'package:mater_studorium/features/explanations/data/link_launcher.dart';
 import 'package:mater_studorium/features/session/data/session_providers.dart';
 import 'package:mater_studorium/features/session/presentation/session_screen.dart';
 import 'package:mater_studorium/features/srs/domain/rating.dart';
@@ -29,6 +30,7 @@ void main() {
       downloadedAt: t0,
     );
     var ids = 0;
+    final launched = <Uri>[];
     await tester.pumpApp(
       const SessionScreen(),
       overrides: [
@@ -37,6 +39,10 @@ void main() {
         clockProvider.overrideWithValue(() => t0),
         randomProvider.overrideWithValue(math.Random(1)),
         uuidGeneratorProvider.overrideWithValue(() => 'log-${ids++}'),
+        linkLauncherProvider.overrideWithValue((uri) async {
+          launched.add(uri);
+          return true;
+        }),
       ],
     );
     await tester.pumpAndSettle();
@@ -54,6 +60,24 @@ void main() {
     // mcq: верный вариант «a» (порядок вариантов перемешан, ищем по ключу).
     await tester.tap(find.byKey(const Key('mcq-option-a')));
     await tester.pumpAndSettle();
+
+    // Разбор из колоды (T14): «Коротко», «Подробнее» и источники с названием,
+    // лицензией и ссылкой; сессию они не трогают.
+    await tester.tap(find.byKey(const Key('explanation-short-toggle')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Отражённая XSS не хранится'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('explanation-long-toggle')));
+    await tester.pumpAndSettle();
+    expect(find.text('OWASP: Cross Site Scripting (XSS)'), findsWidgets);
+    expect(find.text('Лицензия: CC BY-SA 4.0'), findsWidgets);
+    await tester.ensureVisible(
+      find.byKey(const Key('explanation-source-0-open')),
+    );
+    await tester.tap(find.byKey(const Key('explanation-source-0-open')));
+    await tester.pumpAndSettle();
+    expect(launched, [Uri.parse('https://community.owasp.org/attacks/xss')]);
+
+    await tester.ensureVisible(find.byKey(const Key('rating-next')));
     await tester.tap(find.byKey(const Key('rating-next')));
     await tester.pumpAndSettle();
 
@@ -66,6 +90,10 @@ void main() {
 
     expect(find.byKey(const Key('session-summary-title')), findsOneWidget);
     expect(find.text('Повторено: 2'), findsOneWidget);
+    // Итоги читают расписание из той же БД: оба знания теперь в расписании.
+    expect(find.text('Верно: 1'), findsOneWidget);
+    expect(find.text('По самооценке: 1'), findsOneWidget);
+    expect(find.text('Скоро повторить'), findsOneWidget);
 
     final logs = await db.select(db.reviewLogs).get();
     expect(logs.map((l) => l.questionId).toSet(), {

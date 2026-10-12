@@ -29,6 +29,10 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   AppError? _startError;
   var _extraNew = 0;
 
+  /// Идёт построение очереди: повторный запуск («Ещё 5 минут», двойной тап)
+  /// игнорируется.
+  var _starting = false;
+
   @override
   void initState() {
     super.initState();
@@ -38,6 +42,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   }
 
   Future<void> _start({int extraNew = 0}) async {
+    if (_starting) return;
+    _starting = true;
     _extraNew = extraNew;
     if (_startError != null) setState(() => _startError = null);
     try {
@@ -46,6 +52,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
           .start(extraNew: extraNew);
     } on AppError catch (error) {
       if (mounted) setState(() => _startError = error);
+    } finally {
+      _starting = false;
     }
   }
 
@@ -163,7 +171,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
             onTakeNew: () => _start(extraNew: kTakeNewCount),
           );
         }
-        return SessionSummary(state: state);
+        return SessionSummary(state: state, onAnotherSession: _start);
     }
   }
 }
