@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app/app.dart';
 import 'core/supabase/supabase_config.dart';
 import 'core/supabase/supabase_init.dart';
+import 'core/sync/data/sync_providers.dart';
 import 'features/auth/presentation/auth_session_notifier.dart';
 import 'features/settings/presentation/settings_notifier.dart';
 
@@ -15,6 +16,9 @@ Future<void> main() async {
       await initSupabase();
       // Анонимный вход; без сети повторяется в фоне, приложение открывается сразу.
       container.read(authSessionProvider);
+      // Синхронизация прогресса (T17): при входе, по расписанию, при
+      // возврате в приложение; без сети тихо ждёт.
+      container.read(syncBootstrapProvider);
     } catch (e) {
       debugPrint('Supabase не инициализирован: $e');
     }

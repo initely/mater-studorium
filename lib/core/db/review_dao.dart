@@ -239,7 +239,7 @@ class ReviewDao extends DatabaseAccessor<AppDatabase> with _$ReviewDaoMixin {
         ),
       );
       for (final entry in outbox) {
-        await enqueueOutbox(entry);
+        await enqueueOutbox(userId, entry);
       }
       await into(reviewLogs).insert(
         ReviewLogsCompanion.insert(
@@ -261,27 +261,15 @@ class ReviewDao extends DatabaseAccessor<AppDatabase> with _$ReviewDaoMixin {
     });
   }
 
-  Future<int> enqueueOutbox(OutboxEntry entry) => into(outbox).insert(
-    OutboxCompanion.insert(
-      kind: entry.kind,
-      payloadJson: entry.payloadJson,
-      createdAt: entry.createdAt.toUtc(),
-    ),
-  );
-
-  /// Записи outbox от старых к новым.
-  Future<List<OutboxEntry>> pendingOutbox({int? limit}) async {
-    final query = select(outbox)..orderBy([(o) => OrderingTerm.asc(o.id)]);
-    if (limit != null) query.limit(limit);
-    return (await query.get()).map(outboxFromRow).toList();
-  }
-
-  Future<void> deleteOutbox(int id) =>
-      (delete(outbox)..where((o) => o.id.equals(id))).go();
-
-  Future<void> incrementOutboxAttempts(int id) => customUpdate(
-    'UPDATE outbox SET attempts = attempts + 1 WHERE id = ?',
-    variables: [Variable<int>(id)],
-    updates: {outbox},
-  );
+  /// Запись outbox от имени [userId]: синхронизация отправит её только под
+  /// сессией этого пользователя. Чтение и удаление — `SyncDao`.
+  Future<int> enqueueOutbox(String userId, OutboxEntry entry) =>
+      into(outbox).insert(
+        OutboxCompanion.insert(
+          userId: Value(userId),
+          kind: entry.kind,
+          payloadJson: entry.payloadJson,
+          createdAt: entry.createdAt.toUtc(),
+        ),
+      );
 }

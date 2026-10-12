@@ -1,12 +1,30 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthUser;
 
 import '../../../core/errors/app_error.dart';
 import '../domain/auth_repository.dart';
+import '../domain/auth_user.dart';
 
 class SupabaseAuthRepository implements AuthRepository {
   SupabaseAuthRepository(this._auth);
 
   final GoTrueClient _auth;
+
+  @override
+  AuthUser? get currentUser => _map(_auth.currentUser);
+
+  /// gotrue отдаёт сетевые сбои обновления токена ошибками потока; это не
+  /// смена пользователя, поэтому они отбрасываются (сессия остаётся, токен
+  /// обновится при появлении сети). Поток gotrue повторяет новым подписчикам
+  /// прошлые события по порядку, последнее — текущее состояние.
+  @override
+  Stream<AuthUser?> userChanges() => _auth.onAuthStateChange
+      .map((s) => _map(s.session?.user))
+      .handleError((Object _) {})
+      .distinct();
+
+  static AuthUser? _map(User? user) => user == null
+      ? null
+      : AuthUser(id: user.id, isAnonymous: user.isAnonymous);
 
   @override
   Future<void> ensureSignedIn() async {

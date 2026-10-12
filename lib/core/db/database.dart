@@ -6,6 +6,7 @@ import '../sync/outbox_entry.dart'; // нужен сгенерированном
 import 'decks_dao.dart';
 import 'review_dao.dart';
 import 'settings_dao.dart';
+import 'sync_dao.dart';
 import 'tables.dart';
 
 part 'database.g.dart';
@@ -20,8 +21,9 @@ part 'database.g.dart';
     Outbox,
     HiddenQuestions,
     AppSettings,
+    SyncCursors,
   ],
-  daos: [DecksDao, ReviewDao, SettingsDao],
+  daos: [DecksDao, ReviewDao, SettingsDao, SyncDao],
 )
 class AppDatabase extends _$AppDatabase {
   /// В тестах: `AppDatabase(NativeDatabase.memory())`.
@@ -42,7 +44,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -58,6 +60,14 @@ class AppDatabase extends _$AppDatabase {
       if (from < 3) {
         await m.createTable(appSettings);
         await m.addColumn(decks, decks.description);
+      }
+      if (from < 4) {
+        // T17: владелец записи outbox, курсоры pull, индекс неотправленных
+        // логов. Существующие логи и состояния не трогаем: synced_at и dirty
+        // уже отражают, что не отправлено (до T17 не отправлялось ничего).
+        await m.addColumn(outbox, outbox.userId);
+        await m.createTable(syncCursors);
+        await m.createIndex(idxReviewLogsUnsynced);
       }
     },
     beforeOpen: (details) async {

@@ -87,5 +87,6 @@ String deckErrorText(AppLocalizations l10n, AppError error) => switch (error) {
   DeckNotFoundError() => l10n.decksErrorNotFound,
   AuthError() ||
   UnexpectedError() ||
+  SyncRejectedError() ||
   LocalStorageError() => l10n.decksErrorGeneric,
 };

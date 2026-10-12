@@ -20,6 +20,7 @@ void main() {
       DeckSchemaTooNewError() => 'schema',
       DeckNotFoundError() => 'not_found',
       LocalStorageError() => 'storage',
+      SyncRejectedError() => 'rejected',
       UnexpectedError() => 'unexpected',
     };
     expect(label, 'network');

@@ -327,8 +327,9 @@ void main() {
       expect(logRow.reviewedAt.toUtc(), t0);
       expect(logRow.syncedAt, isNull);
 
-      final pending = await db.reviewDao.pendingOutbox();
+      final pending = await db.syncDao.pendingOutbox(user, limit: 10);
       expect(pending, hasLength(1));
+      expect(await db.syncDao.pendingOutbox('u2', limit: 10), isEmpty);
       expect(pending.single.kind, OutboxKind.report);
       expect(pending.single.payloadJson, report.payloadJson);
       expect(pending.single.createdAt, t0);
@@ -382,27 +383,44 @@ void main() {
       );
 
       expect(await db.reviewDao.getState(user, 't.a'), first);
-      expect(await db.reviewDao.pendingOutbox(), isEmpty);
+      expect(await db.syncDao.pendingOutbox(user, limit: 10), isEmpty);
       expect(await db.select(db.reviewLogs).get(), hasLength(1));
     });
   });
 
-  test('outbox: порядок, попытки, удаление', () async {
+  test('outbox: порядок, попытки, удаление, только свои записи', () async {
     final db = await dbWithDeck();
     for (final p in ['1', '2']) {
       await db.reviewDao.enqueueOutbox(
+        user,
         OutboxEntry(kind: OutboxKind.duelAnswer, payloadJson: p, createdAt: t0),
       );
     }
+    await db.reviewDao.enqueueOutbox(
+      'u2',
+      OutboxEntry(kind: OutboxKind.report, payloadJson: 'x', createdAt: t0),
+    );
 
-    var pending = await db.reviewDao.pendingOutbox();
+    var pending = await db.syncDao.pendingOutbox(user, limit: 10);
     expect(pending.map((e) => e.payloadJson), ['1', '2']);
-    expect((await db.reviewDao.pendingOutbox(limit: 1)), hasLength(1));
+    expect(await db.syncDao.pendingOutbox(user, limit: 1), hasLength(1));
+    expect(
+      (await db.syncDao.pendingOutbox(
+        user,
+        limit: 10,
+        afterId: pending.first.id,
+      )).map((e) => e.payloadJson),
+      ['2'],
+    );
 
-    await db.reviewDao.incrementOutboxAttempts(pending.first.id!);
-    await db.reviewDao.deleteOutbox(pending.last.id!);
-    pending = await db.reviewDao.pendingOutbox();
+    await db.syncDao.markOutboxAttempt(pending.first.id!);
+    await db.syncDao.deleteOutbox(pending.last.id!);
+    pending = await db.syncDao.pendingOutbox(user, limit: 10);
     expect(pending.single.payloadJson, '1');
     expect(pending.single.attempts, 1);
+    expect(
+      (await db.syncDao.pendingOutbox('u2', limit: 10)).single.payloadJson,
+      'x',
+    );
   });
 }

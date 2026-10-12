@@ -99,10 +99,18 @@ class UserItemStates extends Table {
 /// Индекс (schema v2, ADR-24): запросы очереди ищут логи по знанию
 /// (`lastShownAt`, «показано ли знание раньше») и по времени внутри знания;
 /// без него это полные сканы журнала, который растёт без ограничений.
+///
+/// Частичный индекс (schema v4, T17): синхронизация каждый раз ищет
+/// неотправленные логи пользователя (`synced_at IS NULL`) в порядке
+/// `reviewed_at, id`; без индекса это скан всего журнала.
 @DataClassName('ReviewLogRow')
 @TableIndex(
   name: 'idx_review_logs_user_item_time',
   columns: {#userId, #itemId, #reviewedAt},
+)
+@TableIndex.sql(
+  'CREATE INDEX idx_review_logs_unsynced ON review_logs '
+  '(user_id, reviewed_at, id) WHERE synced_at IS NULL',
 )
 class ReviewLogs extends Table {
   TextColumn get id => text()();
@@ -133,9 +141,15 @@ class ReviewLogs extends Table {
 }
 
 /// Очередь отправки для того, что не покрыто `dirty` и `synced_at`.
+///
+/// `user_id` (schema v4, T17): чей это запрос. Синхронизация отправляет только
+/// записи текущего пользователя, чужие ждут его входа и не уходят под чужой
+/// сессией. Записи, созданные до v4, получили пустой `user_id` (outbox до T17
+/// никто не заполнял).
 @DataClassName('OutboxRow')
 class Outbox extends Table {
   IntColumn get id => integer().autoIncrement()();
+  TextColumn get userId => text().withDefault(const Constant(''))();
   TextColumn get kind => textEnum<OutboxKind>()();
   TextColumn get payloadJson => text()();
   DateTimeColumn get createdAt => dateTime()();
@@ -162,4 +176,17 @@ class AppSettings extends Table {
 
   @override
   Set<Column> get primaryKey => {key};
+}
+
+/// Курсоры pull (schema v4, T17): до какого серверного `sync_seq` получены
+/// изменения потока ([stream]: `item_states`, `review_logs`) пользователя.
+/// Обновляются в той же транзакции, что и слияние страницы.
+@DataClassName('SyncCursorRow')
+class SyncCursors extends Table {
+  TextColumn get userId => text()();
+  TextColumn get stream => text()();
+  IntColumn get cursor => integer()();
+
+  @override
+  Set<Column> get primaryKey => {userId, stream};
 }

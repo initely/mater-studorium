@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mater_studorium/core/db/database.dart';
 import 'package:mater_studorium/core/db/database_providers.dart';
 import 'package:mater_studorium/core/errors/app_error.dart';
+import 'package:mater_studorium/core/sync/data/sync_providers.dart';
 import 'package:mater_studorium/core/utils/clock.dart';
 import 'package:mater_studorium/core/utils/uuid.dart';
 import 'package:mater_studorium/features/catalog/domain/local_item.dart';
@@ -422,6 +423,36 @@ void main() {
         expect(await db.select(db.reviewLogs).get(), hasLength(1));
       },
     );
+  });
+
+  group('синхронизация (T17)', () {
+    test('конец сессии (очередь кончилась или finish) просит синк; во время '
+        'сессии — нет', () async {
+      var requests = 0;
+      final h = Harness(
+        await dbWithBigDeck(n: 2),
+        overrides: [syncRequestProvider.overrideWithValue(() => requests++)],
+      );
+      addTearDown(h.container.dispose);
+      await h.controller.start();
+      await h.submit();
+      expect(requests, 0);
+      await h.submit();
+      expect(h.state.status, SessionStatus.finished);
+      expect(requests, 1);
+
+      final h2 = Harness(
+        await dbWithBigDeck(),
+        overrides: [syncRequestProvider.overrideWithValue(() => requests++)],
+      );
+      addTearDown(h2.container.dispose);
+      await h2.controller.start();
+      await h2.submit();
+      h2.controller.finish();
+      expect(requests, 2);
+      h2.controller.finish(); // уже finished: повторно не просит
+      expect(requests, 2);
+    });
   });
 
   group('AC3.2: сессию прервали', () {

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/sync/data/sync_providers.dart';
 import '../../../core/utils/clock.dart';
 import '../../../core/utils/uuid.dart';
 import '../../srs/domain/rating.dart';
@@ -91,6 +92,9 @@ class SessionController extends Notifier<SessionState> {
         index: next,
         answers: [...state.answers, log],
       );
+      // Сессия закончилась этим ответом (или `finish()` во время записи:
+      // тогда его прогон мог не увидеть этот ответ) — синхронизировать.
+      if (!goOn) _requestSync();
     } finally {
       _submitting = false;
     }
@@ -100,8 +104,14 @@ class SessionController extends Notifier<SessionState> {
   void finish() {
     if (state.status == SessionStatus.running) {
       state = state.copyWith(status: SessionStatus.finished);
+      _requestSync();
     }
   }
+
+  /// Конец сессии — триггер синхронизации (ТЗ §7.3): ответы уже в локальной
+  /// БД, отправка идёт в фоне и сессию не задерживает. Сетевых вызовов
+  /// отсюда нет (CLAUDE.md, правило 4), только просьба к `SyncService`.
+  void _requestSync() => ref.read(syncRequestProvider)();
 }
 
 final sessionControllerProvider =

@@ -78,6 +78,15 @@ final class LocalStorageError extends AppError {
   const LocalStorageError(super.message, {super.cause});
 }
 
+/// Сервер отклонил пакет синхронизации как неверный (значение вне диапазона,
+/// не тот тип, превышен размер пакета). Пакет атомарен: ничего не записано.
+/// Повтор того же пакета не поможет; клиент такие строки не отправляет
+/// (`sync_validator.dart`), так что это признак расхождения правил клиента и
+/// сервера.
+final class SyncRejectedError extends AppError {
+  const SyncRejectedError(super.message, {super.cause});
+}
+
 /// Всё остальное, чего мы не ожидали.
 final class UnexpectedError extends AppError {
   const UnexpectedError(super.message, {super.cause});

@@ -24,13 +24,30 @@ const authRetryDelays = [
 ];
 
 /// Выполняет `ensureSignedIn()` при старте и повторяет, пока нет сети.
+///
+/// Если после входа сессия пропала (gotrue прислал выход: отозван или
+/// просрочен refresh token), снова выполняет анонимный вход, иначе
+/// пользователь молча остался бы без сессии (ревью T04, ADR-28). Локальный
+/// прогресс прежнего анонимного пользователя переносит синхронизация
+/// (`AccountSwitchHandler`).
 class AuthSessionNotifier extends Notifier<AuthSessionStatus> {
   Timer? _timer;
+  StreamSubscription<Object?>? _changes;
   var _attempt = 0;
 
   @override
   AuthSessionStatus build() {
-    ref.onDispose(() => _timer?.cancel());
+    ref.onDispose(() {
+      _timer?.cancel();
+      unawaited(_changes?.cancel());
+    });
+    _changes = ref.read(authRepositoryProvider).userChanges().listen((user) {
+      if (user == null && state == AuthSessionStatus.signedIn) {
+        _attempt = 0;
+        state = AuthSessionStatus.signingIn;
+        unawaited(_signIn());
+      }
+    });
     unawaited(_signIn());
     return AuthSessionStatus.signingIn;
   }
@@ -45,6 +62,7 @@ class AuthSessionNotifier extends Notifier<AuthSessionStatus> {
           ? _attempt
           : authRetryDelays.length - 1;
       _attempt++;
+      _timer?.cancel();
       _timer = Timer(authRetryDelays[index], () => unawaited(_signIn()));
     } on AppError {
       if (ref.mounted) state = AuthSessionStatus.failed;

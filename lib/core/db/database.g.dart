@@ -3119,6 +3119,16 @@ class $OutboxTable extends Outbox with TableInfo<$OutboxTable, OutboxRow> {
       'PRIMARY KEY AUTOINCREMENT',
     ),
   );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
   @override
   late final GeneratedColumnWithTypeConverter<OutboxKind, String> kind =
       GeneratedColumn<String>(
@@ -3165,6 +3175,7 @@ class $OutboxTable extends Outbox with TableInfo<$OutboxTable, OutboxRow> {
   @override
   List<GeneratedColumn> get $columns => [
     id,
+    userId,
     kind,
     payloadJson,
     createdAt,
@@ -3184,6 +3195,12 @@ class $OutboxTable extends Outbox with TableInfo<$OutboxTable, OutboxRow> {
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
     }
     if (data.containsKey('payload_json')) {
       context.handle(
@@ -3223,6 +3240,10 @@ class $OutboxTable extends Outbox with TableInfo<$OutboxTable, OutboxRow> {
         DriftSqlType.int,
         data['${effectivePrefix}id'],
       )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
       kind: $OutboxTable.$converterkind.fromSql(
         attachedDatabase.typeMapping.read(
           DriftSqlType.string,
@@ -3255,12 +3276,14 @@ class $OutboxTable extends Outbox with TableInfo<$OutboxTable, OutboxRow> {
 
 class OutboxRow extends DataClass implements Insertable<OutboxRow> {
   final int id;
+  final String userId;
   final OutboxKind kind;
   final String payloadJson;
   final DateTime createdAt;
   final int attempts;
   const OutboxRow({
     required this.id,
+    required this.userId,
     required this.kind,
     required this.payloadJson,
     required this.createdAt,
@@ -3270,6 +3293,7 @@ class OutboxRow extends DataClass implements Insertable<OutboxRow> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
+    map['user_id'] = Variable<String>(userId);
     {
       map['kind'] = Variable<String>($OutboxTable.$converterkind.toSql(kind));
     }
@@ -3282,6 +3306,7 @@ class OutboxRow extends DataClass implements Insertable<OutboxRow> {
   OutboxCompanion toCompanion(bool nullToAbsent) {
     return OutboxCompanion(
       id: Value(id),
+      userId: Value(userId),
       kind: Value(kind),
       payloadJson: Value(payloadJson),
       createdAt: Value(createdAt),
@@ -3296,6 +3321,7 @@ class OutboxRow extends DataClass implements Insertable<OutboxRow> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return OutboxRow(
       id: serializer.fromJson<int>(json['id']),
+      userId: serializer.fromJson<String>(json['userId']),
       kind: $OutboxTable.$converterkind.fromJson(
         serializer.fromJson<String>(json['kind']),
       ),
@@ -3309,6 +3335,7 @@ class OutboxRow extends DataClass implements Insertable<OutboxRow> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
+      'userId': serializer.toJson<String>(userId),
       'kind': serializer.toJson<String>(
         $OutboxTable.$converterkind.toJson(kind),
       ),
@@ -3320,12 +3347,14 @@ class OutboxRow extends DataClass implements Insertable<OutboxRow> {
 
   OutboxRow copyWith({
     int? id,
+    String? userId,
     OutboxKind? kind,
     String? payloadJson,
     DateTime? createdAt,
     int? attempts,
   }) => OutboxRow(
     id: id ?? this.id,
+    userId: userId ?? this.userId,
     kind: kind ?? this.kind,
     payloadJson: payloadJson ?? this.payloadJson,
     createdAt: createdAt ?? this.createdAt,
@@ -3334,6 +3363,7 @@ class OutboxRow extends DataClass implements Insertable<OutboxRow> {
   OutboxRow copyWithCompanion(OutboxCompanion data) {
     return OutboxRow(
       id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
       kind: data.kind.present ? data.kind.value : this.kind,
       payloadJson: data.payloadJson.present
           ? data.payloadJson.value
@@ -3347,6 +3377,7 @@ class OutboxRow extends DataClass implements Insertable<OutboxRow> {
   String toString() {
     return (StringBuffer('OutboxRow(')
           ..write('id: $id, ')
+          ..write('userId: $userId, ')
           ..write('kind: $kind, ')
           ..write('payloadJson: $payloadJson, ')
           ..write('createdAt: $createdAt, ')
@@ -3356,12 +3387,14 @@ class OutboxRow extends DataClass implements Insertable<OutboxRow> {
   }
 
   @override
-  int get hashCode => Object.hash(id, kind, payloadJson, createdAt, attempts);
+  int get hashCode =>
+      Object.hash(id, userId, kind, payloadJson, createdAt, attempts);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is OutboxRow &&
           other.id == this.id &&
+          other.userId == this.userId &&
           other.kind == this.kind &&
           other.payloadJson == this.payloadJson &&
           other.createdAt == this.createdAt &&
@@ -3370,12 +3403,14 @@ class OutboxRow extends DataClass implements Insertable<OutboxRow> {
 
 class OutboxCompanion extends UpdateCompanion<OutboxRow> {
   final Value<int> id;
+  final Value<String> userId;
   final Value<OutboxKind> kind;
   final Value<String> payloadJson;
   final Value<DateTime> createdAt;
   final Value<int> attempts;
   const OutboxCompanion({
     this.id = const Value.absent(),
+    this.userId = const Value.absent(),
     this.kind = const Value.absent(),
     this.payloadJson = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -3383,6 +3418,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxRow> {
   });
   OutboxCompanion.insert({
     this.id = const Value.absent(),
+    this.userId = const Value.absent(),
     required OutboxKind kind,
     required String payloadJson,
     required DateTime createdAt,
@@ -3392,6 +3428,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxRow> {
        createdAt = Value(createdAt);
   static Insertable<OutboxRow> custom({
     Expression<int>? id,
+    Expression<String>? userId,
     Expression<String>? kind,
     Expression<String>? payloadJson,
     Expression<DateTime>? createdAt,
@@ -3399,6 +3436,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxRow> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
       if (kind != null) 'kind': kind,
       if (payloadJson != null) 'payload_json': payloadJson,
       if (createdAt != null) 'created_at': createdAt,
@@ -3408,6 +3446,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxRow> {
 
   OutboxCompanion copyWith({
     Value<int>? id,
+    Value<String>? userId,
     Value<OutboxKind>? kind,
     Value<String>? payloadJson,
     Value<DateTime>? createdAt,
@@ -3415,6 +3454,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxRow> {
   }) {
     return OutboxCompanion(
       id: id ?? this.id,
+      userId: userId ?? this.userId,
       kind: kind ?? this.kind,
       payloadJson: payloadJson ?? this.payloadJson,
       createdAt: createdAt ?? this.createdAt,
@@ -3427,6 +3467,9 @@ class OutboxCompanion extends UpdateCompanion<OutboxRow> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<int>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
     }
     if (kind.present) {
       map['kind'] = Variable<String>(
@@ -3449,6 +3492,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxRow> {
   String toString() {
     return (StringBuffer('OutboxCompanion(')
           ..write('id: $id, ')
+          ..write('userId: $userId, ')
           ..write('kind: $kind, ')
           ..write('payloadJson: $payloadJson, ')
           ..write('createdAt: $createdAt, ')
@@ -3838,6 +3882,266 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingRow> {
   }
 }
 
+class $SyncCursorsTable extends SyncCursors
+    with TableInfo<$SyncCursorsTable, SyncCursorRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncCursorsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _streamMeta = const VerificationMeta('stream');
+  @override
+  late final GeneratedColumn<String> stream = GeneratedColumn<String>(
+    'stream',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _cursorMeta = const VerificationMeta('cursor');
+  @override
+  late final GeneratedColumn<int> cursor = GeneratedColumn<int>(
+    'cursor',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [userId, stream, cursor];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_cursors';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncCursorRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('stream')) {
+      context.handle(
+        _streamMeta,
+        stream.isAcceptableOrUnknown(data['stream']!, _streamMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_streamMeta);
+    }
+    if (data.containsKey('cursor')) {
+      context.handle(
+        _cursorMeta,
+        cursor.isAcceptableOrUnknown(data['cursor']!, _cursorMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_cursorMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {userId, stream};
+  @override
+  SyncCursorRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncCursorRow(
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      stream: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}stream'],
+      )!,
+      cursor: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}cursor'],
+      )!,
+    );
+  }
+
+  @override
+  $SyncCursorsTable createAlias(String alias) {
+    return $SyncCursorsTable(attachedDatabase, alias);
+  }
+}
+
+class SyncCursorRow extends DataClass implements Insertable<SyncCursorRow> {
+  final String userId;
+  final String stream;
+  final int cursor;
+  const SyncCursorRow({
+    required this.userId,
+    required this.stream,
+    required this.cursor,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['user_id'] = Variable<String>(userId);
+    map['stream'] = Variable<String>(stream);
+    map['cursor'] = Variable<int>(cursor);
+    return map;
+  }
+
+  SyncCursorsCompanion toCompanion(bool nullToAbsent) {
+    return SyncCursorsCompanion(
+      userId: Value(userId),
+      stream: Value(stream),
+      cursor: Value(cursor),
+    );
+  }
+
+  factory SyncCursorRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncCursorRow(
+      userId: serializer.fromJson<String>(json['userId']),
+      stream: serializer.fromJson<String>(json['stream']),
+      cursor: serializer.fromJson<int>(json['cursor']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'userId': serializer.toJson<String>(userId),
+      'stream': serializer.toJson<String>(stream),
+      'cursor': serializer.toJson<int>(cursor),
+    };
+  }
+
+  SyncCursorRow copyWith({String? userId, String? stream, int? cursor}) =>
+      SyncCursorRow(
+        userId: userId ?? this.userId,
+        stream: stream ?? this.stream,
+        cursor: cursor ?? this.cursor,
+      );
+  SyncCursorRow copyWithCompanion(SyncCursorsCompanion data) {
+    return SyncCursorRow(
+      userId: data.userId.present ? data.userId.value : this.userId,
+      stream: data.stream.present ? data.stream.value : this.stream,
+      cursor: data.cursor.present ? data.cursor.value : this.cursor,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncCursorRow(')
+          ..write('userId: $userId, ')
+          ..write('stream: $stream, ')
+          ..write('cursor: $cursor')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(userId, stream, cursor);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncCursorRow &&
+          other.userId == this.userId &&
+          other.stream == this.stream &&
+          other.cursor == this.cursor);
+}
+
+class SyncCursorsCompanion extends UpdateCompanion<SyncCursorRow> {
+  final Value<String> userId;
+  final Value<String> stream;
+  final Value<int> cursor;
+  final Value<int> rowid;
+  const SyncCursorsCompanion({
+    this.userId = const Value.absent(),
+    this.stream = const Value.absent(),
+    this.cursor = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SyncCursorsCompanion.insert({
+    required String userId,
+    required String stream,
+    required int cursor,
+    this.rowid = const Value.absent(),
+  }) : userId = Value(userId),
+       stream = Value(stream),
+       cursor = Value(cursor);
+  static Insertable<SyncCursorRow> custom({
+    Expression<String>? userId,
+    Expression<String>? stream,
+    Expression<int>? cursor,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (userId != null) 'user_id': userId,
+      if (stream != null) 'stream': stream,
+      if (cursor != null) 'cursor': cursor,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SyncCursorsCompanion copyWith({
+    Value<String>? userId,
+    Value<String>? stream,
+    Value<int>? cursor,
+    Value<int>? rowid,
+  }) {
+    return SyncCursorsCompanion(
+      userId: userId ?? this.userId,
+      stream: stream ?? this.stream,
+      cursor: cursor ?? this.cursor,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (stream.present) {
+      map['stream'] = Variable<String>(stream.value);
+    }
+    if (cursor.present) {
+      map['cursor'] = Variable<int>(cursor.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncCursorsCompanion(')
+          ..write('userId: $userId, ')
+          ..write('stream: $stream, ')
+          ..write('cursor: $cursor, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3851,6 +4155,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $AppSettingsTable appSettings = $AppSettingsTable(this);
+  late final $SyncCursorsTable syncCursors = $SyncCursorsTable(this);
   late final Index idxQuestionsItemId = Index(
     'idx_questions_item_id',
     'CREATE INDEX idx_questions_item_id ON questions (item_id)',
@@ -3863,9 +4168,14 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'idx_review_logs_user_item_time',
     'CREATE INDEX idx_review_logs_user_item_time ON review_logs (user_id, item_id, reviewed_at)',
   );
+  late final Index idxReviewLogsUnsynced = Index(
+    'idx_review_logs_unsynced',
+    'CREATE INDEX idx_review_logs_unsynced ON review_logs (user_id, reviewed_at, id) WHERE synced_at IS NULL',
+  );
   late final DecksDao decksDao = DecksDao(this as AppDatabase);
   late final ReviewDao reviewDao = ReviewDao(this as AppDatabase);
   late final SettingsDao settingsDao = SettingsDao(this as AppDatabase);
+  late final SyncDao syncDao = SyncDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3879,9 +4189,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     outbox,
     hiddenQuestions,
     appSettings,
+    syncCursors,
     idxQuestionsItemId,
     idxUserItemStateDue,
     idxReviewLogsUserItemTime,
+    idxReviewLogsUnsynced,
   ];
 }
 
@@ -5822,6 +6134,7 @@ typedef $$ReviewLogsTableProcessedTableManager =
     >;
 typedef $$OutboxTableCreateCompanionBuilder = OutboxCompanion Function({
   Value<int> id,
+  Value<String> userId,
   required OutboxKind kind,
   required String payloadJson,
   required DateTime createdAt,
@@ -5829,6 +6142,7 @@ typedef $$OutboxTableCreateCompanionBuilder = OutboxCompanion Function({
 });
 typedef $$OutboxTableUpdateCompanionBuilder = OutboxCompanion Function({
   Value<int> id,
+  Value<String> userId,
   Value<OutboxKind> kind,
   Value<String> payloadJson,
   Value<DateTime> createdAt,
@@ -5846,6 +6160,11 @@ class $$OutboxTableFilterComposer
   });
   ColumnFilters<int> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5885,6 +6204,11 @@ class $$OutboxTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get kind => $composableBuilder(
     column: $table.kind,
     builder: (column) => ColumnOrderings(column),
@@ -5917,6 +6241,9 @@ class $$OutboxTableAnnotationComposer
   });
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
 
   GeneratedColumnWithTypeConverter<OutboxKind, String> get kind =>
       $composableBuilder(column: $table.kind, builder: (column) => column);
@@ -5962,12 +6289,14 @@ class $$OutboxTableTableManager
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<String> userId = const Value.absent(),
                 Value<OutboxKind> kind = const Value.absent(),
                 Value<String> payloadJson = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> attempts = const Value.absent(),
               }) => OutboxCompanion(
                 id: id,
+                userId: userId,
                 kind: kind,
                 payloadJson: payloadJson,
                 createdAt: createdAt,
@@ -5976,12 +6305,14 @@ class $$OutboxTableTableManager
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<String> userId = const Value.absent(),
                 required OutboxKind kind,
                 required String payloadJson,
                 required DateTime createdAt,
                 Value<int> attempts = const Value.absent(),
               }) => OutboxCompanion.insert(
                 id: id,
+                userId: userId,
                 kind: kind,
                 payloadJson: payloadJson,
                 createdAt: createdAt,
@@ -6302,6 +6633,177 @@ typedef $$AppSettingsTableProcessedTableManager =
       AppSettingRow,
       PrefetchHooks Function()
     >;
+typedef $$SyncCursorsTableCreateCompanionBuilder =
+    SyncCursorsCompanion Function({
+      required String userId,
+      required String stream,
+      required int cursor,
+      Value<int> rowid,
+    });
+typedef $$SyncCursorsTableUpdateCompanionBuilder =
+    SyncCursorsCompanion Function({
+      Value<String> userId,
+      Value<String> stream,
+      Value<int> cursor,
+      Value<int> rowid,
+    });
+
+class $$SyncCursorsTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncCursorsTable> {
+  $$SyncCursorsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get stream => $composableBuilder(
+    column: $table.stream,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get cursor => $composableBuilder(
+    column: $table.cursor,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncCursorsTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncCursorsTable> {
+  $$SyncCursorsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get stream => $composableBuilder(
+    column: $table.stream,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get cursor => $composableBuilder(
+    column: $table.cursor,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncCursorsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncCursorsTable> {
+  $$SyncCursorsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get stream =>
+      $composableBuilder(column: $table.stream, builder: (column) => column);
+
+  GeneratedColumn<int> get cursor =>
+      $composableBuilder(column: $table.cursor, builder: (column) => column);
+}
+
+class $$SyncCursorsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncCursorsTable,
+          SyncCursorRow,
+          $$SyncCursorsTableFilterComposer,
+          $$SyncCursorsTableOrderingComposer,
+          $$SyncCursorsTableAnnotationComposer,
+          $$SyncCursorsTableCreateCompanionBuilder,
+          $$SyncCursorsTableUpdateCompanionBuilder,
+          (
+            SyncCursorRow,
+            BaseReferences<_$AppDatabase, $SyncCursorsTable, SyncCursorRow>,
+          ),
+          SyncCursorRow,
+          PrefetchHooks Function()
+        > {
+  $$SyncCursorsTableTableManager(_$AppDatabase db, $SyncCursorsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncCursorsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncCursorsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SyncCursorsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> userId = const Value.absent(),
+                Value<String> stream = const Value.absent(),
+                Value<int> cursor = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SyncCursorsCompanion(
+                userId: userId,
+                stream: stream,
+                cursor: cursor,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String userId,
+                required String stream,
+                required int cursor,
+                Value<int> rowid = const Value.absent(),
+              }) => SyncCursorsCompanion.insert(
+                userId: userId,
+                stream: stream,
+                cursor: cursor,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$SyncCursorsTable, SyncCursorRow>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $SyncCursorsTable,
+                    SyncCursorRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncCursorsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncCursorsTable,
+      SyncCursorRow,
+      $$SyncCursorsTableFilterComposer,
+      $$SyncCursorsTableOrderingComposer,
+      $$SyncCursorsTableAnnotationComposer,
+      $$SyncCursorsTableCreateCompanionBuilder,
+      $$SyncCursorsTableUpdateCompanionBuilder,
+      (
+        SyncCursorRow,
+        BaseReferences<_$AppDatabase, $SyncCursorsTable, SyncCursorRow>,
+      ),
+      SyncCursorRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -6322,4 +6824,6 @@ class $AppDatabaseManager {
       $$HiddenQuestionsTableTableManager(_db, _db.hiddenQuestions);
   $$AppSettingsTableTableManager get appSettings =>
       $$AppSettingsTableTableManager(_db, _db.appSettings);
+  $$SyncCursorsTableTableManager get syncCursors =>
+      $$SyncCursorsTableTableManager(_db, _db.syncCursors);
 }
