@@ -18,12 +18,15 @@ class SupabaseAuthRepository implements AuthRepository {
     this._auth, {
     String Function()? redirectTo,
     AuthUrlLauncher? launcher,
-  }) : _redirectTo = redirectTo ?? (() => SupabaseConfig.oauthRedirectUrl),
+    Uri? supabaseUrl,
+  }) : _supabaseUrl = supabaseUrl ?? Uri.tryParse(SupabaseConfig.url),
+       _redirectTo = redirectTo ?? (() => SupabaseConfig.oauthRedirectUrl),
        _launch = launcher ?? _launchInBrowser;
 
   final GoTrueClient _auth;
   final String Function() _redirectTo;
   final AuthUrlLauncher _launch;
+  final Uri? _supabaseUrl;
 
   @override
   AuthUser? get currentUser => _map(_auth.currentUser);
@@ -115,7 +118,13 @@ class SupabaseAuthRepository implements AuthRepository {
     Future<String> Function() urlFor,
   ) async {
     try {
-      final opened = await _launch(Uri.parse(await urlFor()));
+      final url = Uri.parse(await urlFor());
+      // Адрес пришёл по сети: открываем только Google и свой сервер Supabase
+      // (ревью T21, N4), чтобы подменённый ответ не увёл в чужое место.
+      if (!isTrustedAuthUrl(url, supabaseUrl: _supabaseUrl)) {
+        throw AuthError('$what: адрес входа не прошёл проверку (${url.host})');
+      }
+      final opened = await _launch(url);
       if (!opened) throw UnexpectedError('$what: браузер не открылся');
     } on AppError {
       rethrow;
@@ -129,6 +138,25 @@ class SupabaseAuthRepository implements AuthRepository {
   }
 }
 
+/// Адрес, который можно открыть в браузере для входа: Google по https или
+/// собственный сервер Supabase ([supabaseUrl]; для локального стека допустим
+/// http на loopback). Всё остальное (чужой хост, `javascript:`, `file:`,
+/// http к постороннему хосту) отклоняется.
+bool isTrustedAuthUrl(Uri url, {required Uri? supabaseUrl}) {
+  if (url.userInfo.isNotEmpty) return false;
+  final host = url.host.toLowerCase();
+  if (url.scheme == 'https' && host == 'accounts.google.com') return true;
+  final own = supabaseUrl;
+  if (own == null || own.host.isEmpty || host != own.host.toLowerCase()) {
+    return false;
+  }
+  if (url.port != own.port) return false;
+  if (url.scheme == 'https') return true;
+  return url.scheme == 'http' &&
+      own.scheme == 'http' &&
+      const {'127.0.0.1', 'localhost', '10.0.2.2', '::1'}.contains(host);
+}
+
 /// Ошибка GoTrue при получении адреса входа или привязки -> типизированная.
 ///
 /// Google не настроен: `validation_failed` («provider is not enabled») или
@@ -140,8 +168,10 @@ AppError mapAuthLaunchError(String what, AuthException e) {
   }
   final code = e.code ?? e.statusCode;
   final message = e.message.toLowerCase();
+  // `validation_failed` общий код GoTrue для любой ошибки проверки запроса,
+  // поэтому по нему одному «не настроено» не считаем: нужен текст про
+  // провайдера.
   if (code == 'manual_linking_disabled' ||
-      code == 'validation_failed' ||
       message.contains('provider is not enabled') ||
       message.contains('unsupported provider')) {
     return ProviderUnavailableError('$what: Google не настроен', cause: e);

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mater_studorium/core/sync/domain/account_switch_handler.dart';
 import 'package:mater_studorium/core/sync/domain/sync_store.dart';
 import 'package:mater_studorium/core/sync/outbox_entry.dart';
+import 'package:mater_studorium/features/auth/domain/account_intent.dart';
 import 'package:mater_studorium/features/auth/domain/auth_user.dart';
 
 import '../../helpers/fake_sync_server.dart';
@@ -49,7 +50,15 @@ void main() {
       OutboxEntry(kind: OutboxKind.report, payloadJson: '{}', createdAt: s0),
     );
 
-    // Refresh token отозван: новый анонимный вход B.
+    // Refresh token отозван: приложение само повторно входит анонимно и перед
+    // этим пишет relogin (AuthSessionNotifier, ADR-34).
+    await d.db.syncDao.writeIntent(
+      AccountIntent(
+        kind: AccountIntentKind.relogin,
+        fromUserId: userA,
+        createdAt: s0,
+      ),
+    );
     d.user = userB;
     server.sessionUserId = userB;
     await switcher.onSignedIn(anonB);
@@ -72,6 +81,60 @@ void main() {
     expect(server.stateOf(userB, 'i1'), isNotNull);
     expect(server.stateOf(userB, 'i2'), isNotNull);
     expect(server.logsOf(userB).map((l) => l.id), [unsent.id]);
+  });
+
+  test('смена анонимного пользователя НЕ из нашего повторного входа (нет '
+      'relogin): данные не переносятся (ревью T21, B2)', () async {
+    final d = Device(server);
+    final switcher = AccountSwitchHandler(
+      store: d.db.syncDao,
+      sync: d.service,
+      intents: d.db.syncDao,
+      clock: () => s0.add(const Duration(hours: 1)),
+    );
+    await switcher.onSignedIn(anonA);
+    await answer(d.db, userA, 'i2', s0);
+    await d.db.reviewDao.enqueueOutbox(
+      userA,
+      OutboxEntry(kind: OutboxKind.report, payloadJson: '{}', createdAt: s0),
+    );
+
+    // Подмена сессии извне: вместо A вдруг аноним B.
+    d.user = userB;
+    server.sessionUserId = userB;
+    final result = await switcher.onSignedIn(anonB);
+
+    expect(result.outcome, AccountSwitchOutcome.none);
+    expect((await d.state('i2', user: userA))!.dirty, isTrue);
+    expect(await d.state('i2', user: userB), isNull);
+    expect((await d.db.select(d.db.outbox).getSingle()).userId, userA);
+    final report = await d.service.sync();
+    expect((report.logsPushed, report.statesPushed), (0, 0));
+    expect(server.states, isEmpty);
+  });
+
+  test('relogin про другого пользователя не разрешает перенос', () async {
+    final d = Device(server);
+    final switcher = AccountSwitchHandler(
+      store: d.db.syncDao,
+      sync: d.service,
+      intents: d.db.syncDao,
+      clock: () => s0.add(const Duration(hours: 1)),
+    );
+    await switcher.onSignedIn(anonA);
+    await answer(d.db, userA, 'i2', s0);
+    await d.db.syncDao.writeIntent(
+      AccountIntent(
+        kind: AccountIntentKind.relogin,
+        fromUserId: 'someone-else',
+        createdAt: s0,
+      ),
+    );
+
+    d.user = userB;
+    await switcher.onSignedIn(anonB);
+
+    expect(await d.state('i2', user: userB), isNull);
   });
 
   test('при совпадении знания остаётся более позднее состояние', () async {

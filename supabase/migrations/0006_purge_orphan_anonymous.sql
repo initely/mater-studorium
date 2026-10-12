@@ -23,6 +23,7 @@ returns table (user_id uuid, deleted boolean)
 language plpgsql
 security definer
 set search_path = ''
+set lock_timeout = '3s'
 as $$
 declare
   v_checks text;
@@ -97,6 +98,13 @@ begin
     p_min_age, p_min_age, v_checks
   );
 
+  -- Остаточная гонка (почти недостижимая): проверки «нет данных» видят снимок
+  -- на начало оператора, а INSERT дочерней строки с внешним ключом берёт
+  -- FOR KEY SHARE на пользователя. Если за долю секунды между проверкой и
+  -- DELETE пользователь успеет записать данные, каскад удалит и их. Для записи
+  -- нужна сессия с обновлением моложе порога, а такие пользователи
+  -- исключены условием по auth.sessions выше. lock_timeout (3 с) не даёт
+  -- чистке зависнуть на чужой блокировке.
   if p_dry_run then
     return query execute
       'select c.id, false from (' || v_candidates || ') c order by c.id';

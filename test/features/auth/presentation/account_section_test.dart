@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mater_studorium/core/errors/app_error.dart';
 import 'package:mater_studorium/core/l10n/app_localizations.dart';
+import 'package:mater_studorium/core/sync/data/sync_providers.dart';
+import 'package:mater_studorium/core/sync/domain/account_switch_handler.dart';
 import 'package:mater_studorium/core/utils/clock.dart';
 import 'package:mater_studorium/features/auth/data/account_providers.dart';
 import 'package:mater_studorium/features/auth/data/auth_providers.dart';
@@ -14,11 +16,18 @@ import 'package:mater_studorium/features/auth/domain/account_intent.dart';
 import 'package:mater_studorium/features/auth/domain/auth_user.dart';
 import 'package:mater_studorium/features/auth/presentation/account_notifier.dart';
 import 'package:mater_studorium/features/auth/presentation/account_section.dart';
+import 'package:mocktail/mocktail.dart';
 
 import '../../../helpers/fake_account.dart';
 import '../../../helpers/pump_app.dart';
 
+class _MockHandler extends Mock implements AccountSwitchHandler {}
+
 void main() {
+  setUpAll(
+    () => registerFallbackValue(const AuthUser(id: 'x', isAnonymous: false)),
+  );
+
   const anon = AuthUser(id: 'anon-1', isAnonymous: true);
   final t0 = DateTime.utc(2026, 10, 12, 10);
 
@@ -38,11 +47,29 @@ void main() {
     clockProvider.overrideWithValue(() => t0),
   ];
 
-  Future<void> pumpSection(WidgetTester tester, {bool configured = true}) =>
-      tester.pumpApp(
-        const Scaffold(body: SingleChildScrollView(child: AccountSection())),
-        overrides: overrides(configured: configured),
-      );
+  Future<void> pumpSection(
+    WidgetTester tester, {
+    bool configured = true,
+    List<Override> extra = const [],
+  }) => tester.pumpApp(
+    const Scaffold(body: SingleChildScrollView(child: AccountSection())),
+    overrides: [
+      ...overrides(configured: configured),
+      ...extra,
+    ],
+  );
+
+  void publish(
+    WidgetTester tester,
+    AccountSwitchOutcome outcome,
+    AuthUser user,
+  ) {
+    ProviderScope.containerOf(tester.element(find.byType(AccountSection)))
+        .read(accountSwitchResultProvider.notifier)
+        .publish(
+          AccountSwitchResult(outcome, fromUserId: 'anon-1', user: user),
+        );
+  }
 
   AppLocalizations l10n(WidgetTester tester) =>
       AppLocalizations.of(tester.element(find.byType(AccountSection)));
@@ -274,13 +301,12 @@ void main() {
       expect(intents.intent?.fromUserId, 'anon-1');
 
       // Вернулись из Google уже другим пользователем.
-      auth.emitUser(
-        const AuthUser(
-          id: 'google-9',
-          isAnonymous: false,
-          email: 'old@example.com',
-        ),
+      const old = AuthUser(
+        id: 'google-9',
+        isAnonymous: false,
+        email: 'old@example.com',
       );
+      auth.emitUser(old);
       await tester.pump();
       await tester.pump();
       final t = l10n(tester);
@@ -288,9 +314,69 @@ void main() {
         find.text(t.accountLinkedTitle('old@example.com')),
         findsOneWidget,
       );
+      expect(
+        find.text(t.accountNoticeSignedInExisting),
+        findsNothing,
+        reason: '«объединён» только после итога переноса',
+      );
+
+      // Итог обработки входа: прогресс перенесён.
+      publish(tester, AccountSwitchOutcome.adopted, old);
+      await tester.pump();
       expect(find.text(t.accountNoticeSignedInExisting), findsOneWidget);
       expect(linkButton, findsNothing);
+      expect(find.byKey(const Key('account-retry-merge')), findsNothing);
     });
+
+    for (final (outcome, text)
+        in <(AccountSwitchOutcome, String Function(AppLocalizations))>[
+          (
+            AccountSwitchOutcome.notConfirmed,
+            (t) => t.accountNoticeMergeNotConfirmed,
+          ),
+          (AccountSwitchOutcome.failed, (t) => t.accountNoticeMergeFailed),
+        ]) {
+      testWidgets('итог переноса $outcome: честный текст и кнопка «Перенести '
+          'прогресс», «объединён» не показывается', (tester) async {
+        final handler = _MockHandler();
+        const google = AuthUser(
+          id: 'g-2',
+          isAnonymous: false,
+          email: 'g@example.com',
+        );
+        await pumpSection(
+          tester,
+          extra: [accountSwitchHandlerProvider.overrideWithValue(handler)],
+        );
+        await tapLink(tester);
+        auth.emitUser(google);
+        await tester.pump();
+        publish(tester, outcome, google);
+        await tester.pump();
+        final t = l10n(tester);
+
+        expect(find.text(text(t)), findsOneWidget);
+        expect(find.text(t.accountNoticeSignedInExisting), findsNothing);
+        final retry = find.byKey(const Key('account-retry-merge'));
+        expect(retry, findsOneWidget);
+        expect(tester.getSize(retry).height, greaterThanOrEqualTo(48));
+
+        when(() => handler.adoptConfirmed(fromUserId: 'anon-1', user: google))
+            .thenAnswer(
+              (_) async => const AccountSwitchResult(
+                AccountSwitchOutcome.adopted,
+                fromUserId: 'anon-1',
+                user: google,
+              ),
+            );
+        await tester.tap(retry);
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.text(t.accountNoticeSignedInExisting), findsOneWidget);
+        expect(retry, findsNothing);
+      });
+    }
 
     testWidgets('вход в существующий аккаунт не открылся: сообщение, merge '
         'сброшен', (tester) async {

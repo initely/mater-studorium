@@ -172,7 +172,7 @@ additional_redirect_urls = [
   "https://127.0.0.1:3000",
   "http://127.0.0.1:3000/**",
   "http://localhost:3000/**",
-  "app.materstudorium.mater_studorium://login-callback",
+  "app.materstudorium.mater-studorium://login-callback",
 ]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
@@ -238,7 +238,11 @@ enable_signup = false
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
-enable_confirmations = false
+# T21 (ревью безопасности, S2): ДОЛЖНО быть true. При false анонимный пользователь через
+# `PUT /auth/v1/user {"email": ...}` мгновенно получает чужую «подтверждённую» почту и
+# перестаёт быть анонимным (заготовка для захвата аккаунта через автопривязку по почте).
+# С true смена почты ждёт письма. В облачном проекте «Confirm email» не выключать.
+enable_confirmations = true
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = false
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.

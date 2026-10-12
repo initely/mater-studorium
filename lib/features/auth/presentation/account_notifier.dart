@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/sync/data/sync_providers.dart';
+import '../../../core/sync/domain/account_switch_handler.dart';
 import '../data/account_providers.dart';
 import '../data/auth_providers.dart';
 import '../domain/account_event.dart';
@@ -23,8 +25,16 @@ enum AccountNotice {
   /// Google привязан, прогресс сохранён.
   linked,
 
-  /// Вошли в существующий аккаунт Google.
+  /// Вошли в существующий аккаунт Google, прогресс этого устройства перенесён
+  /// (выводится только из итога `AccountSwitchHandler`).
   signedInExisting,
+
+  /// Вошли в существующий аккаунт Google, но подтверждение устарело или его не
+  /// было: прогресс не перенесён и остался на устройстве; можно повторить.
+  mergeNotConfirmed,
+
+  /// Перенос прогресса не удался, ничего не потеряно; можно повторить.
+  mergeFailed,
   cancelled,
 
   /// Google не настроен в этой сборке или на сервере.
@@ -39,6 +49,7 @@ class AccountState {
     this.user,
     this.phase = AccountPhase.idle,
     this.notice,
+    this.strandedFromUserId,
   });
 
   /// Бэкенд подключён. Без него блок только сообщает, что вход недоступен.
@@ -48,6 +59,11 @@ class AccountState {
   final AuthUser? user;
   final AccountPhase phase;
   final AccountNotice? notice;
+
+  /// Прежний анонимный пользователь, чей прогресс остался на устройстве и
+  /// может быть перенесён кнопкой «Перенести прогресс» (после
+  /// `mergeNotConfirmed` и `mergeFailed`).
+  final String? strandedFromUserId;
 
   /// Требует внимания пользователя на экране настроек: диалог или сообщение
   /// о результате (после возврата из браузера приложение само открывает
@@ -59,11 +75,16 @@ class AccountState {
     AccountPhase? phase,
     AccountNotice? notice,
     bool clearNotice = false,
+    String? strandedFromUserId,
+    bool clearStranded = false,
   }) => AccountState(
     available: available,
     user: user ?? this.user,
     phase: phase ?? this.phase,
     notice: clearNotice ? null : (notice ?? this.notice),
+    strandedFromUserId: clearStranded
+        ? null
+        : (strandedFromUserId ?? this.strandedFromUserId),
   );
 }
 
@@ -90,6 +111,14 @@ class AccountNotifier extends Notifier<AccountState> {
     _lastUser = auth.currentUser;
     final users = auth.userChanges().listen(_onUser);
     final events = service.events().listen(_onEvent);
+    ref.listen(
+      accountSwitchResultProvider,
+      (_, result) => _onSwitchResult(result),
+    );
+    // Итог мог прийти до создания уведомителя (возврат из Google на web):
+    // состояние в `build` ещё не готово, применяем сразу после него.
+    final early = ref.read(accountSwitchResultProvider);
+    if (early != null) scheduleMicrotask(() => _onSwitchResult(early));
     ref.onDispose(() {
       unawaited(users.cancel());
       unawaited(events.cancel());
@@ -101,18 +130,49 @@ class AccountNotifier extends Notifier<AccountState> {
     if (user == null || user == _lastUser) return;
     final previous = _lastUser;
     _lastUser = user;
-    AccountNotice? notice;
-    if (previous != null && previous.isAnonymous && !user.isAnonymous) {
-      notice = previous.id == user.id
-          ? AccountNotice.linked
-          : AccountNotice.signedInExisting;
-    }
+    // Привязка с тем же id: прогресс остаётся под этим id, переносить нечего.
+    // Вход в другой аккаунт: сообщение о прогрессе зависит от итога переноса
+    // (`_onSwitchResult`), а не от самой смены пользователя.
+    final linked =
+        previous != null &&
+        previous.isAnonymous &&
+        !user.isAnonymous &&
+        previous.id == user.id;
     state = state.copyWith(
       user: user,
       phase: AccountPhase.idle,
-      notice: notice,
-      clearNotice: notice == null,
+      notice: linked ? AccountNotice.linked : null,
+      clearNotice: !linked,
     );
+  }
+
+  /// Итог обработки входа: честное сообщение о прогрессе (ревью T21, S1).
+  void _onSwitchResult(AccountSwitchResult? result) {
+    if (!ref.mounted ||
+        result == null ||
+        result.user == null ||
+        result.user!.isAnonymous) {
+      return;
+    }
+    switch (result.outcome) {
+      case AccountSwitchOutcome.adopted:
+        state = state.copyWith(
+          notice: AccountNotice.signedInExisting,
+          clearStranded: true,
+        );
+      case AccountSwitchOutcome.notConfirmed:
+        state = state.copyWith(
+          notice: AccountNotice.mergeNotConfirmed,
+          strandedFromUserId: result.fromUserId,
+        );
+      case AccountSwitchOutcome.failed:
+        state = state.copyWith(
+          notice: AccountNotice.mergeFailed,
+          strandedFromUserId: result.fromUserId,
+        );
+      case AccountSwitchOutcome.none:
+        break;
+    }
   }
 
   void _onEvent(AccountEvent event) {
@@ -145,6 +205,23 @@ class AccountNotifier extends Notifier<AccountState> {
   Future<void> declineMerge() async {
     await ref.read(accountLinkServiceProvider).decline();
     if (ref.mounted) state = state.copyWith(phase: AccountPhase.idle);
+  }
+
+  /// «Перенести прогресс»: пользователь уже в Google-аккаунте, а прогресс
+  /// анонимного аккаунта остался на устройстве (подтверждение устарело или
+  /// перенос не удался). Нажатие и есть подтверждение.
+  Future<void> retryMerge() async {
+    final from = state.strandedFromUserId;
+    final user = state.user;
+    if (from == null || user == null || user.isAnonymous) return;
+    if (state.phase == AccountPhase.working) return;
+    state = state.copyWith(phase: AccountPhase.working, clearNotice: true);
+    final result = await ref
+        .read(accountSwitchHandlerProvider)
+        .adoptConfirmed(fromUserId: from, user: user);
+    if (!ref.mounted) return;
+    state = state.copyWith(phase: AccountPhase.idle);
+    _onSwitchResult(result);
   }
 
   /// Скрыть сообщение о результате.

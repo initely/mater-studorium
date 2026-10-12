@@ -25,22 +25,11 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mater_studorium/core/errors/app_error.dart';
+import 'package:mater_studorium/core/supabase/supabase_config.dart';
 import 'package:mater_studorium/features/auth/data/supabase_auth_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class _MemoryPkceStorage extends GotrueAsyncStorage {
-  final _items = <String, String>{};
-
-  @override
-  Future<String?> getItem({required String key}) async => _items[key];
-
-  @override
-  Future<void> setItem({required String key, required String value}) async =>
-      _items[key] = value;
-
-  @override
-  Future<void> removeItem({required String key}) async => _items.remove(key);
-}
+import '../helpers/memory_pkce_storage.dart';
 
 String? _env(String name) {
   final value = Platform.environment[name];
@@ -70,7 +59,7 @@ void main() {
     final client = SupabaseClient(
       url!,
       anonKey!,
-      authOptions: AuthClientOptions(pkceAsyncStorage: _MemoryPkceStorage()),
+      authOptions: AuthClientOptions(pkceAsyncStorage: MemoryPkceStorage()),
     );
     clients.add(client);
     final res = await client.auth.signInAnonymously();
@@ -163,6 +152,45 @@ void main() {
     }
     // Пользователь остался анонимным: ничего не сломалось.
     expect(a.client.auth.currentUser!.isAnonymous, isTrue);
+  });
+
+  liveTest('адрес возврата Android доходит до GoTrue (B1): flow_state.referrer '
+      '== androidRedirectUrl для привязки и для входа (нужен включённый Google, '
+      'иначе пропускается)', () async {
+    final a = await newAnonymous();
+    final opened = <Uri>[];
+    final repo = SupabaseAuthRepository(
+      a.client.auth,
+      supabaseUrl: Uri.parse(url!),
+      launcher: (u) async {
+        opened.add(u);
+        return true;
+      },
+    );
+    try {
+      await repo.linkGoogle();
+    } on ProviderUnavailableError {
+      markTestSkipped('Google выключен: flow_state не создаётся');
+      return;
+    }
+    await repo.signInWithGoogle();
+    // Адрес входа строится на клиенте; flow_state появляется, когда браузер
+    // открывает его (GoTrue отвечает редиректом на Google).
+    final http = HttpClient();
+    final req = await http.getUrl(opened.last)
+      ..followRedirects = false;
+    final res = await req.close();
+    await res.drain<void>();
+    http.close(force: true);
+
+    final referrers = (await psql(
+      'select referrer from auth.flow_state order by created_at desc limit 2',
+    )).split('\n');
+    expect(opened, hasLength(2));
+    expect(referrers, [
+      SupabaseConfig.androidRedirectUrl,
+      SupabaseConfig.androidRedirectUrl,
+    ], reason: 'иначе GoTrue отбросил redirect_to и подставил site_url');
   });
 
   liveTest('чистка (пробный запуск): старый пустой аноним виден, молодой и с '

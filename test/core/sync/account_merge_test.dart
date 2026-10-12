@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mater_studorium/core/db/database.dart';
 import 'package:mater_studorium/core/db/sync_dao.dart';
 import 'package:mater_studorium/core/sync/domain/account_switch_handler.dart';
+import 'package:mater_studorium/core/sync/domain/sync_service.dart';
 import 'package:mater_studorium/core/sync/domain/sync_store.dart';
 import 'package:mater_studorium/core/sync/outbox_entry.dart';
 import 'package:mater_studorium/features/auth/domain/account_intent.dart';
@@ -55,10 +56,10 @@ void main() {
   }) =>
       AccountIntent(kind: kind, fromUserId: from, createdAt: now.subtract(age));
 
-  Future<void> signInAs(AuthUser user) async {
+  Future<AccountSwitchResult> signInAs(AuthUser user) async {
     d.user = user.id;
     server.sessionUserId = user.id;
-    await switcher.onSignedIn(user);
+    return switcher.onSignedIn(user);
   }
 
   /// Анонимный A отвечал на устройстве: i1 уже на сервере (под A), i2 ещё нет.
@@ -87,8 +88,10 @@ void main() {
       final serverA = server.stateOf(userA, 'i1')!;
       await d.db.syncDao.writeIntent(intent(AccountIntentKind.merge));
 
-      await signInAs(googleB);
+      final result = await signInAs(googleB);
 
+      expect(result.outcome, AccountSwitchOutcome.adopted);
+      expect(result.fromUserId, userA);
       // Локально: всё принадлежит B, у A ничего нет, намерение израсходовано.
       final rows = await d.db.select(d.db.userItemStates).get();
       expect(rows.map((r) => (r.userId, r.itemId, r.dirty)).toSet(), {
@@ -204,21 +207,24 @@ void main() {
         await answer(d.db, userA, 'i1', s0);
         await d.db.syncDao.writeIntent(intent(AccountIntentKind.merge));
 
-        await signInAs(googleB);
+        final result = await signInAs(googleB);
 
+        expect(result.outcome, AccountSwitchOutcome.none);
         expect(await d.state('i1', user: userA), isNotNull);
         expect(await d.state('i1', user: userB), isNull);
         expect((await d.service.sync()).statesPushed, 0);
       });
 
-      test('вход анонимного C вместо merge в Google: действует прежнее правило '
-          'ADR-30, намерение закрыто', () async {
+      test('вход анонимного C вместо Google при намерении merge: перенос не '
+          'разрешён (нет relogin), намерение закрыто', () async {
         await anonymousProgress();
         await d.db.syncDao.writeIntent(intent(AccountIntentKind.merge));
 
-        await signInAs(anonC);
+        final result = await signInAs(anonC);
 
-        expect(await d.state('i2', user: anonC.id), isNotNull);
+        expect(result.outcome, AccountSwitchOutcome.none);
+        expect(await d.state('i2', user: anonC.id), isNull);
+        expect(await d.state('i2', user: userA), isNotNull);
         expect(await d.db.syncDao.readIntent(), isNull);
       });
     },
@@ -251,6 +257,136 @@ void main() {
 
       expect(await d.db.syncDao.readIntent(), intent(AccountIntentKind.merge));
     });
+  });
+
+  group('потерянный анонимный аккаунт: только после нашего relogin', () {
+    test(
+      'relogin и новый аноним: перенос, итог adopted, запись закрыта',
+      () async {
+        await anonymousProgress();
+        await d.db.syncDao.writeIntent(
+          intent(AccountIntentKind.relogin, age: const Duration(days: 3)),
+        );
+
+        final result = await signInAs(anonC);
+
+        expect(result.outcome, AccountSwitchOutcome.adopted);
+        expect(await d.state('i2', user: anonC.id), isNotNull);
+        expect(await d.db.syncDao.readIntent(), isNull);
+      },
+    );
+
+    test('без relogin новый аноним ничего не получает', () async {
+      await anonymousProgress();
+
+      final result = await signInAs(anonC);
+
+      expect(result.outcome, AccountSwitchOutcome.none);
+      expect(await d.state('i2', user: anonC.id), isNull);
+      expect(await d.state('i2', user: userA), isNotNull);
+    });
+
+    test('relogin не разрешает перенос на Google-аккаунт', () async {
+      await anonymousProgress();
+      await d.db.syncDao.writeIntent(intent(AccountIntentKind.relogin));
+
+      final result = await signInAs(googleB);
+
+      expect(result.outcome, AccountSwitchOutcome.notConfirmed);
+      expect(await d.state('i2', user: userB), isNull);
+    });
+
+    test('тот же пользователь вернулся: устаревший relogin снят', () async {
+      await anonymousProgress();
+      await d.db.syncDao.writeIntent(intent(AccountIntentKind.relogin));
+
+      await switcher.onSignedIn(anonA);
+
+      expect(await d.db.syncDao.readIntent(), isNull);
+    });
+  });
+
+  group('итог для экрана: перенос не удался и повтор по кнопке', () {
+    late AccountSwitchHandler failing;
+    setUp(() {
+      failing = AccountSwitchHandler(
+        store: d.db.syncDao,
+        sync: _FailingSync(d),
+        intents: d.db.syncDao,
+        clock: () => now,
+      );
+    });
+
+    test('перенос упал: итог failed, ничего не потеряно, владелец и намерение '
+        'на месте для повтора', () async {
+      await anonymousProgress();
+      await d.db.syncDao.writeIntent(intent(AccountIntentKind.merge));
+      d.user = userB;
+
+      final result = await failing.onSignedIn(googleB);
+
+      expect(result.outcome, AccountSwitchOutcome.failed);
+      expect(result.fromUserId, userA);
+      expect(await d.state('i2', user: userA), isNotNull);
+      expect(await d.state('i2', user: userB), isNull);
+      expect(await d.db.syncDao.lastOwner(), anonA);
+      expect(await d.db.syncDao.readIntent(), intent(AccountIntentKind.merge));
+    });
+
+    test(
+      'повтор по кнопке: adoptConfirmed переносит и закрывает запись',
+      () async {
+        await anonymousProgress();
+        await signInAs(googleB); // без подтверждения: notConfirmed
+
+        final result = await switcher.adoptConfirmed(
+          fromUserId: userA,
+          user: googleB,
+        );
+
+        expect(result.outcome, AccountSwitchOutcome.adopted);
+        expect(await d.state('i2', user: userB), isNotNull);
+        expect(await d.state('i2', user: userA), isNull);
+        expect((await d.service.sync()).isSuccess, isTrue);
+        expect(server.stateOf(userB, 'i2'), isNotNull);
+      },
+    );
+
+    test('повтор по кнопке снова упал: failed, данные на месте', () async {
+      await anonymousProgress();
+      await signInAs(googleB);
+
+      final result = await failing.adoptConfirmed(
+        fromUserId: userA,
+        user: googleB,
+      );
+
+      expect(result.outcome, AccountSwitchOutcome.failed);
+      expect(await d.state('i2', user: userA), isNotNull);
+    });
+
+    test(
+      'adoptConfirmed не работает для анонимного пользователя и того же id',
+      () async {
+        await anonymousProgress();
+
+        expect(
+          (await switcher.adoptConfirmed(
+            fromUserId: userA,
+            user: anonC,
+          )).outcome,
+          AccountSwitchOutcome.none,
+        );
+        expect(
+          (await switcher.adoptConfirmed(
+            fromUserId: userA,
+            user: googleA,
+          )).outcome,
+          AccountSwitchOutcome.none,
+        );
+        expect(await d.state('i2', user: userA), isNotNull);
+      },
+    );
   });
 
   group('правило shouldAdoptConfirmedMerge', () {
@@ -334,4 +470,19 @@ void main() {
       });
     }
   });
+}
+
+/// Синк, у которого перенос всегда падает (ошибка локальной БД).
+class _FailingSync extends SyncService {
+  _FailingSync(Device d)
+    : super(
+        remote: FakeSyncServer(now: () => s0),
+        store: d.db.syncDao,
+        currentUserId: () => d.user,
+        clock: () => s0,
+      );
+
+  @override
+  Future<void> adoptLocalData({required String from, required String to}) =>
+      throw StateError('диск');
 }

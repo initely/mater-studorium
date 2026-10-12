@@ -125,6 +125,21 @@ class _AccountSectionState extends ConsumerState<AccountSection> {
               ),
             ),
           ),
+        if (state.strandedFromUserId != null && !anonymous && user != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: FilledButton.tonalIcon(
+              key: const Key('account-retry-merge'),
+              style: FilledButton.styleFrom(minimumSize: const Size(48, 48)),
+              onPressed: working
+                  ? null
+                  : () => unawaited(
+                      ref.read(accountProvider.notifier).retryMerge(),
+                    ),
+              icon: const Icon(Icons.sync),
+              label: Text(l10n.accountRetryMerge),
+            ),
+          ),
         if (notice != null)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -156,5 +171,7 @@ class _AccountSectionState extends ConsumerState<AccountSection> {
         AccountNotice.unavailable => l10n.accountNoticeUnavailable,
         AccountNotice.network => l10n.accountNoticeNetwork,
         AccountNotice.failed => l10n.accountNoticeFailed,
+        AccountNotice.mergeNotConfirmed => l10n.accountNoticeMergeNotConfirmed,
+        AccountNotice.mergeFailed => l10n.accountNoticeMergeFailed,
       };
 }

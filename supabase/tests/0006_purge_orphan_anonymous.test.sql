@@ -8,7 +8,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(46);
+select plan(48);
 
 -- ---------- пользователи ----------
 -- Суффикс id = смысл. Возраст относительно now().
@@ -31,6 +31,11 @@ values
   ('00000000-0000-4000-8000-00000000000f', 'authenticated', 'authenticated', null, true,  now() - interval '40 days'),  -- есть identity: остаётся
   ('00000000-0000-4000-8000-000000000010', 'authenticated', 'authenticated', null, true,  now() - interval '40 days'),  -- сессия без refreshed_at, создана вчера: остаётся
   ('00000000-0000-4000-8000-000000000011', 'authenticated', 'authenticated', null, false, now() - interval '40 days');  -- не анонимный и без email и телефона: остаётся
+
+-- Анонимный флаг, но есть телефон: остаётся.
+insert into auth.users (id, aud, role, email, phone, is_anonymous, created_at)
+values ('00000000-0000-4000-8000-000000000012', 'authenticated', 'authenticated', null,
+        '15550000000', true, now() - interval '40 days');
 
 -- Данные владельца таблиц.
 insert into public.user_item_state (user_id, item_id, deck_id, due, stability, difficulty,
@@ -75,9 +80,9 @@ returns text[] language sql as $$
 create function pg_temp.has_user(sfx text) returns boolean language sql as $$
   select exists (select 1 from auth.users where id::text = '00000000-0000-4000-8000-0000000000' || sfx) $$;
 
-select is(pg_temp.users(), 17::bigint, 'исходно 17 пользователей');
+select is(pg_temp.users(), 18::bigint, 'исходно 18 пользователей');
 select is((select count(*) from public.profiles
-            where id::text like '00000000-0000-4000-8000-0000000000%'), 17::bigint,
+            where id::text like '00000000-0000-4000-8000-0000000000%'), 18::bigint,
   'триггер создал профили (их удалит каскад)');
 
 -- ---------- структура и привилегии ----------
@@ -87,6 +92,9 @@ select ok((select prosecdef from pg_proc
 select ok((select p.proconfig @> array['search_path=""'] from pg_proc p
             where p.oid = 'private.purge_orphan_anonymous_users(interval,boolean)'::regprocedure),
   'у функции пустой search_path');
+select ok((select p.proconfig @> array['lock_timeout=3s'] from pg_proc p
+            where p.oid = 'private.purge_orphan_anonymous_users(interval,boolean)'::regprocedure),
+  'у функции lock_timeout = 3s');
 select ok(has_function_privilege('service_role',
   'private.purge_orphan_anonymous_users(interval,boolean)', 'execute'),
   'service_role исполняет функцию');
@@ -120,7 +128,7 @@ select throws_ok($$ select * from private.purge_orphan_anonymous_users(interval 
   '22023', null, 'p_dry_run = null отклоняется');
 select lives_ok($$ select * from private.purge_orphan_anonymous_users(interval '7 days', true) $$,
   'возраст ровно 7 дней допустим');
-select is(pg_temp.users(), 17::bigint, 'отклонённые вызовы ничего не удалили');
+select is(pg_temp.users(), 18::bigint, 'отклонённые вызовы ничего не удалили');
 
 -- ---------- пробный запуск ничего не удаляет ----------
 select is(pg_temp.ids(), array['01', '02', '0d'],
@@ -128,7 +136,7 @@ select is(pg_temp.ids(), array['01', '02', '0d'],
 select is((select array_agg(deleted) from private.purge_orphan_anonymous_users()
             where user_id::text like '00000000-0000-4000-8000-0000000000%'),
   array[false, false, false], 'в пробном запуске deleted = false');
-select is(pg_temp.users(), 17::bigint, 'пробный запуск ничего не удалил');
+select is(pg_temp.users(), 18::bigint, 'пробный запуск ничего не удалил');
 select is(pg_temp.ids(true, interval '60 days'), '{}'::text[],
   'с порогом 60 дней кандидатов нет');
 select is(pg_temp.ids(true, interval '35 days'), array['01', '0d'],
@@ -146,6 +154,7 @@ select ok(not ('0a' = any (pg_temp.ids())), 'есть llm_usage: не канди
 select ok(not ('0b' = any (pg_temp.ids())), 'есть своя колода: не кандидат');
 select ok(not ('0c' = any (pg_temp.ids())), 'сессия обновлена вчера: не кандидат');
 select ok(not ('11' = any (pg_temp.ids())), 'не анонимный, без email и телефона: не кандидат');
+select ok(not ('12' = any (pg_temp.ids())), 'анонимный флаг, но есть телефон: не кандидат');
 select ok(not ('0e' = any (pg_temp.ids())), 'анонимный флаг, но есть email: не кандидат');
 select ok(not ('0f' = any (pg_temp.ids())), 'есть identity: не кандидат');
 select ok(not ('10' = any (pg_temp.ids())), 'сессия без refreshed_at, создана вчера: не кандидат');
@@ -159,14 +168,14 @@ select is((select array_agg(user_id::text order by user_id)
         '00000000-0000-4000-8000-00000000000d'],
   'service_role удалил ровно 01, 02, 0d');
 reset role;
-select is(pg_temp.users(), 14::bigint, 'осталось 14 пользователей');
+select is(pg_temp.users(), 15::bigint, 'осталось 15 пользователей');
 select ok(not pg_temp.has_user('01') and not pg_temp.has_user('02') and not pg_temp.has_user('0d'),
   'кандидаты удалены');
 select ok(pg_temp.has_user('03') and pg_temp.has_user('04') and pg_temp.has_user('05')
-  and pg_temp.has_user('0e') and pg_temp.has_user('0f') and pg_temp.has_user('11'),
+  and pg_temp.has_user('0e') and pg_temp.has_user('0f') and pg_temp.has_user('11') and pg_temp.has_user('12'),
   'остальные пользователи на месте');
 select is((select count(*) from public.profiles
-            where id::text like '00000000-0000-4000-8000-0000000000%'), 14::bigint,
+            where id::text like '00000000-0000-4000-8000-0000000000%'), 15::bigint,
   'профили удалённых ушли каскадом, остальные остались');
 select is((select count(*) from public.user_item_state where user_id::text like '00000000-0000-4000-8000-0000000000%')
           + (select count(*) from public.review_logs where user_id::text like '00000000-0000-4000-8000-0000000000%')

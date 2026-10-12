@@ -67,24 +67,46 @@ final syncRequestProvider = Provider<void Function()>((ref) {
   return () => unawaited(coordinator.requestSync());
 });
 
+/// Обработчик смены пользователя (ADR-30, ADR-34).
+final accountSwitchHandlerProvider = Provider<AccountSwitchHandler>(
+  (ref) => AccountSwitchHandler(
+    store: ref.watch(syncStoreProvider),
+    sync: ref.watch(syncServiceProvider),
+    intents: ref.watch(accountIntentStoreProvider),
+    clock: ref.watch(clockProvider),
+  ),
+);
+
+/// Последний значимый итог входа (перенесён прогресс, не подтверждён, не
+/// удался): блок «Аккаунт» говорит по нему правду о прогрессе.
+class AccountSwitchResultNotifier extends Notifier<AccountSwitchResult?> {
+  @override
+  AccountSwitchResult? build() => null;
+
+  void publish(AccountSwitchResult result) => state = result;
+}
+
+final accountSwitchResultProvider =
+    NotifierProvider<AccountSwitchResultNotifier, AccountSwitchResult?>(
+      AccountSwitchResultNotifier.new,
+    );
+
 /// Запуск синхронизации из `main` (только с настроенным Supabase): первый
 /// прогон и расписание, прогон на каждый вход (после переноса данных
 /// потерянного анонимного аккаунта, ADR-30) и при возврате в приложение.
 final syncBootstrapProvider = Provider<void>((ref) {
   final coordinator = ref.watch(syncCoordinatorProvider);
-  final switcher = AccountSwitchHandler(
-    store: ref.watch(syncStoreProvider),
-    sync: ref.watch(syncServiceProvider),
-    intents: ref.watch(accountIntentStoreProvider),
-    clock: ref.watch(clockProvider),
-  );
+  final switcher = ref.watch(accountSwitchHandlerProvider);
   // События входа обрабатываются строго по порядку: gotrue повторяет
   // подписчику прошлые события, и перенос данных не должен обогнать
   // предыдущий.
   var chain = Future<void>.value();
   Future<void> onUser(AuthUser user) async {
     try {
-      await switcher.onSignedIn(user);
+      final result = await switcher.onSignedIn(user);
+      if (result.outcome != AccountSwitchOutcome.none) {
+        ref.read(accountSwitchResultProvider.notifier).publish(result);
+      }
     } on Object catch (e) {
       debugPrint('Смена пользователя: $e');
     }

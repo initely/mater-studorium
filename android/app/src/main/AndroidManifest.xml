@@ -44,7 +44,7 @@
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="app.materstudorium.mater_studorium" android:host="login-callback"/>
+                <data android:scheme="app.materstudorium.mater-studorium" android:host="login-callback"/>
             </intent-filter>
             <!-- Адрес возврата обрабатывает supabase_flutter, а не go_router:
                  иначе роутер увидел бы чужой путь и показал «страница не найдена». -->

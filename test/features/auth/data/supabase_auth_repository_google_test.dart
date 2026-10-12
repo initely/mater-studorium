@@ -41,14 +41,14 @@ void main() {
       ).thenAnswer(
         (_) async => const OAuthResponse(
           provider: OAuthProvider.google,
-          url: 'https://accounts.example/authorize?state=1',
+          url: 'https://accounts.google.com/authorize?state=1',
         ),
       );
 
       await repo.linkGoogle();
 
       expect(launched, [
-        Uri.parse('https://accounts.example/authorize?state=1'),
+        Uri.parse('https://accounts.google.com/authorize?state=1'),
       ]);
     });
 
@@ -61,7 +61,7 @@ void main() {
       ).thenAnswer(
         (_) async => const OAuthResponse(
           provider: OAuthProvider.google,
-          url: 'https://x.example/',
+          url: 'https://accounts.google.com/x',
         ),
       );
       launchResult = false;
@@ -143,13 +143,13 @@ void main() {
       ).thenAnswer(
         (_) async => const OAuthResponse(
           provider: OAuthProvider.google,
-          url: 'https://accounts.example/signin',
+          url: 'https://accounts.google.com/signin',
         ),
       );
 
       await repo.signInWithGoogle();
 
-      expect(launched, [Uri.parse('https://accounts.example/signin')]);
+      expect(launched, [Uri.parse('https://accounts.google.com/signin')]);
       verifyNever(
         () => auth.getLinkIdentityUrl(
           OAuthProvider.google,

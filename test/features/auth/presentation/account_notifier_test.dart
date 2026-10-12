@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mater_studorium/core/sync/data/sync_providers.dart';
+import 'package:mater_studorium/core/sync/domain/account_switch_handler.dart';
 import 'package:mater_studorium/core/utils/clock.dart';
 import 'package:mater_studorium/features/auth/data/account_providers.dart';
 import 'package:mater_studorium/features/auth/data/auth_providers.dart';
@@ -12,10 +14,17 @@ import 'package:mater_studorium/features/auth/domain/account_intent.dart';
 import 'package:mater_studorium/features/auth/domain/auth_user.dart';
 import 'package:mater_studorium/features/auth/presentation/account_notifier.dart';
 import 'package:mater_studorium/features/auth/presentation/account_return_listener.dart';
+import 'package:mocktail/mocktail.dart';
 
 import '../../../helpers/fake_account.dart';
 
+class MockSwitchHandler extends Mock implements AccountSwitchHandler {}
+
 void main() {
+  setUpAll(
+    () => registerFallbackValue(const AuthUser(id: 'x', isAnonymous: false)),
+  );
+
   const anon = AuthUser(id: 'anon-1', isAnonymous: true);
   final t0 = DateTime.utc(2026, 10, 12, 10);
 
@@ -103,13 +112,15 @@ void main() {
       expect(s.needsAttention, isTrue);
     });
 
-    test('аноним -> Google с другим id: signedInExisting', () async {
+    test('аноним -> Google с другим id: само по себе сообщения нет, оно '
+        'зависит от итога переноса (S1)', () async {
       final c = container();
 
       auth.emitUser(const AuthUser(id: 'other', isAnonymous: false));
       await settle();
 
-      expect(c.read(accountProvider).notice, AccountNotice.signedInExisting);
+      expect(c.read(accountProvider).notice, isNull);
+      expect(c.read(accountProvider).user!.id, 'other');
     });
 
     test(
@@ -144,6 +155,154 @@ void main() {
       c.read(accountProvider.notifier).dismissNotice();
 
       expect(c.read(accountProvider).notice, isNull);
+    });
+  });
+
+  group('итог переноса прогресса (ревью T21, S1)', () {
+    const google = AuthUser(
+      id: 'g-1',
+      isAnonymous: false,
+      email: 'g@example.com',
+    );
+
+    Future<ProviderContainer> signedInAsGoogle() async {
+      final c = container();
+      auth.emitUser(google);
+      await settle();
+      return c;
+    }
+
+    void publish(ProviderContainer c, AccountSwitchOutcome outcome) => c
+        .read(accountSwitchResultProvider.notifier)
+        .publish(
+          AccountSwitchResult(outcome, fromUserId: 'anon-1', user: google),
+        );
+
+    ProviderContainer withHandler(MockSwitchHandler handler) {
+      final c = ProviderContainer(
+        overrides: [
+          ...overrides(),
+          accountSwitchHandlerProvider.overrideWithValue(handler),
+        ],
+      );
+      addTearDown(c.dispose);
+      c.read(accountProvider);
+      return c;
+    }
+
+    test('adopted: «объединён»', () async {
+      final c = await signedInAsGoogle();
+
+      publish(c, AccountSwitchOutcome.adopted);
+      await settle();
+
+      expect(c.read(accountProvider).notice, AccountNotice.signedInExisting);
+      expect(c.read(accountProvider).strandedFromUserId, isNull);
+    });
+
+    test('notConfirmed (подтверждение устарело): честное сообщение и повтор, '
+        'НЕ «объединён»', () async {
+      final c = await signedInAsGoogle();
+
+      publish(c, AccountSwitchOutcome.notConfirmed);
+      await settle();
+
+      final s = c.read(accountProvider);
+      expect(s.notice, AccountNotice.mergeNotConfirmed);
+      expect(s.notice, isNot(AccountNotice.signedInExisting));
+      expect(s.strandedFromUserId, 'anon-1');
+    });
+
+    test('failed: ошибка и повтор', () async {
+      final c = await signedInAsGoogle();
+
+      publish(c, AccountSwitchOutcome.failed);
+      await settle();
+
+      expect(c.read(accountProvider).notice, AccountNotice.mergeFailed);
+      expect(c.read(accountProvider).strandedFromUserId, 'anon-1');
+    });
+
+    test('none и вход анонимного ничего не показывают', () async {
+      final c = container();
+
+      c
+          .read(accountSwitchResultProvider.notifier)
+          .publish(
+            const AccountSwitchResult(
+              AccountSwitchOutcome.adopted,
+              fromUserId: 'anon-1',
+              user: AuthUser(id: 'anon-2', isAnonymous: true),
+            ),
+          );
+      publish(c, AccountSwitchOutcome.none);
+      await settle();
+
+      expect(c.read(accountProvider).notice, isNull);
+    });
+
+    test(
+      'итог пришёл до создания уведомителя: применяется при создании',
+      () async {
+        final c = ProviderContainer(overrides: overrides());
+        addTearDown(c.dispose);
+        auth.emitUser(google);
+        publish(c, AccountSwitchOutcome.notConfirmed);
+
+        c.read(accountProvider);
+        await settle();
+
+        expect(c.read(accountProvider).notice, AccountNotice.mergeNotConfirmed);
+      },
+    );
+
+    test('повтор по кнопке: сбой -> mergeFailed и повтор остаётся, успех -> '
+        '«объединён»', () async {
+      final handler = MockSwitchHandler();
+      final c = withHandler(handler);
+      auth.emitUser(google);
+      await settle();
+      publish(c, AccountSwitchOutcome.notConfirmed);
+      await settle();
+      final n = c.read(accountProvider.notifier);
+
+      when(() => handler.adoptConfirmed(fromUserId: 'anon-1', user: google))
+          .thenAnswer(
+            (_) async => const AccountSwitchResult(
+              AccountSwitchOutcome.failed,
+              fromUserId: 'anon-1',
+              user: google,
+            ),
+          );
+      await n.retryMerge();
+      expect(c.read(accountProvider).notice, AccountNotice.mergeFailed);
+      expect(c.read(accountProvider).strandedFromUserId, 'anon-1');
+
+      when(() => handler.adoptConfirmed(fromUserId: 'anon-1', user: google))
+          .thenAnswer(
+            (_) async => const AccountSwitchResult(
+              AccountSwitchOutcome.adopted,
+              fromUserId: 'anon-1',
+              user: google,
+            ),
+          );
+      await n.retryMerge();
+      expect(c.read(accountProvider).notice, AccountNotice.signedInExisting);
+      expect(c.read(accountProvider).strandedFromUserId, isNull);
+    });
+
+    test('retryMerge без оставшегося прогресса ничего не делает', () async {
+      final handler = MockSwitchHandler();
+      final c = withHandler(handler);
+
+      await c.read(accountProvider.notifier).retryMerge();
+
+      verifyNever(
+        () => handler.adoptConfirmed(
+          fromUserId: any(named: 'fromUserId'),
+          user: any(named: 'user'),
+        ),
+      );
     });
   });
 

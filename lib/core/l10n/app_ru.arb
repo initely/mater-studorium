@@ -591,5 +591,11 @@
   "accountConflictConfirm": "Войти и объединить",
   "@accountConflictConfirm": {"description": "Кнопка диалога конфликта: войти в существующий аккаунт и объединить прогресс"},
   "accountConflictDecline": "Отказаться",
-  "@accountConflictDecline": {"description": "Кнопка диалога конфликта: ничего не менять"}
+  "@accountConflictDecline": {"description": "Кнопка диалога конфликта: ничего не менять"},
+  "accountNoticeMergeNotConfirmed": "Подтверждение устарело, поэтому прогресс этого устройства не перенесён. Он сохранён на устройстве: нажмите «Перенести прогресс», чтобы объединить его с этим аккаунтом.",
+  "@accountNoticeMergeNotConfirmed": {"description": "Сообщение после входа в существующий аккаунт, если подтверждение объединения устарело или его не было"},
+  "accountNoticeMergeFailed": "Не удалось перенести прогресс. Ничего не потеряно, он сохранён на устройстве. Попробуйте ещё раз.",
+  "@accountNoticeMergeFailed": {"description": "Сообщение, если перенос прогресса не удался"},
+  "accountRetryMerge": "Перенести прогресс",
+  "@accountRetryMerge": {"description": "Кнопка повтора переноса прогресса анонимного аккаунта в Google-аккаунт"}
 }

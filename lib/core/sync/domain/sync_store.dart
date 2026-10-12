@@ -138,6 +138,21 @@ bool shouldAdoptLocalData({
   required AuthUser current,
 }) => previous.id != current.id && previous.isAnonymous && current.isAnonymous;
 
+/// Можно ли перенести данные потерянного анонимного [previous] на нового
+/// анонимного [current] (ADR-30): правило [shouldAdoptLocalData] и запись
+/// `relogin`, которую делает приложение перед собственным повторным анонимным
+/// входом (ADR-34, защита в глубину: смену пользователя «снаружи» не
+/// принимаем за потерянную сессию).
+bool shouldAdoptAfterRelogin({
+  required AuthUser previous,
+  required AuthUser current,
+  required AccountIntent? intent,
+}) =>
+    shouldAdoptLocalData(previous: previous, current: current) &&
+    intent != null &&
+    intent.kind == AccountIntentKind.relogin &&
+    intent.fromUserId == previous.id;
+
 /// Можно ли перенести локальные данные анонимного [previous] на Google-
 /// аккаунт [current], в который пользователь только что вошёл (T21, ADR-34).
 ///

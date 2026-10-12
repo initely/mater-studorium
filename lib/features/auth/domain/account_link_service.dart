@@ -88,6 +88,7 @@ class AccountLinkService {
     final intent = await _intents.readIntent();
     final user = _auth.currentUser;
     if (intent == null ||
+        intent.kind == AccountIntentKind.relogin ||
         !intent.isFresh(_clock()) ||
         user == null ||
         !user.isAnonymous ||

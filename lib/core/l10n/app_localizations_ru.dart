@@ -898,4 +898,15 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get accountConflictDecline => 'Отказаться';
+
+  @override
+  String get accountNoticeMergeNotConfirmed =>
+      'Подтверждение устарело, поэтому прогресс этого устройства не перенесён. Он сохранён на устройстве: нажмите «Перенести прогресс», чтобы объединить его с этим аккаунтом.';
+
+  @override
+  String get accountNoticeMergeFailed =>
+      'Не удалось перенести прогресс. Ничего не потеряно, он сохранён на устройстве. Попробуйте ещё раз.';
+
+  @override
+  String get accountRetryMerge => 'Перенести прогресс';
 }

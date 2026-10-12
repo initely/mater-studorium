@@ -136,7 +136,7 @@ LIVE_SUPABASE_URL=<API_URL> LIVE_SUPABASE_ANON_KEY=<ANON_KEY> LIVE_SUPABASE_SERV
 
 Код, конфиг и тесты готовы, но **ключей Google в репозитории нет и не будет**: их нужно создать самим и подставить по шагам ниже. Без ключей кнопка «Привязать Google» в Настройках → «Аккаунт» показывает «Привязка Google не настроена в этой сборке», приложение не падает, анонимный вход и синхронизация работают как раньше. Решения и компромиссы — ADR-34 в `docs/TZ.md`.
 
-**Как это работает.** Вход через браузер (OAuth, PKCE), без нового пакета: клиент просит у Supabase адрес входа (`linkIdentity` для привязки, обычный `signInWithOAuth` для входа в существующий аккаунт), открывает его во внешнем браузере; после Google пользователь возвращается в приложение (web: на адрес приложения, Android: deep link `app.materstudorium.mater_studorium://login-callback`). Client id и secret Google знает только сервер Supabase, в приложение они не передаются: в клиенте по-прежнему только `SUPABASE_URL` и `SUPABASE_ANON_KEY`. Нужен только **Web client** Google; Android client и SHA-1 для этого способа не нужны.
+**Как это работает.** Вход через браузер (OAuth, PKCE), без нового пакета: клиент просит у Supabase адрес входа (`linkIdentity` для привязки, обычный `signInWithOAuth` для входа в существующий аккаунт), открывает его во внешнем браузере; после Google пользователь возвращается в приложение (web: на адрес приложения, Android: deep link `app.materstudorium.mater-studorium://login-callback`). Адрес возврата Android — `app.materstudorium.mater-studorium://login-callback` (в схеме нельзя `_`, поэтому applicationId с `-`). Приложение принимает возврат только по этому адресу и только с `code` или ошибкой; ссылки с готовыми токенами (`access_token`, `refresh_token`) отбрасываются (ADR-34, п. 7). Client id и secret Google знает только сервер Supabase, в приложение они не передаются: в клиенте по-прежнему только `SUPABASE_URL` и `SUPABASE_ANON_KEY`. Нужен только **Web client** Google; Android client и SHA-1 для этого способа не нужны.
 
 #### 1. Google Cloud Console
 
@@ -162,7 +162,8 @@ LIVE_SUPABASE_URL=<API_URL> LIVE_SUPABASE_ANON_KEY=<ANON_KEY> LIVE_SUPABASE_SERV
 
 1. Dashboard → **Authentication → Sign In / Providers → Google**: включить, вставить Client ID и Client secret (секреты хранятся в Dashboard, в git их нет). Если конфиг применяется через CLI (`supabase config push`), задать те же две переменные в окружении запуска.
 2. **Authentication → Sign In / Providers**: *Allow anonymous sign-ins* включено (уже), **Allow manual linking** включить (иначе привязка даёт `manual_linking_disabled`, клиент покажет «не настроено»).
-3. **Authentication → URL Configuration → Redirect URLs**: добавить адрес сайта приложения (например `https://<user>.github.io/<repo>/`) и `app.materstudorium.mater_studorium://login-callback`. Site URL — адрес сайта.
+3. **Confirm email** (Authentication → Sign In / Providers → Email) **не выключать** и не выключать через `supabase config push`: в `config.toml` стоит `[auth.email] enable_confirmations = true`. Иначе любой аноним через `PUT /auth/v1/user` мгновенно получает чужую «подтверждённую» почту и перестаёт быть анонимным (заготовка захвата аккаунта через автопривязку по почте, ревью T21, S2). Вход по email в приложении не используется, `enable_signup = false` для email остаётся.
+4. **Authentication → URL Configuration → Redirect URLs**: добавить адрес сайта приложения (например `https://<user>.github.io/<repo>/`) и `app.materstudorium.mater-studorium://login-callback`. Site URL — адрес сайта. GoTrue пропускает адрес возврата с тем же хостом, что `site_url`: на общем `<user>.github.io` возврат может принимать любая страница с общим origin, поэтому для публичного релиза лучше отдельный домен для web-клиента (ревью T21, N6).
 
 #### 4. Запуск клиента
 
@@ -182,6 +183,8 @@ Android (`flutter run -d <устройство>`): надёжнее всего �
 5. Отмена: в Google нажать «Отмена»: «Вход отменён. Ничего не изменилось», кнопка снова доступна. Нет сети при нажатии: «Нет связи с сервером…».
 6. TalkBack и крупный шрифт: «Аккаунт» озвучивается как заголовок, кнопка и кнопки диалога не меньше 48 dp.
 
+Если с нажатия «Войти и объединить» до возврата прошло больше 15 минут (или вход шёл без подтверждения), приложение честно пишет «Подтверждение устарело, поэтому прогресс этого устройства не перенесён…» и показывает кнопку «Перенести прогресс» (нажатие и есть подтверждение); слов «объединён» в этом случае нет. Проверить: после «Войти и объединить» выждать 16 минут в браузере на странице Google, затем завершить вход.
+
 Что должен увидеть ревьюер: пока не нажато «Войти и объединить», локальный прогресс анонимного A остаётся под его `user_id` (в `supabase` под Google-аккаунт ничего не уходит); после подтверждения он переходит на Google-аккаунт и уходит туда одним синком.
 
 #### 6. Как вернуть всё назад
@@ -192,7 +195,7 @@ Android (`flutter run -d <устройство>`): надёжнее всего �
 
 - «Привязка Google не настроена в этой сборке»: провайдер выключен (`enabled = false`, нет ключей) или выключено ручное связывание. Проверить `.../auth/v1/settings` и «Allow manual linking».
 - Google: `redirect_uri_mismatch`: в Authorized redirect URIs нет точного `…/auth/v1/callback` вашего проекта.
-- После Google попадаете не в приложение, а на `site_url`: адрес возврата не в списке `additional_redirect_urls` (web: порт 3000; Android: `app.materstudorium.mater_studorium://login-callback`).
+- После Google попадаете не в приложение, а на `site_url`: адрес возврата не в списке `additional_redirect_urls` (web: порт 3000; Android: `app.materstudorium.mater-studorium://login-callback`).
 - Android: браузер после Google не возвращает в приложение: проверить `intent-filter` в `AndroidManifest.xml` и что приложение установлено как `app.materstudorium.mater_studorium`.
 - «Access blocked: app has not completed verification»: аккаунт не в Test users (шаг 1.2).
 

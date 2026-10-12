@@ -6,7 +6,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(5);
+select plan(6);
 
 -- 1. У каждой таблицы в public включён RLS.
 select is_empty(
@@ -92,6 +92,22 @@ select is_empty(
         and p.prosecdef
         and has_function_privilege('anon', p.oid, 'execute') $$,
   'anon не исполняет security definer функции public'
+);
+
+-- 6. security definer функции схемы private (она не в api.schemas, но грант
+--    authenticated или anon сделал бы функцию доступной напрямую из БД-сессии
+--    клиента и в обход RLS) не исполняются клиентскими ролями. Триггерные
+--    функции и служебные помощники здесь не открыты никому из них.
+--    private.is_valid_timezone не definer (invoker), поэтому в проверку не входит.
+select is_empty(
+  $$ select p.oid::regprocedure::text
+       from pg_proc p
+       join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'private'
+        and p.prosecdef
+        and (has_function_privilege('anon', p.oid, 'execute')
+             or has_function_privilege('authenticated', p.oid, 'execute')) $$,
+  'definer-функции private не исполняются anon/authenticated'
 );
 
 select * from finish();

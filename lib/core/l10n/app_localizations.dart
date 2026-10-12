@@ -1551,6 +1551,24 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Отказаться'**
   String get accountConflictDecline;
+
+  /// Сообщение после входа в существующий аккаунт, если подтверждение объединения устарело или его не было
+  ///
+  /// In ru, this message translates to:
+  /// **'Подтверждение устарело, поэтому прогресс этого устройства не перенесён. Он сохранён на устройстве: нажмите «Перенести прогресс», чтобы объединить его с этим аккаунтом.'**
+  String get accountNoticeMergeNotConfirmed;
+
+  /// Сообщение, если перенос прогресса не удался
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось перенести прогресс. Ничего не потеряно, он сохранён на устройстве. Попробуйте ещё раз.'**
+  String get accountNoticeMergeFailed;
+
+  /// Кнопка повтора переноса прогресса анонимного аккаунта в Google-аккаунт
+  ///
+  /// In ru, this message translates to:
+  /// **'Перенести прогресс'**
+  String get accountRetryMerge;
 }
 
 class _AppLocalizationsDelegate
