@@ -18,6 +18,7 @@ LocalDeck deckFromRow(DeckRow r) => LocalDeck(
   title: r.title,
   topic: r.topic,
   lang: r.lang,
+  description: r.description,
   downloadedAt: r.downloadedAt.toUtc(),
 );
 

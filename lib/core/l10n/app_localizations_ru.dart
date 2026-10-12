@@ -90,6 +90,212 @@ class AppLocalizationsRu extends AppLocalizations {
       'Не удалось скачать колоду. Попробуйте ещё раз.';
 
   @override
+  String get homeStartSession => 'Начать сессию (5 мин)';
+
+  @override
+  String homeDueLabel(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'знания к повторению',
+      many: 'знаний к повторению',
+      few: 'знания к повторению',
+      one: 'знание к повторению',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String homeNewLabel(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'новых знания',
+      many: 'новых знаний',
+      few: 'новых знания',
+      one: 'новое знание',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String homeStatsSemantics(int due, int fresh) {
+    return 'К повторению: $due, новых: $fresh';
+  }
+
+  @override
+  String get homeNoDecksTitle => 'Пока нет колод';
+
+  @override
+  String get homeNoDecksBody =>
+      'Скачайте первую колоду, чтобы начать повторять.';
+
+  @override
+  String get homeNoDecksAction => 'Скачать колоду';
+
+  @override
+  String get homeNothingTitle => 'Здесь пока нечего повторять';
+
+  @override
+  String get homeNothingBody =>
+      'Загляните в колоды: возможно, в них вышло обновление.';
+
+  @override
+  String get homeError => 'Не удалось загрузить данные главного экрана.';
+
+  @override
+  String get homeRetry => 'Повторить';
+
+  @override
+  String get homeDecksButton => 'Колоды';
+
+  @override
+  String deckVersionLine(int version, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count знания',
+      many: '$count знаний',
+      few: '$count знания',
+      one: '$count знание',
+    );
+    return 'Версия $version · $_temp0';
+  }
+
+  @override
+  String get deckNoDescription => 'Описание отсутствует.';
+
+  @override
+  String get deckProgressTitle => 'Прогресс';
+
+  @override
+  String get deckNewLabel => 'Новые';
+
+  @override
+  String get deckLearningLabel => 'Изучаемые';
+
+  @override
+  String get deckMasteredLabel => 'Выученные';
+
+  @override
+  String deckProgressSemantics(int fresh, int learning, int mastered) {
+    return 'Прогресс по колоде: новых $fresh, изучаемых $learning, выученных $mastered';
+  }
+
+  @override
+  String get deckStart => 'Начать по этой колоде';
+
+  @override
+  String get deckCheckUpdate => 'Проверить обновление';
+
+  @override
+  String get deckUpdating => 'Проверяем…';
+
+  @override
+  String deckUpdated(int version) {
+    return 'Колода обновлена до версии $version';
+  }
+
+  @override
+  String get deckUpToDate => 'Установлена последняя версия';
+
+  @override
+  String get deckNewPerDay => 'Новых знаний в день';
+
+  @override
+  String get deckNewPerDayHint => 'Один лимит на все колоды';
+
+  @override
+  String get deckDelete => 'Удалить с устройства';
+
+  @override
+  String get deckDeleteTitle => 'Удалить колоду?';
+
+  @override
+  String deckDeleteBody(String title) {
+    return 'Колода «$title» исчезнет с этого устройства. Ваш прогресс сохранится: если скачать колоду снова, вы продолжите с того же места.';
+  }
+
+  @override
+  String get deckDeleteCancel => 'Отмена';
+
+  @override
+  String get deckDeleteConfirm => 'Удалить';
+
+  @override
+  String get deckDeleteError =>
+      'Не удалось удалить колоду. Попробуйте ещё раз.';
+
+  @override
+  String get deckNotFound => 'Этой колоды нет на устройстве';
+
+  @override
+  String get deckLoadError => 'Не удалось загрузить колоду.';
+
+  @override
+  String onboardingStep(int current, int total) {
+    return 'Шаг $current из $total';
+  }
+
+  @override
+  String get onboardingWelcomeTitle => 'Помнить, а не зубрить';
+
+  @override
+  String get onboardingWelcomeBody =>
+      'Приложение показывает знания тогда, когда вы вот-вот их забудете (алгоритм FSRS). Поэтому хватает нескольких минут в день.';
+
+  @override
+  String get onboardingSessionTitle => 'Сессия на 5 минут';
+
+  @override
+  String get onboardingSessionBody =>
+      'Нажмите «Начать сессию»: сначала то, что пора повторить, потом новые знания. После каждого ответа оцените, как хорошо вы помнили, от «Снова» до «Легко». Закрыть приложение можно в любой момент: данные сохраняются.';
+
+  @override
+  String get onboardingDeckTitle => 'Выберите колоду';
+
+  @override
+  String get onboardingDeckBody =>
+      'Скачайте первую колоду. Остальные можно добавить позже в разделе «Колоды».';
+
+  @override
+  String get onboardingNext => 'Далее';
+
+  @override
+  String get onboardingBack => 'Назад';
+
+  @override
+  String get onboardingSkip => 'Пропустить';
+
+  @override
+  String get onboardingStartSession => 'Начать первую сессию';
+
+  @override
+  String get onboardingLater => 'Выбрать колоду позже';
+
+  @override
+  String get settingsSessionSection => 'Сессия';
+
+  @override
+  String get settingsNewPerDay => 'Новых знаний в день';
+
+  @override
+  String get settingsSessionSize => 'Размер сессии (знаний)';
+
+  @override
+  String get settingsSessionSizeHint =>
+      'Сессию заканчивает таймер на 5 минут; размер задаёт потолок очереди.';
+
+  @override
+  String get settingsDecrease => 'Меньше';
+
+  @override
+  String get settingsIncrease => 'Больше';
+
+  @override
+  String get settingsSaveError => 'Не удалось сохранить настройку.';
+
+  @override
   String get sessionStart => 'Начать сессию';
 
   @override

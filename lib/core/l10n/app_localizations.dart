@@ -220,6 +220,324 @@ abstract class AppLocalizations {
   /// **'Не удалось скачать колоду. Попробуйте ещё раз.'**
   String get decksErrorGeneric;
 
+  /// Главная кнопка запуска сессии (ТЗ §8.2)
+  ///
+  /// In ru, this message translates to:
+  /// **'Начать сессию (5 мин)'**
+  String get homeStartSession;
+
+  /// Подпись счётчика «к повторению»; число показано отдельно
+  ///
+  /// In ru, this message translates to:
+  /// **'{count, plural, one{знание к повторению} few{знания к повторению} many{знаний к повторению} other{знания к повторению}}'**
+  String homeDueLabel(int count);
+
+  /// Подпись счётчика новых знаний на сегодня
+  ///
+  /// In ru, this message translates to:
+  /// **'{count, plural, one{новое знание} few{новых знания} many{новых знаний} other{новых знания}}'**
+  String homeNewLabel(int count);
+
+  /// Озвучка блока счётчиков главного экрана
+  ///
+  /// In ru, this message translates to:
+  /// **'К повторению: {due}, новых: {fresh}'**
+  String homeStatsSemantics(int due, int fresh);
+
+  /// Главный экран без скачанных колод (ТЗ §8.5)
+  ///
+  /// In ru, this message translates to:
+  /// **'Пока нет колод'**
+  String get homeNoDecksTitle;
+
+  /// Подсказка главного экрана без колод
+  ///
+  /// In ru, this message translates to:
+  /// **'Скачайте первую колоду, чтобы начать повторять.'**
+  String get homeNoDecksBody;
+
+  /// Кнопка перехода к каталогу с главного экрана без колод
+  ///
+  /// In ru, this message translates to:
+  /// **'Скачать колоду'**
+  String get homeNoDecksAction;
+
+  /// В скачанных колодах нет знаний для повторения
+  ///
+  /// In ru, this message translates to:
+  /// **'Здесь пока нечего повторять'**
+  String get homeNothingTitle;
+
+  /// Подсказка, если в колодах нет доступных знаний
+  ///
+  /// In ru, this message translates to:
+  /// **'Загляните в колоды: возможно, в них вышло обновление.'**
+  String get homeNothingBody;
+
+  /// Ошибка подсчёта статистики
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось загрузить данные главного экрана.'**
+  String get homeError;
+
+  /// Повтор загрузки главного экрана
+  ///
+  /// In ru, this message translates to:
+  /// **'Повторить'**
+  String get homeRetry;
+
+  /// Кнопка перехода к колодам на главном экране
+  ///
+  /// In ru, this message translates to:
+  /// **'Колоды'**
+  String get homeDecksButton;
+
+  /// Версия колоды и число знаний на экране колоды
+  ///
+  /// In ru, this message translates to:
+  /// **'Версия {version} · {count, plural, one{{count} знание} few{{count} знания} many{{count} знаний} other{{count} знания}}'**
+  String deckVersionLine(int version, int count);
+
+  /// Нет описания у колоды (скачана до его хранения)
+  ///
+  /// In ru, this message translates to:
+  /// **'Описание отсутствует.'**
+  String get deckNoDescription;
+
+  /// Заголовок блока прогресса колоды
+  ///
+  /// In ru, this message translates to:
+  /// **'Прогресс'**
+  String get deckProgressTitle;
+
+  /// Знания, которые ещё не показывали
+  ///
+  /// In ru, this message translates to:
+  /// **'Новые'**
+  String get deckNewLabel;
+
+  /// Знания на стадиях обучения и переобучения FSRS
+  ///
+  /// In ru, this message translates to:
+  /// **'Изучаемые'**
+  String get deckLearningLabel;
+
+  /// Знания на стадии повторения FSRS
+  ///
+  /// In ru, this message translates to:
+  /// **'Выученные'**
+  String get deckMasteredLabel;
+
+  /// Озвучка полосы прогресса колоды
+  ///
+  /// In ru, this message translates to:
+  /// **'Прогресс по колоде: новых {fresh}, изучаемых {learning}, выученных {mastered}'**
+  String deckProgressSemantics(int fresh, int learning, int mastered);
+
+  /// Запуск сессии по одной колоде
+  ///
+  /// In ru, this message translates to:
+  /// **'Начать по этой колоде'**
+  String get deckStart;
+
+  /// Кнопка обновления колоды на экране колоды
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверить обновление'**
+  String get deckCheckUpdate;
+
+  /// Идёт проверка обновления колоды
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверяем…'**
+  String get deckUpdating;
+
+  /// Колода обновилась
+  ///
+  /// In ru, this message translates to:
+  /// **'Колода обновлена до версии {version}'**
+  String deckUpdated(int version);
+
+  /// Обновлений колоды нет
+  ///
+  /// In ru, this message translates to:
+  /// **'Установлена последняя версия'**
+  String get deckUpToDate;
+
+  /// Подпись настройки лимита новых на экране колоды
+  ///
+  /// In ru, this message translates to:
+  /// **'Новых знаний в день'**
+  String get deckNewPerDay;
+
+  /// Пояснение к лимиту новых на экране колоды
+  ///
+  /// In ru, this message translates to:
+  /// **'Один лимит на все колоды'**
+  String get deckNewPerDayHint;
+
+  /// Кнопка удаления локальной колоды
+  ///
+  /// In ru, this message translates to:
+  /// **'Удалить с устройства'**
+  String get deckDelete;
+
+  /// Заголовок диалога удаления колоды
+  ///
+  /// In ru, this message translates to:
+  /// **'Удалить колоду?'**
+  String get deckDeleteTitle;
+
+  /// Текст подтверждения удаления колоды (ADR-27)
+  ///
+  /// In ru, this message translates to:
+  /// **'Колода «{title}» исчезнет с этого устройства. Ваш прогресс сохранится: если скачать колоду снова, вы продолжите с того же места.'**
+  String deckDeleteBody(String title);
+
+  /// Отмена удаления колоды
+  ///
+  /// In ru, this message translates to:
+  /// **'Отмена'**
+  String get deckDeleteCancel;
+
+  /// Подтверждение удаления колоды
+  ///
+  /// In ru, this message translates to:
+  /// **'Удалить'**
+  String get deckDeleteConfirm;
+
+  /// Ошибка удаления колоды
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось удалить колоду. Попробуйте ещё раз.'**
+  String get deckDeleteError;
+
+  /// Экран колоды открыт для колоды, которой нет локально
+  ///
+  /// In ru, this message translates to:
+  /// **'Этой колоды нет на устройстве'**
+  String get deckNotFound;
+
+  /// Ошибка чтения колоды
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось загрузить колоду.'**
+  String get deckLoadError;
+
+  /// Номер шага онбординга (озвучка и подпись)
+  ///
+  /// In ru, this message translates to:
+  /// **'Шаг {current} из {total}'**
+  String onboardingStep(int current, int total);
+
+  /// Заголовок первого экрана онбординга
+  ///
+  /// In ru, this message translates to:
+  /// **'Помнить, а не зубрить'**
+  String get onboardingWelcomeTitle;
+
+  /// Первый экран онбординга: что это
+  ///
+  /// In ru, this message translates to:
+  /// **'Приложение показывает знания тогда, когда вы вот-вот их забудете (алгоритм FSRS). Поэтому хватает нескольких минут в день.'**
+  String get onboardingWelcomeBody;
+
+  /// Заголовок второго экрана онбординга
+  ///
+  /// In ru, this message translates to:
+  /// **'Сессия на 5 минут'**
+  String get onboardingSessionTitle;
+
+  /// Второй экран онбординга: как устроены сессии
+  ///
+  /// In ru, this message translates to:
+  /// **'Нажмите «Начать сессию»: сначала то, что пора повторить, потом новые знания. После каждого ответа оцените, как хорошо вы помнили, от «Снова» до «Легко». Закрыть приложение можно в любой момент: данные сохраняются.'**
+  String get onboardingSessionBody;
+
+  /// Заголовок третьего экрана онбординга
+  ///
+  /// In ru, this message translates to:
+  /// **'Выберите колоду'**
+  String get onboardingDeckTitle;
+
+  /// Третий экран онбординга: выбор колоды
+  ///
+  /// In ru, this message translates to:
+  /// **'Скачайте первую колоду. Остальные можно добавить позже в разделе «Колоды».'**
+  String get onboardingDeckBody;
+
+  /// Следующий шаг онбординга
+  ///
+  /// In ru, this message translates to:
+  /// **'Далее'**
+  String get onboardingNext;
+
+  /// Предыдущий шаг онбординга
+  ///
+  /// In ru, this message translates to:
+  /// **'Назад'**
+  String get onboardingBack;
+
+  /// Пропуск онбординга
+  ///
+  /// In ru, this message translates to:
+  /// **'Пропустить'**
+  String get onboardingSkip;
+
+  /// Завершить онбординг и начать сессию
+  ///
+  /// In ru, this message translates to:
+  /// **'Начать первую сессию'**
+  String get onboardingStartSession;
+
+  /// Завершить онбординг без колоды
+  ///
+  /// In ru, this message translates to:
+  /// **'Выбрать колоду позже'**
+  String get onboardingLater;
+
+  /// Заголовок раздела настроек сессии
+  ///
+  /// In ru, this message translates to:
+  /// **'Сессия'**
+  String get settingsSessionSection;
+
+  /// Настройка дневного лимита новых
+  ///
+  /// In ru, this message translates to:
+  /// **'Новых знаний в день'**
+  String get settingsNewPerDay;
+
+  /// Настройка максимальной длины очереди
+  ///
+  /// In ru, this message translates to:
+  /// **'Размер сессии (знаний)'**
+  String get settingsSessionSize;
+
+  /// Пояснение к размеру сессии
+  ///
+  /// In ru, this message translates to:
+  /// **'Сессию заканчивает таймер на 5 минут; размер задаёт потолок очереди.'**
+  String get settingsSessionSizeHint;
+
+  /// Подсказка кнопки «−» у настройки
+  ///
+  /// In ru, this message translates to:
+  /// **'Меньше'**
+  String get settingsDecrease;
+
+  /// Подсказка кнопки «+» у настройки
+  ///
+  /// In ru, this message translates to:
+  /// **'Больше'**
+  String get settingsIncrease;
+
+  /// Ошибка записи настройки
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось сохранить настройку.'**
+  String get settingsSaveError;
+
   /// Кнопка запуска сессии повторения на главном экране
   ///
   /// In ru, this message translates to:

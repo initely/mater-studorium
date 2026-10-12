@@ -6,6 +6,8 @@ import '../../../core/supabase/supabase_init.dart';
 import '../../../core/utils/clock.dart';
 import '../../../core/utils/uuid.dart';
 import '../../questions/registry.dart';
+import '../../settings/domain/user_settings.dart';
+import '../../settings/presentation/settings_notifier.dart';
 import '../domain/local_day.dart';
 import '../domain/session_queue_builder.dart';
 import '../domain/session_repository.dart';
@@ -43,10 +45,11 @@ Duration deviceUtcOffset(DateTime utc) =>
 /// напоминания), здесь подставляется пояс из профиля.
 final utcOffsetProvider = Provider<UtcOffsetAt>((ref) => deviceUtcOffset);
 
-/// Настройки сессии. Пока значения по умолчанию; экран настроек (T18)
-/// подменит провайдер значениями пользователя.
+/// Настройки сессии из настроек пользователя (экран настроек и экран колоды,
+/// T18). Пока настройки не прочитаны — значения по умолчанию.
 final sessionSettingsProvider = Provider<SessionSettings>(
-  (ref) => const SessionSettings(),
+  (ref) => (ref.watch(settingsProvider).value ?? const UserSettings())
+      .toSessionSettings(),
 );
 
 final sessionQueueBuilderProvider = Provider<SessionQueueBuilder>(

@@ -1,8 +1,10 @@
 import 'package:drift/drift.dart';
 
 import '../../features/catalog/domain/local_item.dart';
+import '../../features/deck/domain/deck_progress.dart';
 import '../../features/session/domain/review_log.dart';
 import '../../features/srs/domain/item_state.dart';
+import '../../features/srs/domain/srs_state.dart';
 import '../sync/outbox_entry.dart';
 import 'database.dart';
 import 'mappers.dart';
@@ -174,6 +176,29 @@ class ReviewDao extends DatabaseAccessor<AppDatabase> with _$ReviewDaoMixin {
     for (var i = 0; i < list.length; i += size) {
       yield list.sublist(i, i + size > list.length ? list.length : i + size);
     }
+  }
+
+  /// Прогресс по колоде для экрана колоды: знания без `retired`, сгруппированные
+  /// по стадии FSRS (знание без строки состояния — новое). Поток обновляется
+  /// при записи ответа и при обновлении колоды (ADR-27).
+  Stream<DeckProgress> watchDeckProgress(String userId, String deckId) {
+    return customSelect(
+      'SELECT s.state AS st, COUNT(*) AS c FROM items i '
+      'LEFT JOIN user_item_state s ON s.item_id = i.id AND s.user_id = ?1 '
+      'WHERE i.deck_id = ?2 AND i.retired = 0 GROUP BY s.state',
+      variables: [Variable<String>(userId), Variable<String>(deckId)],
+      readsFrom: {items, userItemStates},
+    ).watch().map(
+      (rows) => DeckProgress.fromStateCounts([
+        for (final r in rows)
+          (
+            state: r.readNullable<int>('st') == null
+                ? null
+                : SrsState.fromCode(r.read<int>('st')),
+            count: r.read<int>('c'),
+          ),
+      ]),
+    );
   }
 
   Future<ItemState?> getState(String userId, String itemId) async {
