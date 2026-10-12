@@ -38,6 +38,12 @@ class _SlowSettings implements SettingsRepository {
 
   @override
   Future<void> setSessionSize(int value) async {}
+
+  @override
+  Future<void> setReminderEnabled(bool enabled) async {}
+
+  @override
+  Future<void> setReminderMinuteOfDay(int minuteOfDay) async {}
 }
 
 GoRouter routerOf(WidgetTester tester) =>

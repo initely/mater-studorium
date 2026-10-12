@@ -557,4 +557,52 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get flipAnswerLabel => 'Ответ';
+
+  @override
+  String get settingsReminderSection => 'Напоминание';
+
+  @override
+  String get reminderSwitchTitle => 'Ежедневное напоминание';
+
+  @override
+  String get reminderSwitchSubtitle =>
+      'В выбранное время придёт уведомление, но только если есть что повторять. При включении Android может спросить разрешение на уведомления.';
+
+  @override
+  String get reminderTimeTitle => 'Время напоминания';
+
+  @override
+  String get reminderTimePickerHelp => 'Время напоминания';
+
+  @override
+  String get reminderUnsupported =>
+      'Напоминания работают только в приложении для Android. В браузере их нет.';
+
+  @override
+  String get reminderPermissionDenied =>
+      'Уведомления для приложения выключены в настройках Android, поэтому напоминания не приходят. Включите их там, и напоминание заработает само.';
+
+  @override
+  String get reminderOpenSettings => 'Открыть настройки уведомлений';
+
+  @override
+  String get reminderNotificationTitle => 'Пора повторить';
+
+  @override
+  String get reminderNotificationBody =>
+      'Пять минут сейчас, и знания останутся надолго.';
+
+  @override
+  String get reminderChannelName => 'Напоминания о повторении';
+
+  @override
+  String get reminderChannelDescription =>
+      'Ежедневное напоминание повторить знания';
+
+  @override
+  String get onboardingReminderTitle => 'Напоминание';
+
+  @override
+  String get onboardingReminderBody =>
+      'Хотите, чтобы приложение напоминало о повторении? Оно напишет в выбранное время и только если есть что повторять. Это можно изменить в настройках.';
 }

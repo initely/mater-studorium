@@ -969,6 +969,90 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Ответ'**
   String get flipAnswerLabel;
+
+  /// Заголовок раздела настроек с напоминанием
+  ///
+  /// In ru, this message translates to:
+  /// **'Напоминание'**
+  String get settingsReminderSection;
+
+  /// Тумблер напоминания
+  ///
+  /// In ru, this message translates to:
+  /// **'Ежедневное напоминание'**
+  String get reminderSwitchTitle;
+
+  /// Пояснение к тумблеру напоминания: когда приходит и зачем разрешение
+  ///
+  /// In ru, this message translates to:
+  /// **'В выбранное время придёт уведомление, но только если есть что повторять. При включении Android может спросить разрешение на уведомления.'**
+  String get reminderSwitchSubtitle;
+
+  /// Строка выбора времени напоминания
+  ///
+  /// In ru, this message translates to:
+  /// **'Время напоминания'**
+  String get reminderTimeTitle;
+
+  /// Заголовок диалога выбора времени
+  ///
+  /// In ru, this message translates to:
+  /// **'Время напоминания'**
+  String get reminderTimePickerHelp;
+
+  /// Почему тумблер напоминания недоступен (web)
+  ///
+  /// In ru, this message translates to:
+  /// **'Напоминания работают только в приложении для Android. В браузере их нет.'**
+  String get reminderUnsupported;
+
+  /// Напоминание включено, но системное разрешение не дано
+  ///
+  /// In ru, this message translates to:
+  /// **'Уведомления для приложения выключены в настройках Android, поэтому напоминания не приходят. Включите их там, и напоминание заработает само.'**
+  String get reminderPermissionDenied;
+
+  /// Кнопка перехода в системные настройки уведомлений
+  ///
+  /// In ru, this message translates to:
+  /// **'Открыть настройки уведомлений'**
+  String get reminderOpenSettings;
+
+  /// Заголовок уведомления-напоминания
+  ///
+  /// In ru, this message translates to:
+  /// **'Пора повторить'**
+  String get reminderNotificationTitle;
+
+  /// Текст уведомления-напоминания
+  ///
+  /// In ru, this message translates to:
+  /// **'Пять минут сейчас, и знания останутся надолго.'**
+  String get reminderNotificationBody;
+
+  /// Название канала уведомлений Android
+  ///
+  /// In ru, this message translates to:
+  /// **'Напоминания о повторении'**
+  String get reminderChannelName;
+
+  /// Описание канала уведомлений Android
+  ///
+  /// In ru, this message translates to:
+  /// **'Ежедневное напоминание повторить знания'**
+  String get reminderChannelDescription;
+
+  /// Заголовок шага онбординга с напоминанием
+  ///
+  /// In ru, this message translates to:
+  /// **'Напоминание'**
+  String get onboardingReminderTitle;
+
+  /// Шаг онбординга: напоминание
+  ///
+  /// In ru, this message translates to:
+  /// **'Хотите, чтобы приложение напоминало о повторении? Оно напишет в выбранное время и только если есть что повторять. Это можно изменить в настройках.'**
+  String get onboardingReminderBody;
 }
 
 class _AppLocalizationsDelegate
