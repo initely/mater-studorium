@@ -69,6 +69,44 @@ void main() {
     expect(broken.setNewPerDay(5), throwsA(isA<LocalStorageError>()));
   });
 
+  test(
+    'напоминание: по умолчанию выключено, 20:00; значения сохраняются',
+    () async {
+      var s = await repo.load();
+      expect(s.reminderEnabled, isFalse);
+      expect(s.reminderMinuteOfDay, 20 * 60);
+
+      await repo.setReminderEnabled(true);
+      await repo.setReminderMinuteOfDay(9 * 60 + 5);
+      s = await DriftSettingsRepository(db.settingsDao).load();
+      expect(s.reminderEnabled, isTrue);
+      expect(s.reminderMinuteOfDay, 545);
+      // Хранится в существующем key-value, схема БД не менялась.
+      expect(
+        await db.settingsDao.readAll(),
+        allOf(
+          containsPair('reminder_enabled', '1'),
+          containsPair('reminder_minute_of_day', '545'),
+        ),
+      );
+    },
+  );
+
+  test(
+    'напоминание: время вне суток приводится к границам, мусор к умолчанию',
+    () async {
+      await repo.setReminderMinuteOfDay(5000);
+      expect((await repo.load()).reminderMinuteOfDay, kMaxReminderMinuteOfDay);
+      await repo.setReminderMinuteOfDay(-3);
+      expect((await repo.load()).reminderMinuteOfDay, kMinReminderMinuteOfDay);
+      await db.settingsDao.write('reminder_minute_of_day', 'abc');
+      expect(
+        (await repo.load()).reminderMinuteOfDay,
+        kDefaultReminderMinuteOfDay,
+      );
+    },
+  );
+
   test('UserSettings.toSessionSettings: лимит и размер сессии', () {
     const s = UserSettings(newPerDay: 4, sessionSize: 15);
     final session = s.toSessionSettings();

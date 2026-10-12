@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/clock.dart';
 import '../../../core/utils/uuid.dart';
+import '../../reminders/presentation/reminder_controller.dart';
 import '../../srs/domain/rating.dart';
 import '../../srs/domain/scheduler.dart';
 import '../data/session_providers.dart';
@@ -91,6 +94,7 @@ class SessionController extends Notifier<SessionState> {
         index: next,
         answers: [...state.answers, log],
       );
+      if (!goOn) _rescheduleReminders();
     } finally {
       _submitting = false;
     }
@@ -100,7 +104,15 @@ class SessionController extends Notifier<SessionState> {
   void finish() {
     if (state.status == SessionStatus.running) {
       state = state.copyWith(status: SessionStatus.finished);
+      _rescheduleReminders();
     }
+  }
+
+  /// Сессия закончилась: `due` сдвинулись, сегодняшнее напоминание могло
+  /// стать ненужным (ТЗ M9). Не ждём: итоги не должны зависеть от
+  /// уведомлений.
+  void _rescheduleReminders() {
+    unawaited(ref.read(reminderControllerProvider.notifier).reschedule());
   }
 }
 

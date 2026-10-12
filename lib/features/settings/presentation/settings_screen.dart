@@ -3,12 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/app_error.dart';
 import '../../../core/l10n/app_localizations.dart';
+import '../../reminders/presentation/reminder_tiles.dart';
 import '../domain/user_settings.dart';
 import 'settings_notifier.dart';
 import 'stepper_tile.dart';
 
-/// Настройки (T18, минимум): лимит новых в день и размер сессии. Напоминания,
-/// привязка Google и «о приложении» добавят T19, T21 и позже.
+/// Настройки: лимит новых в день, размер сессии (T18) и напоминание (T19).
+/// Привязка Google и «о приложении» добавят T21 и позже.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -60,6 +61,17 @@ class SettingsScreen extends ConsumerWidget {
               step: kSessionSizeStep,
               onChanged: (v) => save(() => notifier.setSessionSize(v)),
             ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Semantics(
+                header: true,
+                child: Text(
+                  l10n.settingsReminderSection,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+            ),
+            const ReminderTiles(),
           ],
         ),
       ),
