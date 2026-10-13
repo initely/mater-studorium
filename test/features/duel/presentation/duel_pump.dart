@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mater_studorium/app/router.dart';
@@ -9,11 +10,16 @@ import 'package:mater_studorium/core/utils/clock.dart';
 import 'package:mater_studorium/core/utils/uuid.dart';
 import 'package:mater_studorium/features/catalog/data/catalog_providers.dart';
 import 'package:mater_studorium/features/duel/data/duel_providers.dart';
+import 'package:mater_studorium/features/duel/domain/duel_answer_queue.dart';
+import 'package:mater_studorium/features/duel/domain/duel_content.dart';
+import 'package:mater_studorium/features/duel/domain/duel_seen_store.dart';
 import 'package:mater_studorium/features/duel/presentation/duel_create_screen.dart';
 import 'package:mater_studorium/features/duel/presentation/duel_hub_screen.dart';
 import 'package:mater_studorium/features/duel/presentation/duel_join_screen.dart';
+import 'package:mater_studorium/features/duel/presentation/duel_play_screen.dart';
 import 'package:mater_studorium/features/duel/presentation/duel_screen.dart';
 
+import '../../../helpers/duel_fixtures.dart';
 import '../../../helpers/fake_catalog_repository.dart';
 import '../../../helpers/fake_duel_repository.dart';
 import '../../../helpers/pump_app.dart';
@@ -26,7 +32,13 @@ Future<GoRouter> pumpDuelApp(
   required FakeDuelRepository repo,
   FakeDuelQuestionSource? source,
   FakeCatalogRepository? catalog,
+  DuelAnswerQueue? queue,
+  DuelContentSource? content,
+  DuelSeenStore? seen,
+  Duration? pollInterval,
   DateTime? now,
+  DateTime Function()? clock,
+  List<Override> extraOverrides = const [],
 }) async {
   final router = GoRouter(
     initialLocation: initial,
@@ -43,6 +55,13 @@ Future<GoRouter> pumpDuelApp(
             path: ':id',
             builder: (_, state) =>
                 DuelScreen(duelId: state.pathParameters['id']!),
+            routes: [
+              GoRoute(
+                path: 'play',
+                builder: (_, state) =>
+                    DuelPlayScreen(duelId: state.pathParameters['id']!),
+              ),
+            ],
           ),
         ],
       ),
@@ -54,15 +73,22 @@ Future<GoRouter> pumpDuelApp(
     overrides: [
       routerProvider.overrideWithValue(router),
       duelRepositoryProvider.overrideWithValue(repo),
+      duelAnswerQueueProvider.overrideWithValue(queue ?? FakeDuelAnswerQueue()),
+      duelContentSourceProvider.overrideWithValue(
+        content ?? FakeDuelContentSource(),
+      ),
+      duelSeenStoreProvider.overrideWithValue(seen ?? FakeDuelSeenStore()),
+      duelPollIntervalProvider.overrideWithValue(pollInterval),
       duelQuestionSourceProvider.overrideWithValue(
         source ?? FakeDuelQuestionSource(),
       ),
       catalogRepositoryProvider.overrideWithValue(
         catalog ?? FakeCatalogRepository(),
       ),
-      clockProvider.overrideWithValue(() => now ?? duelNow),
+      clockProvider.overrideWithValue(clock ?? () => now ?? duelNow),
       uuidGeneratorProvider.overrideWithValue(() => 'duel-uuid-${++uuids}'),
       randomProvider.overrideWithValue(math.Random(1)),
+      ...extraOverrides,
     ],
   );
   await tester.pumpAndSettle();

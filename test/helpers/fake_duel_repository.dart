@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:mater_studorium/features/duel/domain/duel.dart';
+import 'package:mater_studorium/features/duel/domain/duel_answer.dart';
 import 'package:mater_studorium/features/duel/domain/duel_question_picker.dart';
 import 'package:mater_studorium/features/duel/domain/duel_question_source.dart';
 import 'package:mater_studorium/features/duel/domain/duel_repository.dart';
@@ -69,6 +70,13 @@ class FakeDuelRepository implements DuelRepository {
   Object? getError;
   var getCalls = 0;
 
+  /// Ответы, которые «видит» сервер: свои и (при `withOther`) соперника.
+  DuelAnswers answersResult = const DuelAnswers(mine: [], other: []);
+  Object? answersError;
+
+  /// Значения `withOther` каждого вызова `answers`.
+  final answersCalls = <bool>[];
+
   String? name;
   Object? setNameError;
   final nameWrites = <String?>[];
@@ -116,6 +124,17 @@ class FakeDuelRepository implements DuelRepository {
     getCalls++;
     if (getError != null) throw getError!;
     return getResult;
+  }
+
+  @override
+  Future<DuelAnswers> answers(String duelId, {bool withOther = false}) async {
+    answersCalls.add(withOther);
+    if (answersError != null) throw answersError!;
+    // Как сервер при запросе только своих ответов: чужие не отдаются.
+    return DuelAnswers(
+      mine: answersResult.mine,
+      other: withOther ? answersResult.other : const [],
+    );
   }
 
   @override

@@ -2,6 +2,7 @@
 // pull не уменьшается.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mater_studorium/core/sync/domain/sync_store.dart';
+import 'package:mater_studorium/core/sync/outbox_entry.dart';
 
 import '../../helpers/db_fixtures.dart';
 import '../../helpers/sync_fixtures.dart';
@@ -45,5 +46,37 @@ void main() {
     await db.syncDao.insertPulledLogs(userA, const [], cursor: 8, syncedAt: s0);
     await db.syncDao.insertPulledLogs(userA, const [], cursor: 2, syncedAt: s0);
     expect(await db.syncDao.cursor(userA, SyncStream.reviewLogs), 8);
+  });
+
+  test('adoptLocalData не переносит ответы дуэли на нового пользователя, '
+      'остальной outbox переносит', () async {
+    final db = memoryDb();
+    await db.reviewDao.enqueueOutbox(
+      userA,
+      OutboxEntry(
+        kind: OutboxKind.duelAnswer,
+        payloadJson: '{}',
+        createdAt: s0,
+      ),
+    );
+    await db.reviewDao.enqueueOutbox(
+      userA,
+      OutboxEntry(kind: OutboxKind.report, payloadJson: '{}', createdAt: s0),
+    );
+
+    await db.syncDao.adoptLocalData(from: userA, to: userB);
+
+    final rows = await db.select(db.outbox).get();
+    expect(rows.map((r) => (r.userId, r.kind)).toList(), [
+      (userB, OutboxKind.report),
+    ]);
+    expect(
+      await db.reviewDao.pendingOutboxOfKind(userA, OutboxKind.duelAnswer),
+      isEmpty,
+    );
+    expect(
+      await db.reviewDao.pendingOutboxOfKind(userB, OutboxKind.duelAnswer),
+      isEmpty,
+    );
   });
 }

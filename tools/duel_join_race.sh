@@ -11,8 +11,18 @@
 #                                           # одну дуэль; без advisory-блокировки
 #                                           # лимит активных дуэлей превышен; с
 #                                           # FOR UPDATE вместо FOR NO KEY UPDATE в
-#                                           # триггере ответов случаются deadlock
-#                                           # (код 1); функции затем восстанавливаются
+#                                           # ТРИГГЕРЕ ответов в сценарии 3 (прямые
+#                                           # INSERT) случаются deadlock, не при каждом
+#                                           # прогоне; сценарий 4 их не показывает:
+#                                           # строку дуэли там уже держит RPC (код
+#                                           # возврата 1 дают сценарии 1 и 2); функции
+#                                           # затем восстанавливаются
+#   tools/duel_join_race.sh --without-rpc-row-lock
+#                                           # отдельная мутация: из RPC submit_duel_answer
+#                                           # снята блокировка строки дуэли. Ожидание: OK
+#                                           # (код 0): deadlock не появляется, пока
+#                                           # триггер берёт строку FOR NO KEY UPDATE;
+#                                           # блокировка в RPC лишь глубокая защита
 #
 # Сценарий 1 (место в дуэли): 20 разных пользователей одновременно входят по
 # одному коду. Максимум участников — два (создатель и соперник), поэтому
@@ -27,6 +37,15 @@
 # а триггер ответов затем берёт строку FOR NO KEY UPDATE. Раньше там был FOR
 # UPDATE: повышение блокировки у двух параллельных вставок давало deadlock.
 # Ожидание: 0 ошибок, все дуэли finished, ровно 10 ответов на дуэль.
+# Сценарий 4 (T23, RPC submit_duel_answer): то же, но через RPC от имени
+# authenticated и с повторами: каждый из двух участников шлёт свои 5 ответов двумя
+# параллельными сессиями (повтор после обрыва связи или второе устройство).
+# Порядок блокировок RPC: advisory пользователя, затем строка дуэли FOR NO KEY
+# UPDATE (deadlock предотвращает FOR NO KEY UPDATE в триггере; блокировка строки
+# в RPC лишь глубокая защита: см. режимы выше).
+# Дуэли сценария берутся из его собственной вставки (returning id), чужие не
+# захватываются. Ожидание: 0 ошибок (в том числе deadlock), все дуэли finished, ровно 10
+# ответов на дуэль, `recorded` на каждый ответ ровно один (остальные duplicate).
 # Пользователи, колода и дуэли создаются и удаляются скриптом.
 set -euo pipefail
 
@@ -36,9 +55,16 @@ joiners=20
 creates=12
 active_limit=5
 answer_duels=300
+rpc_duels=150
 
 without_lock=false
-[[ "${1:-}" == "--without-lock" ]] && without_lock=true
+without_rpc_row_lock=false
+case "${1:-}" in
+  --without-lock) without_lock=true ;;
+  --without-rpc-row-lock) without_rpc_row_lock=true ;;
+  "") ;;
+  *) echo "неизвестный аргумент: $1" >&2; exit 2 ;;
+esac
 
 tmp="$(mktemp -d)"
 creator="$("${psql[@]}" -c "select gen_random_uuid()")"
@@ -47,6 +73,7 @@ deck="race$(date +%s)"
 join_def=""
 create_def=""
 trigger_def=""
+submit_def=""
 guard_dropped=false
 ua="$("${psql[@]}" -c "select gen_random_uuid()")"
 ub="$("${psql[@]}" -c "select gen_random_uuid()")"
@@ -69,6 +96,10 @@ cleanup() {
   if [[ -n "$trigger_def" ]]; then
     printf '%s;\n' "$trigger_def" | "${psql[@]}" >/dev/null
     echo "private.duel_answers_after_insert восстановлена"
+  fi
+  if [[ -n "$submit_def" ]]; then
+    printf '%s;\n' "$submit_def" | "${psql[@]}" >/dev/null
+    echo "public.submit_duel_answer восстановлена"
   fi
   local ids="'$creator', '$maker', '$ua', '$ub'"
   while read -r uid; do ids="$ids, '$uid'"; done <"$tmp/joiners" 2>/dev/null || true
@@ -105,6 +136,13 @@ if $without_lock; then
   # триггер ответов: FOR UPDATE вместо FOR NO KEY UPDATE (прежняя ошибка S1).
   printf '%s\n' "$trigger_def" | perl -0pe 's/for no key update/for update/g' | "${psql[@]}" >/dev/null
   echo "ВНИМАНИЕ: блокировки и защита временно убраны (демонстрация)"
+fi
+
+if $without_rpc_row_lock; then
+  submit_def="$("${psql[@]}" -c "select pg_get_functiondef('public.submit_duel_answer(uuid, uuid, text, jsonb, boolean, integer)'::regprocedure)")"
+  # RPC ответов: без блокировки строки дуэли (остаётся FOR NO KEY UPDATE триггера).
+  printf '%s\n' "$submit_def" | perl -0pe 's/\n\s+for no key update;/;/' | "${psql[@]}" >/dev/null
+  echo "ВНИМАНИЕ: из submit_duel_answer временно снята блокировка строки дуэли"
 fi
 
 # ---------- сценарий 1: место в дуэли ----------
@@ -208,6 +246,44 @@ if [[ "$errors" -eq 0 && "$finished" -eq "$answer_duels" && "$answers" -eq $((an
   echo "OK: ответы двух участников не блокируют друг друга"
 else
   echo "LOST: ошибок $errors (deadlock $deadlocks), finished $finished из $answer_duels, ответов $answers из $((answer_duels * 10))"
+  status=1
+fi
+
+# ---------- сценарий 4: параллельные ответы через RPC, с повторами ----------
+rpc_insert="$("${psql[@]}" -c "insert into public.duels (id, code, deck_id, deck_version, question_ids, creator_id, opponent_id,
+    status, expires_at, joined_at)
+  select gen_random_uuid(), private.new_duel_code(), '$deck', 1, array['q.1','q.2','q.3','q.4','q.5'], '$ua', '$ub',
+         'active', now() + interval '72 hours', now()
+    from generate_series(1, $rpc_duels)
+  returning id")"
+rpc_ids="$(printf '%s\n' "$rpc_insert" | grep -E '^[0-9a-f-]{36}$' | sort)"
+for who in "$ua" "$ub"; do
+  : >"$tmp/rpc.$who.sql"
+  while read -r d; do
+    for q in 1 2 3 4 5; do
+      printf "begin; set local role authenticated; select set_config('request.jwt.claims', '{\"sub\":\"%s\",\"role\":\"authenticated\"}', true); select 'R:' || (public.submit_duel_answer('%s', '%s', 'q.%s', '{\"selected\": [\"a\"]}', true, 100)->>'result'); commit;\n" "$who" "$who" "$d" "$q" >>"$tmp/rpc.$who.sql"
+    done
+  done <<<"$rpc_ids"
+done
+# Два экземпляра сессии на участника: те же ответы идут параллельно дважды.
+for who in "$ua" "$ub"; do
+  for copy in 1 2; do
+    docker exec -i "$container" psql -U postgres -qtAX <"$tmp/rpc.$who.sql" >"$tmp/rpc.$who.$copy.out" 2>"$tmp/rpc.$who.$copy.err" &
+  done
+done
+wait
+rpc_errors="$(cat "$tmp"/rpc.*.err | grep -c 'ERROR' || true)"
+rpc_deadlocks="$(cat "$tmp"/rpc.*.err | grep -c 'deadlock detected' || true)"
+recorded="$(cat "$tmp"/rpc.*.out | grep -c '^R:recorded$' || true)"
+duplicates="$(cat "$tmp"/rpc.*.out | grep -c '^R:duplicate$' || true)"
+rpc_finished="$("${psql[@]}" -c "select count(*) from public.duels where id in ($(printf "'%s'," $rpc_ids | sed 's/,$//')) and status = 'finished'")"
+rpc_answers="$("${psql[@]}" -c "select count(*) from public.duel_answers where duel_id in ($(printf "'%s'," $rpc_ids | sed 's/,$//'))")"
+echo "сценарий 4: дуэлей $rpc_duels, ошибок: $rpc_errors (deadlock: $rpc_deadlocks), recorded: $recorded, duplicate: $duplicates, finished: $rpc_finished, ответов: $rpc_answers (ждали $((rpc_duels * 10)))"
+if [[ "$rpc_errors" -eq 0 && "$rpc_finished" -eq "$rpc_duels" && "$rpc_answers" -eq $((rpc_duels * 10)) \
+      && "$recorded" -eq $((rpc_duels * 10)) && "$duplicates" -eq $((rpc_duels * 10)) ]]; then
+  echo "OK: ответы через RPC не блокируют друг друга, повторы безвредны"
+else
+  echo "LOST: ошибок $rpc_errors (deadlock $rpc_deadlocks), recorded $recorded, duplicate $duplicates, finished $rpc_finished из $rpc_duels, ответов $rpc_answers из $((rpc_duels * 10))"
   status=1
 fi
 

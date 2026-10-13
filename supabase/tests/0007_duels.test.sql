@@ -11,7 +11,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(269);
+select plan(270);
 
 insert into auth.users (id, aud, role, email, is_anonymous, created_at)
 values
@@ -95,8 +95,8 @@ select matches(
   'duels: using (creator_id = auth.uid() or opponent_id = auth.uid())');
 select matches(
   (select qual from pg_policies where tablename = 'duel_answers' and policyname = 'duel_answers_select'),
-  'creator_done_at IS NOT NULL.*opponent_done_at IS NOT NULL',
-  'duel_answers: чужие ответы только после своих (done_at своей роли)');
+  'status = ''finished''.*creator_id.*opponent_id',
+  'duel_answers: чужие ответы только когда дуэль finished (AC10.1)');
 select table_privs_are('public', 'duels', 'authenticated', array['SELECT'], 'authenticated: на duels только SELECT');
 select table_privs_are('public', 'duel_answers', 'authenticated', array['SELECT'], 'authenticated: на duel_answers только SELECT');
 select table_privs_are('public', 'duels', 'anon', array[]::text[], 'anon: на duels ничего');
@@ -1102,9 +1102,9 @@ select is((select count(*) from public.duel_answers where user_id = 'bbbbbbbb-bb
 select is((select count(*) from public.duel_answers), 3::bigint, 'A видит только свои 3 ответа');
 select set_config('request.jwt.claims',
   '{"sub":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","role":"authenticated"}', true);
-select is((select count(*) from public.duel_answers where user_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'), 3::bigint,
-  'AC10.1: B ответил на все 5 и видит ответы A (даже незавершённые)');
-select is((select count(*) from public.duel_answers), 8::bigint, 'B видит все 8');
+select is((select count(*) from public.duel_answers where user_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'), 0::bigint,
+  'AC10.1: B ответил на все 5, но дуэль ещё не finished: ответов A не видит');
+select is((select count(*) from public.duel_answers), 5::bigint, 'B до finished видит только свои 5');
 select set_config('request.jwt.claims',
   '{"sub":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","role":"authenticated"}', true);
 select is((select count(*) from public.duel_answers), 0::bigint, 'не участник не видит ответов');
@@ -1123,6 +1123,12 @@ select set_config('request.jwt.claims',
   '{"sub":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","role":"authenticated"}', true);
 select is((select count(*) from public.duel_answers where user_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'), 5::bigint,
   'AC10.1: после своих 5 ответов A видит ответы B');
+select set_config('request.jwt.claims',
+  '{"sub":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","role":"authenticated"}', true);
+select is((select count(*) from public.duel_answers where user_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'), 5::bigint,
+  'AC10.1: B, закончивший раньше, после finished видит ответы A');
+select set_config('request.jwt.claims',
+  '{"sub":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","role":"authenticated"}', true);
 select is((public.get_duel('00000000-0000-4000-8000-0000000000d1')) ->> 'status', 'finished', 'get_duel: finished');
 select ok((select (j ->> 'my_done_at') is not null and (j ->> 'other_done_at') is not null
              from (select public.get_duel('00000000-0000-4000-8000-0000000000d1') j) t),

@@ -288,6 +288,37 @@ class DecksDao extends DatabaseAccessor<AppDatabase> with _$DecksDaoMixin {
     ];
   }
 
+  /// Вопросы [questionIds] колоды [deckId] для игры в дуэль (T23): только
+  /// заданных форматов [wireTypes], не скрытые и со знанием, не исчезнувшим из
+  /// версии. Нет в результате — недоступен на этом устройстве.
+  Future<List<({Question question, LocalItem item})>> duelQuestions(
+    String deckId,
+    List<String> questionIds,
+    Set<String> wireTypes,
+  ) async {
+    final query =
+        select(questions)
+            .join([innerJoin(items, items.id.equalsExp(questions.itemId))])
+          ..where(
+            items.deckId.equals(deckId) &
+                items.retired.equals(false) &
+                questions.id.isIn(questionIds) &
+                questions.type.isIn(wireTypes) &
+                questions.id.isNotInQuery(
+                  selectOnly(hiddenQuestions)
+                    ..addColumns([hiddenQuestions.questionId]),
+                ),
+          );
+    final rows = await query.get();
+    return [
+      for (final row in rows)
+        (
+          question: questionFromRow(row.readTable(questions)),
+          item: itemFromRow(row.readTable(items)),
+        ),
+    ];
+  }
+
   Future<Set<String>> hiddenQuestionIds() async {
     final rows = await select(hiddenQuestions).get();
     return {for (final r in rows) r.questionId};

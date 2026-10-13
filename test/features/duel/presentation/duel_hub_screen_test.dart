@@ -49,6 +49,7 @@ void main() {
           otherName: 'Алиса',
           status: DuelStatus.active,
           code: null,
+          myDoneAt: duelNow,
         ),
         duelFixture(id: 'c', otherJoined: true, status: DuelStatus.finished),
         duelFixture(
@@ -60,14 +61,14 @@ void main() {
     )..getResult = duelFixture(id: 'b');
     final router = await pumpDuelApp(tester, initial: '/duels', repo: repo);
     expect(find.text('Дуэль, ждём соперника'), findsNWidgets(2));
-    expect(find.text('Ждём соперника · осталось 3 д'), findsOneWidget);
+    expect(find.text('Твой ход · осталось 3 д'), findsOneWidget);
     expect(find.text('Дуэль с ${isolateName('Алиса')}'), findsOneWidget);
     expect(
-      find.text('${isolateName('Алиса')} в дуэли · осталось 3 д'),
+      find.text('Ждём ${isolateName('Алиса')} · осталось 3 д'),
       findsOneWidget,
     );
     expect(find.text('Соперник без имени'), findsOneWidget);
-    expect(find.text('Дуэль завершена'), findsOneWidget);
+    expect(find.text('Результат готов'), findsOneWidget);
     // Просроченная по часам клиента: без срока.
     expect(find.text('Дуэль истекла'), findsOneWidget);
 

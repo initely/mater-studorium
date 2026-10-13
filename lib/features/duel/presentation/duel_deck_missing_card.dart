@@ -7,11 +7,18 @@ import '../../catalog/data/catalog_providers.dart';
 
 /// «Колода этой дуэли не скачана»: докачка колоды, если вход по коду не успел
 /// её скачать (нет сети) или у создателя версия новее. Без колоды играть
-/// (T23) нельзя.
+/// нельзя.
 class DuelDeckMissingCard extends ConsumerStatefulWidget {
-  const DuelDeckMissingCard({super.key, required this.deckId});
+  const DuelDeckMissingCard({
+    super.key,
+    required this.deckId,
+    this.onDownloaded,
+  });
 
   final String deckId;
+
+  /// Колода докачана (экран игры перечитывает дуэль и набор вопросов).
+  final VoidCallback? onDownloaded;
 
   @override
   ConsumerState<DuelDeckMissingCard> createState() =>
@@ -29,6 +36,7 @@ class _DuelDeckMissingCardState extends ConsumerState<DuelDeckMissingCard> {
     });
     try {
       await ref.read(catalogRepositoryProvider).download(widget.deckId);
+      widget.onDownloaded?.call();
     } on AppError {
       if (mounted) setState(() => _failed = true);
     } finally {

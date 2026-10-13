@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:mater_studorium/core/errors/app_error.dart';
 import 'package:mater_studorium/core/sync/domain/sync_remote.dart';
+import 'package:mater_studorium/features/duel/domain/duel_answer.dart';
 import 'package:mater_studorium/features/reports/domain/report.dart';
 import 'package:mater_studorium/features/reports/domain/report_reason.dart';
 import 'package:mater_studorium/features/session/domain/review_log.dart';
@@ -64,6 +65,15 @@ class FakeSyncServer implements SyncRemote {
 
   /// Жалоба, которую «сервер» не примет (как CHECK): `SyncRejectedError`.
   bool Function(Report report)? rejectReport;
+
+  /// Ответы дуэлей: ключ (дуэль, пользователь, вопрос), как PK `duel_answers`.
+  final duelAnswers = <(String, String, String), DuelAnswerPayload>{};
+
+  /// Дуэли, закрытые для ответов (срок вышел или дуэли нет): `DuelClosedError`.
+  final closedDuels = <String>{};
+
+  /// Ответ дуэли, который «сервер» не примет (как CHECK): `SyncRejectedError`.
+  bool Function(DuelAnswerPayload answer)? rejectDuelAnswer;
 
   /// Список, который отдаёт `hidden_questions()`.
   final hidden = <String>{};
@@ -232,6 +242,22 @@ class FakeSyncServer implements SyncRemote {
           throw const QuotaExceededError('fake: лимит жалоб');
         }
         reports[report.id] = (userId: userId, report: report);
+        return true;
+      });
+
+  @override
+  Future<bool> submitDuelAnswer(String userId, DuelAnswerPayload answer) =>
+      _call('submitDuelAnswer', userId, () {
+        final key = (answer.duelId, userId, answer.questionId);
+        // Повтор отдаётся до проверки срока, как в `submit_duel_answer`.
+        if (duelAnswers.containsKey(key)) return false;
+        if (closedDuels.contains(answer.duelId)) {
+          throw const DuelClosedError('fake: дуэль закрыта');
+        }
+        if (rejectDuelAnswer?.call(answer) ?? false) {
+          throw const SyncRejectedError('fake: ответ дуэли отклонён');
+        }
+        duelAnswers[key] = answer;
         return true;
       });
 

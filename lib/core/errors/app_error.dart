@@ -150,6 +150,20 @@ final class DuelLimitError extends AppError {
   final DuelLimitKind kind;
 }
 
+/// Дуэль закрыта для ответов: срок вышел, она завершена или такой дуэли нет
+/// у этого пользователя (`MS410`, `MS404` из `submit_duel_answer`). Повтор не
+/// поможет: запись из outbox отбрасывается.
+final class DuelClosedError extends AppError {
+  const DuelClosedError(super.message, {super.cause});
+}
+
+/// Ответ дуэли не проходит ограничения сервера (форма, размер до 512 байт,
+/// время): в очередь отправки он не ставится, иначе блокировал бы её. Ничего не
+/// записано.
+final class InvalidDuelAnswerError extends AppError {
+  const InvalidDuelAnswerError(super.message, {super.cause});
+}
+
 /// В колоде меньше пяти подходящих (автопроверяемых, видимых) вопросов:
 /// дуэль не собрать. Ошибка клиентская, сервер не вызывался.
 final class DuelNotEnoughQuestionsError extends AppError {

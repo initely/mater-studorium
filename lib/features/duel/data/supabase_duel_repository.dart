@@ -7,6 +7,7 @@ import '../../../core/errors/app_error.dart';
 import '../../../core/sync/data/supabase_sync_remote.dart'
     show mapSyncRemoteError;
 import '../domain/duel.dart';
+import '../domain/duel_answer.dart';
 import '../domain/duel_repository.dart';
 import '../domain/duel_status.dart';
 
@@ -78,6 +79,29 @@ class SupabaseDuelRepository implements DuelRepository {
     );
     return json == null ? null : duelFromJson(json);
   });
+
+  @override
+  Future<DuelAnswers> answers(String duelId, {bool withOther = false}) =>
+      _guard((userId) async {
+        final query = _client
+            .from('duel_answers')
+            .select('user_id,question_id,answer,is_correct,duration_ms')
+            .eq('duel_id', duelId);
+        // Без withOther чужие ответы не запрашиваются вовсе, даже если RLS их
+        // уже отдаёт (AC10.1: до завершения экран их не видит).
+        final rows = await (withOther ? query : query.eq('user_id', userId));
+        final mine = <DuelAnswerRecord>[];
+        final other = <DuelAnswerRecord>[];
+        for (final row in rows) {
+          final record = duelAnswerFromJson(row);
+          if (row['user_id'] == userId) {
+            mine.add(record);
+          } else if (withOther) {
+            other.add(record);
+          }
+        }
+        return DuelAnswers(mine: mine, other: other);
+      });
 
   @override
   Future<List<Duel>> mine() => _guard((userId) async {
@@ -153,6 +177,20 @@ AppError mapDuelError(Object e) {
       return mapSyncRemoteError(e);
     default:
       return UnexpectedError('Дуэль: неожиданная ошибка', cause: e);
+  }
+}
+
+/// Разбор строки `duel_answers`. Неожиданная форма — [UnexpectedError].
+DuelAnswerRecord duelAnswerFromJson(Map<String, dynamic> row) {
+  try {
+    return DuelAnswerRecord(
+      questionId: row['question_id']! as String,
+      answer: row['answer'],
+      isCorrect: row['is_correct']! as bool,
+      durationMs: (row['duration_ms']! as num).toInt(),
+    );
+  } on Object catch (e) {
+    throw UnexpectedError('Ответ дуэли неожиданной формы', cause: e);
   }
 }
 

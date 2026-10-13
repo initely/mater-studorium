@@ -272,4 +272,18 @@ class ReviewDao extends DatabaseAccessor<AppDatabase> with _$ReviewDaoMixin {
           createdAt: entry.createdAt.toUtc(),
         ),
       );
+
+  /// Записи outbox вида [kind] пользователя [userId] по возрастанию `id`
+  /// (ответы дуэли, T23: что уже поставлено в очередь и ещё не отправлено).
+  Future<List<OutboxEntry>> pendingOutboxOfKind(
+    String userId,
+    OutboxKind kind,
+  ) async {
+    final rows =
+        await (select(outbox)
+              ..where((o) => o.userId.equals(userId) & o.kind.equalsValue(kind))
+              ..orderBy([(o) => OrderingTerm.asc(o.id)]))
+            .get();
+    return rows.map(outboxFromRow).toList();
+  }
 }

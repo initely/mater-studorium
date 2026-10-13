@@ -1,4 +1,5 @@
 import 'duel.dart';
+import 'duel_answer.dart';
 
 /// Дуэли на сервере (ТЗ M10). Реализация в `data/` ходит в Supabase RPC; о
 /// сервере `domain/` ничего не знает. Дуэль не влияет на FSRS (ADR-16).
@@ -25,6 +26,12 @@ abstract interface class DuelRepository {
   /// Дуэль участника; `null`, если её нет или пользователь не участник (сервер
   /// отвечает одинаково).
   Future<Duel?> get(String duelId);
+
+  /// Ответы на вопросы дуэли [duelId]: свои всегда; ответы соперника только
+  /// при [withOther] (экран результата, когда дуэль завершена) — иначе клиент
+  /// их не запрашивает вовсе. Сервер отдаёт чужие ответы лишь тому, кто сам
+  /// ответил на все вопросы (RLS, AC10.1).
+  Future<DuelAnswers> answers(String duelId, {bool withOther = false});
 
   /// Дуэли пользователя, новые первыми.
   Future<List<Duel>> mine();

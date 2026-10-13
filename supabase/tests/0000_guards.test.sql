@@ -72,6 +72,12 @@ select is_empty(
 --      соперника (profiles для соперников закрыты, имя выдаётся только
 --      участнику той же дуэли), поэтому definer. Открыты только authenticated:
 --      тест 0007_duels.test.sql.
+--    Allowlist (T23, миграция 0008_duel_play.sql, ADR-36):
+--    * submit_duel_answer — пишет ответ только от auth.uid() (без входа и при
+--      p_user_id <> auth.uid() отказ 42501); участие в дуэли, вопрос из набора
+--      и срок проверяются внутри; повтор идемпотентен; блокировки в порядке
+--      «advisory пользователя, затем строка дуэли FOR NO KEY UPDATE». Открыта
+--      только authenticated: тест 0009_duel_play.test.sql.
 --    Allowlist по oid (имя плюс типы аргументов), а не по имени: иначе
 --    перегрузка `public.insert_review_logs(jsonb)` с тем же именем прошла
 --    бы страж. 5-я проверка ниже дополнительно требует, чтобы anon не имел
@@ -89,7 +95,8 @@ select is_empty(
                           'public.create_duel(uuid,uuid,text,integer,text[])'::regprocedure,
                           'public.join_duel(uuid,text)'::regprocedure,
                           'public.get_duel(uuid)'::regprocedure,
-                          'public.my_duels()'::regprocedure)
+                          'public.my_duels()'::regprocedure,
+                          'public.submit_duel_answer(uuid,uuid,text,jsonb,boolean,integer)'::regprocedure)
         and (has_function_privilege('anon', p.oid, 'execute')
              or has_function_privilege('authenticated', p.oid, 'execute')) $$,
   'security definer функции не открыты клиентским ролям (кроме allowlist)'

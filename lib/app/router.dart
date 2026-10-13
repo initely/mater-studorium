@@ -7,6 +7,7 @@ import '../features/deck/presentation/deck_screen.dart';
 import '../features/duel/presentation/duel_create_screen.dart';
 import '../features/duel/presentation/duel_hub_screen.dart';
 import '../features/duel/presentation/duel_join_screen.dart';
+import '../features/duel/presentation/duel_play_screen.dart';
 import '../features/duel/presentation/duel_screen.dart';
 import '../features/home/presentation/home_screen.dart';
 import '../features/onboarding/presentation/onboarding_screen.dart';
@@ -99,6 +100,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: ':id',
             builder: (context, state) =>
                 DuelScreen(duelId: state.pathParameters['id']!),
+            routes: [
+              GoRoute(
+                path: 'play',
+                builder: (context, state) =>
+                    DuelPlayScreen(duelId: state.pathParameters['id']!),
+              ),
+            ],
           ),
         ],
       ),
