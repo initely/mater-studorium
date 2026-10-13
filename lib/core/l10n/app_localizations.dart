@@ -988,6 +988,48 @@ abstract class AppLocalizations {
   /// **'Неверно. Верно: {expected}'**
   String clozeBlankWrong(String expected);
 
+  /// Подсказка над шагами формата order
+  ///
+  /// In ru, this message translates to:
+  /// **'Расставьте шаги по порядку: перетащите или нажимайте стрелки'**
+  String get orderHint;
+
+  /// Кнопка проверки порядка в order
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверить'**
+  String get orderCheck;
+
+  /// Подсказка кнопки перемещения шага вверх
+  ///
+  /// In ru, this message translates to:
+  /// **'Выше: {step}'**
+  String orderMoveUp(String step);
+
+  /// Подсказка кнопки перемещения шага вниз
+  ///
+  /// In ru, this message translates to:
+  /// **'Ниже: {step}'**
+  String orderMoveDown(String step);
+
+  /// Семантика шага order: место и текст
+  ///
+  /// In ru, this message translates to:
+  /// **'Шаг {position} из {total}: {step}'**
+  String orderStepPosition(int position, int total, String step);
+
+  /// Подпись шага order на верном месте
+  ///
+  /// In ru, this message translates to:
+  /// **'Верно'**
+  String get orderStepCorrect;
+
+  /// Подпись шага order не на своём месте
+  ///
+  /// In ru, this message translates to:
+  /// **'Неверно, верное место: {position}'**
+  String orderStepWrong(int position);
+
   /// Подсказка над кодом в find_error
   ///
   /// In ru, this message translates to:

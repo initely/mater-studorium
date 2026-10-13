@@ -9,14 +9,16 @@ import 'find_error/find_error_module.dart';
 import 'flip/flip_module.dart';
 import 'mcq/mcq_module.dart';
 import 'open/open_module.dart';
+import 'order/order_module.dart';
 import 'question_module.dart';
 
-/// Форматы, которые умеет показывать приложение. T28 добавит `order`.
+/// Форматы, которые умеет показывать приложение.
 final List<QuestionModule> defaultQuestionModules = List.unmodifiable([
   const McqModule(),
   const FlipModule(),
   const OpenModule(),
   const ClozeModule(),
+  const OrderModule(),
   const FindErrorModule(),
 ]);
 
