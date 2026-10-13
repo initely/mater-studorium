@@ -135,17 +135,30 @@ class SupabaseSyncRemote implements SyncRemote {
   @override
   Future<bool> submitDuelAnswer(String userId, DuelAnswerPayload answer) =>
       _guard(userId, () async {
-        final json = await _client.rpc<dynamic>(
-          'submit_duel_answer',
-          params: {
-            'p_user_id': userId,
-            'p_duel_id': answer.duelId,
-            'p_question_id': answer.questionId,
-            'p_answer': answer.answer,
-            'p_is_correct': answer.isCorrect,
-            'p_duration_ms': answer.durationMs,
-          },
-        );
+        final dynamic json;
+        try {
+          json = await _client.rpc<dynamic>(
+            'submit_duel_answer',
+            params: {
+              'p_user_id': userId,
+              'p_duel_id': answer.duelId,
+              'p_question_id': answer.questionId,
+              'p_answer': answer.answer,
+              'p_is_correct': answer.isCorrect,
+              'p_duration_ms': answer.durationMs,
+            },
+          );
+        } on PostgrestException catch (e) {
+          // PGRST202: функции нет на сервере (клиент вышел раньше миграции
+          // 0008). Это временно: ответ ждёт в outbox, попытки не тратятся.
+          if (e.code == 'PGRST202') {
+            throw NetworkError(
+              'submit_duel_answer ещё не развёрнута на сервере',
+              cause: e,
+            );
+          }
+          rethrow;
+        }
         if (json is! Map<String, dynamic>) {
           throw const UnexpectedError('submit_duel_answer: ответ не объект');
         }

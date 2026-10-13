@@ -404,6 +404,11 @@ void main() {
       expect(await errorOf('MS404', 400), isA<DuelClosedError>());
     });
 
+    test('PGRST202 (функции нет на сервере, миграция позже клиента) — '
+        'NetworkError: ждать, а не отбрасывать', () async {
+      expect(await errorOf('PGRST202', 404), isA<NetworkError>());
+    });
+
     test('22023 и 23514 — SyncRejectedError; 42501 — AuthError; '
         '55P03 и 5xx — NetworkError', () async {
       expect(await errorOf('22023', 400), isA<SyncRejectedError>());
