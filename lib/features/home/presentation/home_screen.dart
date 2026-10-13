@@ -130,6 +130,7 @@ class _Content extends StatelessWidget {
                 _AllDone(stats: stats),
               // T23: сюда встанут карточки ожидающих дуэлей (ТЗ §8.2).
               const _DecksButton(),
+              const _DuelsButton(),
             ],
           ),
         ),
@@ -315,6 +316,21 @@ class _DecksButton extends StatelessWidget {
       style: OutlinedButton.styleFrom(minimumSize: const Size(48, 56)),
       onPressed: () => context.push('/decks'),
       child: Text(l10n.homeDecksButton),
+    );
+  }
+}
+
+class _DuelsButton extends StatelessWidget {
+  const _DuelsButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return OutlinedButton(
+      key: const Key('home-duels'),
+      style: OutlinedButton.styleFrom(minimumSize: const Size(48, 56)),
+      onPressed: () => context.push('/duels'),
+      child: Text(l10n.homeDuelsButton),
     );
   }
 }

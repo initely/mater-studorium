@@ -63,6 +63,15 @@ select is_empty(
 --    * hidden_questions — отдаёт только id вопросов с жалобами двух и более
 --      разных пользователей (кто и почему жаловался, не раскрывается); без
 --      входа отказ 42501. Читает чужие строки reports, поэтому definer.
+--    Allowlist (T22, миграция 0007_duels.sql, ADR-35):
+--    * create_duel, join_duel — пишут только от auth.uid() (без входа и при
+--      p_user_id <> auth.uid() отказ 42501); лимиты и защита от перебора кода
+--      внутри; create_duel идемпотентна по id дуэли, join_duel гоняется под
+--      FOR UPDATE строки дуэли.
+--    * get_duel, my_duels — отдают только дуэли auth.uid() вместе с именем
+--      соперника (profiles для соперников закрыты, имя выдаётся только
+--      участнику той же дуэли), поэтому definer. Открыты только authenticated:
+--      тест 0007_duels.test.sql.
 --    Allowlist по oid (имя плюс типы аргументов), а не по имени: иначе
 --    перегрузка `public.insert_review_logs(jsonb)` с тем же именем прошла
 --    бы страж. 5-я проверка ниже дополнительно требует, чтобы anon не имел
@@ -76,7 +85,11 @@ select is_empty(
         and p.oid not in ('public.insert_review_logs(uuid,jsonb)'::regprocedure,
                           'public.upsert_item_states(uuid,jsonb)'::regprocedure,
                           'public.submit_report(uuid,jsonb)'::regprocedure,
-                          'public.hidden_questions()'::regprocedure)
+                          'public.hidden_questions()'::regprocedure,
+                          'public.create_duel(uuid,uuid,text,integer,text[])'::regprocedure,
+                          'public.join_duel(uuid,text)'::regprocedure,
+                          'public.get_duel(uuid)'::regprocedure,
+                          'public.my_duels()'::regprocedure)
         and (has_function_privilege('anon', p.oid, 'execute')
              or has_function_privilege('authenticated', p.oid, 'execute')) $$,
   'security definer функции не открыты клиентским ролям (кроме allowlist)'

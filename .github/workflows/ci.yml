@@ -21,6 +21,9 @@ jobs:
           channel: stable
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
+      # Невидимые, bidi и управляющие символы в исходниках (Trojan Source):
+      # в тестах и инструментах только escape-последовательностями.
+      - run: python3 -I tools/check_invisible_chars.py
       - run: flutter pub get
       - run: dart format --output=none --set-exit-if-changed .
       - run: flutter analyze

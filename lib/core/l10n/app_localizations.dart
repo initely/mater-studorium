@@ -1569,6 +1569,396 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Перенести прогресс'**
   String get accountRetryMerge;
+
+  /// Кнопка на главном экране: переход к дуэлям
+  ///
+  /// In ru, this message translates to:
+  /// **'Дуэли'**
+  String get homeDuelsButton;
+
+  /// Заголовок экрана дуэлей (ТЗ M10)
+  ///
+  /// In ru, this message translates to:
+  /// **'Дуэли'**
+  String get duelsTitle;
+
+  /// Кнопка: создать дуэль
+  ///
+  /// In ru, this message translates to:
+  /// **'Создать дуэль'**
+  String get duelsCreate;
+
+  /// Кнопка: войти в дуэль друга по коду
+  ///
+  /// In ru, this message translates to:
+  /// **'Войти по коду'**
+  String get duelsJoin;
+
+  /// Заголовок списка дуэлей пользователя
+  ///
+  /// In ru, this message translates to:
+  /// **'Твои дуэли'**
+  String get duelsListTitle;
+
+  /// Пустой список дуэлей
+  ///
+  /// In ru, this message translates to:
+  /// **'Дуэлей пока нет. Создай свою или войди по коду друга.'**
+  String get duelsEmpty;
+
+  /// Список дуэлей не загрузился
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось загрузить дуэли.'**
+  String get duelsLoadError;
+
+  /// Кнопка повтора загрузки дуэлей
+  ///
+  /// In ru, this message translates to:
+  /// **'Повторить'**
+  String get duelsRetry;
+
+  /// Поле имени: его увидит соперник по дуэли
+  ///
+  /// In ru, this message translates to:
+  /// **'Твоё имя для соперника'**
+  String get duelNameLabel;
+
+  /// Подсказка в поле имени
+  ///
+  /// In ru, this message translates to:
+  /// **'Можно оставить пустым'**
+  String get duelNameHint;
+
+  /// Кнопка сохранения имени
+  ///
+  /// In ru, this message translates to:
+  /// **'Сохранить имя'**
+  String get duelNameSave;
+
+  /// Сообщение после сохранения имени
+  ///
+  /// In ru, this message translates to:
+  /// **'Имя сохранено'**
+  String get duelNameSaved;
+
+  /// Ошибка сохранения имени
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось сохранить имя. Проверь сеть и попробуй ещё раз.'**
+  String get duelNameError;
+
+  /// Заголовок экрана создания дуэли
+  ///
+  /// In ru, this message translates to:
+  /// **'Новая дуэль'**
+  String get duelCreateTitle;
+
+  /// Подсказка выбора колоды для дуэли
+  ///
+  /// In ru, this message translates to:
+  /// **'Выбери колоду: 5 случайных вопросов возьмём из неё'**
+  String get duelCreateChooseDeck;
+
+  /// Нет скачанных колод
+  ///
+  /// In ru, this message translates to:
+  /// **'Сначала скачай колоду: вопросы для дуэли берутся из неё.'**
+  String get duelCreateNoDecks;
+
+  /// Кнопка перехода к каталогу колод
+  ///
+  /// In ru, this message translates to:
+  /// **'К колодам'**
+  String get duelCreateNoDecksAction;
+
+  /// Кнопка создания дуэли на экране выбора колоды
+  ///
+  /// In ru, this message translates to:
+  /// **'Создать дуэль'**
+  String get duelCreateAction;
+
+  /// Подпись кнопки во время создания
+  ///
+  /// In ru, this message translates to:
+  /// **'Создаём…'**
+  String get duelCreateCreating;
+
+  /// В колоде меньше пяти автопроверяемых вопросов
+  ///
+  /// In ru, this message translates to:
+  /// **'В этой колоде мало подходящих вопросов: {count}, нужно 5. Выбери другую колоду.'**
+  String duelCreateNotEnough(int count);
+
+  /// Заголовок после создания дуэли
+  ///
+  /// In ru, this message translates to:
+  /// **'Дуэль создана'**
+  String get duelCreatedTitle;
+
+  /// Пояснение после создания дуэли
+  ///
+  /// In ru, this message translates to:
+  /// **'Отправь код другу: он введёт его в приложении.'**
+  String get duelCreatedBody;
+
+  /// Подпись кода приглашения
+  ///
+  /// In ru, this message translates to:
+  /// **'Код приглашения'**
+  String get duelCodeLabel;
+
+  /// Озвучка кода приглашения знаками через пробел
+  ///
+  /// In ru, this message translates to:
+  /// **'Код: {code}'**
+  String duelCodeSemantics(String code);
+
+  /// Кнопка копирования кода
+  ///
+  /// In ru, this message translates to:
+  /// **'Скопировать код'**
+  String get duelCopyCode;
+
+  /// Кнопка копирования текста приглашения
+  ///
+  /// In ru, this message translates to:
+  /// **'Скопировать приглашение'**
+  String get duelCopyInvite;
+
+  /// Сообщение после копирования
+  ///
+  /// In ru, this message translates to:
+  /// **'Скопировано'**
+  String get duelCopied;
+
+  /// Текст приглашения для друга
+  ///
+  /// In ru, this message translates to:
+  /// **'Сыграем дуэль в Mater Studorium? Код: {code}'**
+  String duelInviteText(String code);
+
+  /// Кнопка перехода к экрану дуэли
+  ///
+  /// In ru, this message translates to:
+  /// **'К дуэли'**
+  String get duelOpenDuel;
+
+  /// Заголовок экрана входа по коду
+  ///
+  /// In ru, this message translates to:
+  /// **'Вход по коду'**
+  String get duelJoinTitle;
+
+  /// Подпись поля кода
+  ///
+  /// In ru, this message translates to:
+  /// **'Код дуэли'**
+  String get duelJoinCodeLabel;
+
+  /// Подсказка в поле кода
+  ///
+  /// In ru, this message translates to:
+  /// **'6 знаков, например K7Q 2MX'**
+  String get duelJoinCodeHint;
+
+  /// Кнопка входа по коду
+  ///
+  /// In ru, this message translates to:
+  /// **'Войти'**
+  String get duelJoinAction;
+
+  /// Подпись кнопки во время входа
+  ///
+  /// In ru, this message translates to:
+  /// **'Входим…'**
+  String get duelJoinJoining;
+
+  /// Неверный или просроченный код (ТЗ §8.5, AC10.2)
+  ///
+  /// In ru, this message translates to:
+  /// **'Код не найден или дуэль истекла'**
+  String get duelErrorNotFound;
+
+  /// Код верный, но места нет
+  ///
+  /// In ru, this message translates to:
+  /// **'В этой дуэли уже есть соперник'**
+  String get duelErrorFull;
+
+  /// Лимит активных дуэлей
+  ///
+  /// In ru, this message translates to:
+  /// **'Слишком много активных дуэлей. Дождись окончания прежних.'**
+  String get duelErrorLimitActive;
+
+  /// Лимит создания дуэлей в сутки
+  ///
+  /// In ru, this message translates to:
+  /// **'Сегодня создано слишком много дуэлей. Попробуй завтра.'**
+  String get duelErrorLimitDaily;
+
+  /// Лимит неудачных попыток входа по коду
+  ///
+  /// In ru, this message translates to:
+  /// **'Слишком много неверных кодов. Подожди час и попробуй снова.'**
+  String get duelErrorLimitJoin;
+
+  /// Нет сети при действии с дуэлью
+  ///
+  /// In ru, this message translates to:
+  /// **'Нужна сеть. Проверь подключение и повтори.'**
+  String get duelErrorNetwork;
+
+  /// Нет сессии при действии с дуэлью
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет входа в аккаунт. Перезапусти приложение.'**
+  String get duelErrorAuth;
+
+  /// Колоду нельзя использовать в дуэли
+  ///
+  /// In ru, this message translates to:
+  /// **'Эта колода недоступна для дуэли.'**
+  String get duelErrorDeck;
+
+  /// Прочая ошибка дуэли
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось выполнить действие. Попробуй ещё раз.'**
+  String get duelErrorGeneric;
+
+  /// Заголовок экрана дуэли
+  ///
+  /// In ru, this message translates to:
+  /// **'Дуэль'**
+  String get duelScreenTitle;
+
+  /// Дуэли нет или пользователь не её участник
+  ///
+  /// In ru, this message translates to:
+  /// **'Дуэль не найдена'**
+  String get duelNotFound;
+
+  /// Статус: соперник ещё не вошёл
+  ///
+  /// In ru, this message translates to:
+  /// **'Ждём соперника'**
+  String get duelStatusOpen;
+
+  /// Пояснение к статусу «ждём соперника»
+  ///
+  /// In ru, this message translates to:
+  /// **'Отправь ему код: он введёт его в приложении.'**
+  String get duelStatusOpenBody;
+
+  /// Статус: соперник вошёл
+  ///
+  /// In ru, this message translates to:
+  /// **'Соперник в дуэли'**
+  String get duelStatusActive;
+
+  /// Статус: соперник с именем вошёл
+  ///
+  /// In ru, this message translates to:
+  /// **'{name} в дуэли'**
+  String duelStatusActiveNamed(String name);
+
+  /// Статус: оба ответили
+  ///
+  /// In ru, this message translates to:
+  /// **'Дуэль завершена'**
+  String get duelStatusFinished;
+
+  /// Статус: срок вышел
+  ///
+  /// In ru, this message translates to:
+  /// **'Дуэль истекла'**
+  String get duelStatusExpired;
+
+  /// Сколько осталось до конца срока дуэли
+  ///
+  /// In ru, this message translates to:
+  /// **'осталось {left}'**
+  String duelRemaining(String left);
+
+  /// Остаток срока в днях
+  ///
+  /// In ru, this message translates to:
+  /// **'{n} д'**
+  String duelLeftDays(int n);
+
+  /// Остаток срока в часах
+  ///
+  /// In ru, this message translates to:
+  /// **'{n} ч'**
+  String duelLeftHours(int n);
+
+  /// Остаток срока в минутах
+  ///
+  /// In ru, this message translates to:
+  /// **'{n} мин'**
+  String duelLeftMinutes(int n);
+
+  /// Остаток срока меньше минуты
+  ///
+  /// In ru, this message translates to:
+  /// **'меньше минуты'**
+  String get duelLeftLessThanMinute;
+
+  /// Название дуэли в списке, когда соперник известен
+  ///
+  /// In ru, this message translates to:
+  /// **'Дуэль с {name}'**
+  String duelWithName(String name);
+
+  /// Название дуэли в списке, пока соперника нет
+  ///
+  /// In ru, this message translates to:
+  /// **'Дуэль, ждём соперника'**
+  String get duelWaitingTitle;
+
+  /// Колоды дуэли нет локально
+  ///
+  /// In ru, this message translates to:
+  /// **'Колода этой дуэли не скачана на устройство. Без неё играть нельзя.'**
+  String get duelDeckMissing;
+
+  /// Кнопка скачивания колоды дуэли
+  ///
+  /// In ru, this message translates to:
+  /// **'Скачать колоду'**
+  String get duelDeckDownload;
+
+  /// Подпись кнопки скачивания колоды
+  ///
+  /// In ru, this message translates to:
+  /// **'Скачиваем…'**
+  String get duelDeckDownloading;
+
+  /// Ошибка скачивания колоды дуэли
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось скачать колоду. Нужна сеть.'**
+  String get duelDeckDownloadError;
+
+  /// Соперник не задал имя
+  ///
+  /// In ru, this message translates to:
+  /// **'Соперник без имени'**
+  String get duelOpponentUnnamed;
+
+  /// Создатель дуэли не задал имя
+  ///
+  /// In ru, this message translates to:
+  /// **'Создатель без имени'**
+  String get duelCreatorUnnamed;
+
+  /// Кнопка обновления состояния дуэли
+  ///
+  /// In ru, this message translates to:
+  /// **'Обновить'**
+  String get duelRefresh;
 }
 
 class _AppLocalizationsDelegate

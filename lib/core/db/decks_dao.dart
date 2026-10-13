@@ -259,6 +259,35 @@ class DecksDao extends DatabaseAccessor<AppDatabase> with _$DecksDaoMixin {
         );
       });
 
+  /// Вопросы колоды заданных форматов [wireTypes] (`QuestionType.wire`) для
+  /// дуэли (T22): без скрытых и без знаний, исчезнувших из версии колоды.
+  /// Пары `(id вопроса, id знания)` в порядке колоды.
+  Future<List<({String questionId, String itemId})>> questionsOfTypes(
+    String deckId,
+    Set<String> wireTypes,
+  ) async {
+    final query =
+        select(questions)
+            .join([innerJoin(items, items.id.equalsExp(questions.itemId))])
+          ..where(
+            items.deckId.equals(deckId) &
+                items.retired.equals(false) &
+                questions.type.isIn(wireTypes) &
+                questions.id.isNotInQuery(
+                  selectOnly(hiddenQuestions)
+                    ..addColumns([hiddenQuestions.questionId]),
+                ),
+          )
+          ..orderBy([
+            OrderingTerm.asc(const CustomExpression<int>('questions.rowid')),
+          ]);
+    final rows = await query.get();
+    return [
+      for (final row in rows)
+        (questionId: row.read(questions.id)!, itemId: row.read(items.id)!),
+    ];
+  }
+
   Future<Set<String>> hiddenQuestionIds() async {
     final rows = await select(hiddenQuestions).get();
     return {for (final r in rows) r.questionId};

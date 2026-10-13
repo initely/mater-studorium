@@ -274,7 +274,7 @@ void main() {
         ]),
       );
       await h2.pump(tester);
-      await _type(tester, 'a​​​');
+      await _type(tester, 'a\u200B\u200B\u200B');
       await _check(tester);
       // Невидимые символы клиент не считает «пустыми»: решает сервер.
       expect(h2.grading.calls, 1);

@@ -909,4 +909,228 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get accountRetryMerge => 'Перенести прогресс';
+
+  @override
+  String get homeDuelsButton => 'Дуэли';
+
+  @override
+  String get duelsTitle => 'Дуэли';
+
+  @override
+  String get duelsCreate => 'Создать дуэль';
+
+  @override
+  String get duelsJoin => 'Войти по коду';
+
+  @override
+  String get duelsListTitle => 'Твои дуэли';
+
+  @override
+  String get duelsEmpty =>
+      'Дуэлей пока нет. Создай свою или войди по коду друга.';
+
+  @override
+  String get duelsLoadError => 'Не удалось загрузить дуэли.';
+
+  @override
+  String get duelsRetry => 'Повторить';
+
+  @override
+  String get duelNameLabel => 'Твоё имя для соперника';
+
+  @override
+  String get duelNameHint => 'Можно оставить пустым';
+
+  @override
+  String get duelNameSave => 'Сохранить имя';
+
+  @override
+  String get duelNameSaved => 'Имя сохранено';
+
+  @override
+  String get duelNameError =>
+      'Не удалось сохранить имя. Проверь сеть и попробуй ещё раз.';
+
+  @override
+  String get duelCreateTitle => 'Новая дуэль';
+
+  @override
+  String get duelCreateChooseDeck =>
+      'Выбери колоду: 5 случайных вопросов возьмём из неё';
+
+  @override
+  String get duelCreateNoDecks =>
+      'Сначала скачай колоду: вопросы для дуэли берутся из неё.';
+
+  @override
+  String get duelCreateNoDecksAction => 'К колодам';
+
+  @override
+  String get duelCreateAction => 'Создать дуэль';
+
+  @override
+  String get duelCreateCreating => 'Создаём…';
+
+  @override
+  String duelCreateNotEnough(int count) {
+    return 'В этой колоде мало подходящих вопросов: $count, нужно 5. Выбери другую колоду.';
+  }
+
+  @override
+  String get duelCreatedTitle => 'Дуэль создана';
+
+  @override
+  String get duelCreatedBody =>
+      'Отправь код другу: он введёт его в приложении.';
+
+  @override
+  String get duelCodeLabel => 'Код приглашения';
+
+  @override
+  String duelCodeSemantics(String code) {
+    return 'Код: $code';
+  }
+
+  @override
+  String get duelCopyCode => 'Скопировать код';
+
+  @override
+  String get duelCopyInvite => 'Скопировать приглашение';
+
+  @override
+  String get duelCopied => 'Скопировано';
+
+  @override
+  String duelInviteText(String code) {
+    return 'Сыграем дуэль в Mater Studorium? Код: $code';
+  }
+
+  @override
+  String get duelOpenDuel => 'К дуэли';
+
+  @override
+  String get duelJoinTitle => 'Вход по коду';
+
+  @override
+  String get duelJoinCodeLabel => 'Код дуэли';
+
+  @override
+  String get duelJoinCodeHint => '6 знаков, например K7Q 2MX';
+
+  @override
+  String get duelJoinAction => 'Войти';
+
+  @override
+  String get duelJoinJoining => 'Входим…';
+
+  @override
+  String get duelErrorNotFound => 'Код не найден или дуэль истекла';
+
+  @override
+  String get duelErrorFull => 'В этой дуэли уже есть соперник';
+
+  @override
+  String get duelErrorLimitActive =>
+      'Слишком много активных дуэлей. Дождись окончания прежних.';
+
+  @override
+  String get duelErrorLimitDaily =>
+      'Сегодня создано слишком много дуэлей. Попробуй завтра.';
+
+  @override
+  String get duelErrorLimitJoin =>
+      'Слишком много неверных кодов. Подожди час и попробуй снова.';
+
+  @override
+  String get duelErrorNetwork => 'Нужна сеть. Проверь подключение и повтори.';
+
+  @override
+  String get duelErrorAuth => 'Нет входа в аккаунт. Перезапусти приложение.';
+
+  @override
+  String get duelErrorDeck => 'Эта колода недоступна для дуэли.';
+
+  @override
+  String get duelErrorGeneric =>
+      'Не удалось выполнить действие. Попробуй ещё раз.';
+
+  @override
+  String get duelScreenTitle => 'Дуэль';
+
+  @override
+  String get duelNotFound => 'Дуэль не найдена';
+
+  @override
+  String get duelStatusOpen => 'Ждём соперника';
+
+  @override
+  String get duelStatusOpenBody =>
+      'Отправь ему код: он введёт его в приложении.';
+
+  @override
+  String get duelStatusActive => 'Соперник в дуэли';
+
+  @override
+  String duelStatusActiveNamed(String name) {
+    return '$name в дуэли';
+  }
+
+  @override
+  String get duelStatusFinished => 'Дуэль завершена';
+
+  @override
+  String get duelStatusExpired => 'Дуэль истекла';
+
+  @override
+  String duelRemaining(String left) {
+    return 'осталось $left';
+  }
+
+  @override
+  String duelLeftDays(int n) {
+    return '$n д';
+  }
+
+  @override
+  String duelLeftHours(int n) {
+    return '$n ч';
+  }
+
+  @override
+  String duelLeftMinutes(int n) {
+    return '$n мин';
+  }
+
+  @override
+  String get duelLeftLessThanMinute => 'меньше минуты';
+
+  @override
+  String duelWithName(String name) {
+    return 'Дуэль с $name';
+  }
+
+  @override
+  String get duelWaitingTitle => 'Дуэль, ждём соперника';
+
+  @override
+  String get duelDeckMissing =>
+      'Колода этой дуэли не скачана на устройство. Без неё играть нельзя.';
+
+  @override
+  String get duelDeckDownload => 'Скачать колоду';
+
+  @override
+  String get duelDeckDownloading => 'Скачиваем…';
+
+  @override
+  String get duelDeckDownloadError => 'Не удалось скачать колоду. Нужна сеть.';
+
+  @override
+  String get duelOpponentUnnamed => 'Соперник без имени';
+
+  @override
+  String get duelCreatorUnnamed => 'Создатель без имени';
+
+  @override
+  String get duelRefresh => 'Обновить';
 }

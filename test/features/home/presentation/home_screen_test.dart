@@ -71,6 +71,7 @@ void main() {
     expect(find.byKey(const Key('home-start-session')), findsNothing);
     // Переход в колоды и настройки доступен всегда.
     expect(find.byKey(const Key('home-decks')), findsOneWidget);
+    expect(find.byKey(const Key('home-duels')), findsOneWidget);
     expect(find.byKey(const Key('home-settings')), findsOneWidget);
     await tester.unmountApp();
   });
@@ -97,7 +98,12 @@ void main() {
     expect(find.byKey(const Key('home-all-done')), findsNothing);
 
     // Тап-цели: главная кнопка и кнопка колод не меньше 48 dp.
-    for (final key in ['home-start-session', 'home-decks', 'home-settings']) {
+    for (final key in [
+      'home-start-session',
+      'home-decks',
+      'home-duels',
+      'home-settings',
+    ]) {
       final size = tester.getSize(find.byKey(Key(key)));
       expect(size.height, greaterThanOrEqualTo(48), reason: key);
       expect(size.width, greaterThanOrEqualTo(48), reason: key);

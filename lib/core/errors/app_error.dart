@@ -118,6 +118,47 @@ final class RequestRejectedError extends AppError {
   final String? code;
 }
 
+/// Кода дуэли нет или дуэль просрочена (AC10.2). Сервер отвечает одинаково на
+/// оба случая (ADR-35): оракула «код был, но истёк» нет.
+final class DuelCodeNotFoundError extends AppError {
+  const DuelCodeNotFoundError() : super('код дуэли не найден или просрочен');
+}
+
+/// В дуэли уже два участника (код существует, но места нет).
+final class DuelFullError extends AppError {
+  const DuelFullError() : super('в дуэли уже есть соперник');
+}
+
+/// Какой лимит дуэлей сработал (`MS429`, `hint` в 0007_duels.sql).
+enum DuelLimitKind {
+  /// Слишком много активных дуэлей (создатель: 5, участник: 10).
+  activeDuels,
+
+  /// Больше 20 созданных дуэлей за UTC-сутки.
+  dailyCreate,
+
+  /// Слишком много неудачных попыток войти по коду (10 в час на человека
+  /// или 1000 в час на всех).
+  joinAttempts,
+}
+
+/// Лимит дуэлей исчерпан: повтор сразу не поможет.
+final class DuelLimitError extends AppError {
+  const DuelLimitError(this.kind, {super.cause})
+    : super('лимит дуэлей исчерпан');
+
+  final DuelLimitKind kind;
+}
+
+/// В колоде меньше пяти подходящих (автопроверяемых, видимых) вопросов:
+/// дуэль не собрать. Ошибка клиентская, сервер не вызывался.
+final class DuelNotEnoughQuestionsError extends AppError {
+  const DuelNotEnoughQuestionsError(this.available)
+    : super('для дуэли нужно 5 вопросов, в колоде $available');
+
+  final int available;
+}
+
 /// Всё остальное, чего мы не ожидали.
 final class UnexpectedError extends AppError {
   const UnexpectedError(super.message, {super.cause});

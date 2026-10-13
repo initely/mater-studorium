@@ -293,7 +293,7 @@ const _namedEntities = {
   'ndash': '–',
   'mdash': '—',
   'hellip': '…',
-  'shy': '­',
+  'shy': '\u00AD',
   'copy': '©',
   'reg': '®',
   'trade': '™',
@@ -301,8 +301,8 @@ const _namedEntities = {
   'sect': '§',
   'times': '×',
   'thinsp': ' ',
-  'zwj': '‍',
-  'zwnj': '‌',
+  'zwj': '\u200D',
+  'zwnj': '\u200C',
 };
 
 /// Раскрывает числовые и распространённые именованные сущности;
@@ -324,7 +324,7 @@ String decodeEntities(String s) => s.replaceAllMapped(_entity, (m) {
 final _singleQuotes = RegExp('[‘’‚‛′`´]');
 final _doubleQuotes = RegExp('[“”„‟″«»]');
 final _dashes = RegExp('[‐‑‒–—―−]');
-final _invisibleChars = RegExp('[­​‌‍⁠﻿]');
+final _invisibleChars = RegExp('[\u00AD\u200B\u200C\u200D\u2060\uFEFF]');
 final _spaces = RegExp(r'\s+');
 
 /// Нормализация для поиска цитаты (обе стороны): регистр, ё→е,
