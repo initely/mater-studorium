@@ -34,6 +34,8 @@ T01–T04, T06, T07, T09–T22. С оговорками:
 
 Главный вопрос ревью: политика `duel_answers_select` (миграция 0007) отдаёт ответы соперника любому участнику, который уже закончил сам, **до** завершения дуэли соперником; ТЗ AC10.1 требует «ответы до завершения не видны сопернику». Исполнитель оставил это сознательно (клиент не запрашивает), решение за ревьюером и владельцем.
 
+**Первая облачная сессия (2026-10-13):** окружение в порядке (Flutter 3.47.2, Dart 3.13.2, Deno 2.9.7, Supabase CLI 2.120.0, Docker 29.8.2), на `main` зелёные: `flutter pub get`, format, analyze, `flutter test` (1257, 161 с), `check_invisible_chars`. **Блокер:** `supabase start` не смог скачать образы (`supabase/postgres`, `postgrest`, `edge-runtime`): реестры отвечают Forbidden на blob-хостах (`d2glxqk2uabbnd.cloudfront.net`, `pkg-containers.githubusercontent.com`), ECR «Data limit exceeded», Docker Hub 429. Без БД не выполнить pgTAP, lint, гонки и ревью T23. Нужно изменить сетевой доступ окружения (см. docs/CLOUD.md, раздел 3) и повторить; ревью T23 и `claude/t23-review-fixes` не начаты.
+
 ## Очередь после T23
 
 1. **T24 Push для дуэли** требует Firebase-проект пользователя (FCM, `google-services.json`, VAPID, сервисный аккаунт) → заблокировано, можно отложить в v1 (R6).
