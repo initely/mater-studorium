@@ -1030,6 +1030,60 @@ abstract class AppLocalizations {
   /// **'Неверно, верное место: {position}'**
   String orderStepWrong(int position);
 
+  /// Подсказка над кодом в find_error
+  ///
+  /// In ru, this message translates to:
+  /// **'Нажмите на строку с ошибкой (не больше двух)'**
+  String get findErrorHintCode;
+
+  /// Подсказка над утверждениями в find_error
+  ///
+  /// In ru, this message translates to:
+  /// **'Нажмите на утверждение с ошибкой (не больше двух)'**
+  String get findErrorHintText;
+
+  /// Кнопка проверки выбора в find_error
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверить'**
+  String get findErrorCheck;
+
+  /// Семантика строки find_error
+  ///
+  /// In ru, this message translates to:
+  /// **'Строка {number}: {text}'**
+  String findErrorLine(int number, String text);
+
+  /// Семантика выбранной строки find_error
+  ///
+  /// In ru, this message translates to:
+  /// **'Строка {number}: {text}, выбрана'**
+  String findErrorLineSelected(int number, String text);
+
+  /// Подпись выбранной ошибочной строки
+  ///
+  /// In ru, this message translates to:
+  /// **'Ошибка найдена'**
+  String get findErrorFound;
+
+  /// Подпись выбранной строки без ошибки
+  ///
+  /// In ru, this message translates to:
+  /// **'Здесь ошибки нет'**
+  String get findErrorWrong;
+
+  /// Подпись ошибочной строки, которую не выбрали
+  ///
+  /// In ru, this message translates to:
+  /// **'Пропущенная ошибка'**
+  String get findErrorMissed;
+
+  /// Пояснение к ошибочной строке после ответа
+  ///
+  /// In ru, this message translates to:
+  /// **'Строка {number}: {text}'**
+  String findErrorExplanation(int number, String text);
+
   /// Кнопка формата flip
   ///
   /// In ru, this message translates to:
