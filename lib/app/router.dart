@@ -4,6 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import '../features/catalog/presentation/decks_screen.dart';
 import '../features/deck/presentation/deck_screen.dart';
+import '../features/duel/presentation/duel_create_screen.dart';
+import '../features/duel/presentation/duel_hub_screen.dart';
+import '../features/duel/presentation/duel_join_screen.dart';
+import '../features/duel/presentation/duel_screen.dart';
 import '../features/home/presentation/home_screen.dart';
 import '../features/onboarding/presentation/onboarding_screen.dart';
 import '../features/session/presentation/session_screen.dart';
@@ -75,6 +79,26 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: ':id',
             builder: (context, state) =>
                 DeckScreen(deckId: state.pathParameters['id']!),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/duels',
+        builder: (context, state) => const DuelHubScreen(),
+        routes: [
+          // Статические сегменты раньше ':id', иначе `new` разберётся как id.
+          GoRoute(
+            path: 'new',
+            builder: (context, state) => const DuelCreateScreen(),
+          ),
+          GoRoute(
+            path: 'join',
+            builder: (context, state) => const DuelJoinScreen(),
+          ),
+          GoRoute(
+            path: ':id',
+            builder: (context, state) =>
+                DuelScreen(duelId: state.pathParameters['id']!),
           ),
         ],
       ),

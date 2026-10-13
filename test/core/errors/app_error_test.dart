@@ -24,6 +24,10 @@ void main() {
       QuotaExceededError() => 'quota',
       RequestRejectedError() => 'request_rejected',
       ProviderUnavailableError() => 'provider_unavailable',
+      DuelCodeNotFoundError() => 'duel_not_found',
+      DuelFullError() => 'duel_full',
+      DuelLimitError() => 'duel_limit',
+      DuelNotEnoughQuestionsError() => 'duel_not_enough',
       UnexpectedError() => 'unexpected',
     };
     expect(label, 'network');

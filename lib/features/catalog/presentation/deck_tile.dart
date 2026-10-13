@@ -91,5 +91,9 @@ String deckErrorText(AppLocalizations l10n, AppError error) => switch (error) {
   QuotaExceededError() ||
   ProviderUnavailableError() ||
   RequestRejectedError() ||
+  DuelCodeNotFoundError() ||
+  DuelFullError() ||
+  DuelLimitError() ||
+  DuelNotEnoughQuestionsError() ||
   LocalStorageError() => l10n.decksErrorGeneric,
 };
