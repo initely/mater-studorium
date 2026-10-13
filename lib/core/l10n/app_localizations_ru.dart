@@ -553,6 +553,36 @@ class AppLocalizationsRu extends AppLocalizations {
   String get mcqOptionMissed => 'Верный ответ';
 
   @override
+  String get orderHint =>
+      'Расставьте шаги по порядку: перетащите или нажимайте стрелки';
+
+  @override
+  String get orderCheck => 'Проверить';
+
+  @override
+  String orderMoveUp(String step) {
+    return 'Выше: $step';
+  }
+
+  @override
+  String orderMoveDown(String step) {
+    return 'Ниже: $step';
+  }
+
+  @override
+  String orderStepPosition(int position, int total, String step) {
+    return 'Шаг $position из $total: $step';
+  }
+
+  @override
+  String get orderStepCorrect => 'Верно';
+
+  @override
+  String orderStepWrong(int position) {
+    return 'Неверно, верное место: $position';
+  }
+
+  @override
   String get flipShowAnswer => 'Показать ответ';
 
   @override

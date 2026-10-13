@@ -7,6 +7,7 @@ import '../catalog/domain/question_type.dart';
 import 'flip/flip_module.dart';
 import 'mcq/mcq_module.dart';
 import 'open/open_module.dart';
+import 'order/order_module.dart';
 import 'question_module.dart';
 
 /// Форматы, которые умеет показывать приложение. T27–T29 добавят `cloze`,
@@ -15,6 +16,7 @@ final List<QuestionModule> defaultQuestionModules = List.unmodifiable([
   const McqModule(),
   const FlipModule(),
   const OpenModule(),
+  const OrderModule(),
 ]);
 
 /// Тип вопроса → модуль формата.
