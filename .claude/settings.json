@@ -12,4 +12,17 @@
       }
     ]
   }
+  "permissions": {
+  "allow": [
+    "Bash(git fetch:*)",
+    "Bash(git checkout:*)",
+    "Bash(git pull:*)",
+    "Bash(git status:*)",
+    "Bash(git log:*)",
+    "Bash(git merge:*)",
+    "Bash(git add:*)",
+    "Bash(git commit:*)",
+    "Bash(git push -u origin claude/*)"
+  ]
+}
 }
