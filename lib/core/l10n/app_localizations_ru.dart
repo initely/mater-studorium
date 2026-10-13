@@ -1380,6 +1380,11 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String duelResultLines(String lines) {
+    return 'строки $lines';
+  }
+
+  @override
   String get duelResultCorrectAnswer => 'Верный ответ';
 
   @override

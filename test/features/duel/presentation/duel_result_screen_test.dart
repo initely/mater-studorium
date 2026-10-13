@@ -4,6 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mater_studorium/core/errors/app_error.dart';
+import 'package:mater_studorium/features/catalog/domain/payload_parts.dart';
+import 'package:mater_studorium/features/catalog/domain/question.dart';
+import 'package:mater_studorium/features/catalog/domain/question_payload.dart';
+import 'package:mater_studorium/features/catalog/domain/question_type.dart';
 import 'package:mater_studorium/features/duel/data/duel_providers.dart';
 import 'package:mater_studorium/features/duel/domain/duel_answer.dart';
 import 'package:mater_studorium/features/duel/domain/duel_content.dart';
@@ -635,6 +639,192 @@ void main() {
       final data = await resultFor();
       expect(data!.result.outcome, DuelOutcome.won);
       expect(repo.answersCalls, [true]);
+    });
+  });
+
+  group('форматы MVP-b (T30)', () {
+    Question q(String id, QuestionType type, QuestionPayload payload) =>
+        Question(id: id, type: type, prompt: 'Вопрос $id', payload: payload);
+
+    DuelContent mixedContent() {
+      final base = contentOf();
+      final payloads = <int, Question>{
+        1: q(
+          _ids[1],
+          QuestionType.cloze,
+          const QuestionPayload.cloze(
+            blanks: [
+              ClozeBlank(id: 'a', accepted: ['TCP', 'tcp']),
+              ClozeBlank(id: 'b', accepted: ['handshake']),
+            ],
+          ),
+        ),
+        2: q(
+          _ids[2],
+          QuestionType.order,
+          const QuestionPayload.order(
+            steps: [
+              OrderStep(id: 's1', text: 'SYN'),
+              OrderStep(id: 's2', text: 'SYN-ACK'),
+              OrderStep(id: 's3', text: 'ACK'),
+            ],
+          ),
+        ),
+        3: q(
+          _ids[3],
+          QuestionType.findError,
+          const QuestionPayload.findError(
+            mode: FindErrorMode.code,
+            lines: ['a', 'b', 'c', 'd'],
+            errorLines: [4, 2],
+            lineExplanations: {2: 'x', 4: 'y'},
+          ),
+        ),
+      };
+      return DuelContent(
+        deckVersion: base.deckVersion,
+        questions: {
+          ...base.questions,
+          for (final e in payloads.entries)
+            _ids[e.key]: DuelQuestionContent(
+              question: e.value,
+              item: base.questions[_ids[e.key]]!.item,
+            ),
+        },
+      );
+    }
+
+    DuelAnswerRecord rec(String id, Map<String, Object?> answer, bool ok) =>
+        DuelAnswerRecord(
+          questionId: id,
+          answer: answer,
+          isCorrect: ok,
+          durationMs: 2000,
+        );
+
+    testWidgets('cloze, order, find_error: ответы игроков и верный ответ', (
+      tester,
+    ) async {
+      content.content = mixedContent();
+      repo.getResult = playDuel(
+        status: DuelStatus.finished,
+        myDoneAt: duelNow,
+        otherDoneAt: duelNow,
+      );
+      repo.answersResult = DuelAnswers(
+        mine: [
+          record(_ids[0]),
+          rec(_ids[1], {
+            'answers': {'a': 'tcp', 'b': 'handshke'},
+          }, false),
+          rec(_ids[2], {
+            'order': ['s2', 's1', 's3'],
+          }, false),
+          rec(_ids[3], {
+            'lines': [2, 4],
+          }, true),
+          record(_ids[4]),
+        ],
+        other: [for (final id in _ids) record(id)],
+      );
+      await open(tester);
+
+      Finder inCard(int i, String key) => find.descendant(
+        of: find.byKey(Key('duel-result-q-${_ids[i]}')),
+        matching: _key(key),
+      );
+      Future<void> see(int i) =>
+          tester.ensureVisible(find.byKey(Key('duel-result-q-${_ids[i]}')));
+
+      await see(1);
+      expect(
+        find.descendant(
+          of: inCard(1, 'duel-result-mine-${_ids[1]}'),
+          matching: find.textContaining('tcp; handshke', findRichText: true),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: inCard(1, 'duel-result-correct-${_ids[1]}'),
+          matching: find.textContaining('TCP; handshake', findRichText: true),
+        ),
+        findsOneWidget,
+      );
+
+      await see(2);
+      expect(
+        find.descendant(
+          of: inCard(2, 'duel-result-mine-${_ids[2]}'),
+          matching: find.textContaining(
+            'SYN-ACK \u2192 SYN \u2192 ACK',
+            findRichText: true,
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: inCard(2, 'duel-result-correct-${_ids[2]}'),
+          matching: find.textContaining(
+            'SYN \u2192 SYN-ACK \u2192 ACK',
+            findRichText: true,
+          ),
+        ),
+        findsOneWidget,
+      );
+
+      await see(3);
+      expect(
+        find.descendant(
+          of: inCard(3, 'duel-result-mine-${_ids[3]}'),
+          matching: find.textContaining('строки 2, 4', findRichText: true),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: inCard(3, 'duel-result-correct-${_ids[3]}'),
+          matching: find.textContaining('строки 2, 4', findRichText: true),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('ответ в неожиданной форме или с пометкой о размере: '
+        '«ответ в неизвестном виде», без падения', (tester) async {
+      content.content = mixedContent();
+      repo.getResult = playDuel(
+        status: DuelStatus.finished,
+        myDoneAt: duelNow,
+        otherDoneAt: duelNow,
+      );
+      repo.answersResult = DuelAnswers(
+        mine: [
+          record(_ids[0]),
+          rec(_ids[1], {'omitted': true}, true),
+          rec(_ids[2], {'order': 'не список'}, false),
+          rec(_ids[3], {}, false),
+          record(_ids[4]),
+        ],
+        other: [for (final id in _ids) record(id)],
+      );
+      await open(tester);
+      for (final i in [1, 2, 3]) {
+        final line = find.byKey(Key('duel-result-mine-${_ids[i]}'));
+        await tester.ensureVisible(line);
+        expect(
+          find.descendant(
+            of: line,
+            matching: find.textContaining(
+              'ответ в неизвестном виде',
+              findRichText: true,
+            ),
+          ),
+          findsOneWidget,
+          reason: 'вопрос ${i + 1}',
+        );
+      }
     });
   });
 }

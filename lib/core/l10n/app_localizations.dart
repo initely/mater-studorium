@@ -2325,6 +2325,12 @@ abstract class AppLocalizations {
   /// **'Ответ: {name}'**
   String duelResultTheirAnswerNamed(String name);
 
+  /// Ответ find_error в результате дуэли: номера строк
+  ///
+  /// In ru, this message translates to:
+  /// **'строки {lines}'**
+  String duelResultLines(String lines);
+
   /// Подпись верного ответа
   ///
   /// In ru, this message translates to:

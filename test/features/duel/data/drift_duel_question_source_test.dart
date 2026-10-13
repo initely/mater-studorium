@@ -42,21 +42,35 @@ void main() {
     expect(await source.snapshot('fixture-good'), isNull);
   });
 
-  test('только mcq: flip, open, cloze, order, find_error не берутся', () async {
-    await db.decksDao.replaceDeck(_deckWith(0), downloadedAt: t0);
-    final snapshot = (await source.snapshot('fixture-good'))!;
-    expect(snapshot.deckVersion, 2);
-    expect([for (final c in snapshot.candidates) c.questionId], ['t.a.q1']);
-    expect(snapshot.candidates.single.itemId, 't.a');
-  });
+  test(
+    'автопроверяемые mcq, cloze, order, find_error берутся; flip и open нет',
+    () async {
+      await db.decksDao.replaceDeck(_deckWith(0), downloadedAt: t0);
+      final snapshot = (await source.snapshot('fixture-good'))!;
+      expect(snapshot.deckVersion, 2);
+      expect(
+        {for (final c in snapshot.candidates) c.questionId: c.itemId},
+        {'t.a.q1': 't.a', 't.b.q1': 't.b', 't.b.q2': 't.b', 't.c.q2': 't.c'},
+      );
+    },
+  );
 
   test('вопросы нескольких знаний, у каждого свой itemId', () async {
     await db.decksDao.replaceDeck(_deckWith(4), downloadedAt: t0);
     final candidates = (await source.snapshot('fixture-good'))!.candidates;
-    expect(candidates, hasLength(5));
+    expect(candidates, hasLength(8));
     expect(
       {for (final c in candidates) c.questionId},
-      {'t.a.q1', 'm.1.q1', 'm.2.q1', 'm.3.q1', 'm.4.q1'},
+      {
+        't.a.q1',
+        't.b.q1',
+        't.b.q2',
+        't.c.q2',
+        'm.1.q1',
+        'm.2.q1',
+        'm.3.q1',
+        'm.4.q1',
+      },
     );
     for (final c in candidates) {
       expect(c.questionId.startsWith(c.itemId), isTrue, reason: c.questionId);
@@ -73,7 +87,7 @@ void main() {
     ];
     expect(ids, isNot(contains('m.2.q1')));
     expect(ids, isNot(contains('m.3.q1')));
-    expect(ids, hasLength(3));
+    expect(ids, hasLength(6));
   });
 
   test('знания, исчезнувшие из новой версии, не берутся', () async {
@@ -87,6 +101,6 @@ void main() {
     expect([
       for (final c in snapshot.candidates) c.questionId,
     ], isNot(contains('m.1.q1')));
-    expect(snapshot.candidates, hasLength(3));
+    expect(snapshot.candidates, hasLength(6));
   });
 }

@@ -10,6 +10,7 @@ import '../domain/duel.dart';
 import '../domain/duel_answer.dart';
 import '../domain/duel_answer_validator.dart';
 import '../domain/duel_content.dart';
+import '../domain/duel_limits.dart';
 import '../domain/duel_status.dart';
 
 /// Где находится прохождение дуэли.
@@ -275,12 +276,21 @@ class DuelPlayController extends Notifier<DuelPlayState> {
     _unsaved = DuelAnswerPayload(
       duelId: duelId,
       questionId: slot.questionId,
-      answer: result.answer ?? const {},
+      // Ответ крупнее предела сервера не отправится вовсе и дуэль не
+      // завершится: вместо него пометка, верность и время сохраняются.
+      answer: _fitAnswer(result.answer),
       isCorrect: result.outcome == AnswerOutcome.autoCorrect,
       durationMs: durationMs,
     );
     state = state.copyWith(lastDurationMs: durationMs);
     await _save();
+  }
+
+  static Map<String, Object?> _fitAnswer(Map<String, Object?>? answer) {
+    final a = answer ?? const <String, Object?>{};
+    return jsonbTextBytes(a) <= kDuelAnswerMaxBytes
+        ? a
+        : const {kDuelAnswerOmittedKey: true};
   }
 
   /// Повторяет сохранение, если оно не удалось.

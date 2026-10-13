@@ -1,6 +1,16 @@
 /// Ключ в `answer` для `mcq`: id выбранных вариантов.
 const kDuelAnswerSelectedKey = 'selected';
 
+/// Ключи в `answer` форматов MVP-b: тексты в пропусках `cloze` (id → текст),
+/// id шагов `order` в порядке игрока, номера выбранных строк `find_error`.
+const kDuelAnswerClozeKey = 'answers';
+const kDuelAnswerOrderKey = 'order';
+const kDuelAnswerLinesKey = 'lines';
+
+/// Ключ в `answer`, когда ответ не поместился в предел размера и заменён
+/// пометкой (форма ответа неизвестна, верность и время сохранены).
+const kDuelAnswerOmittedKey = 'omitted';
+
 /// Ключ в `answer`, когда вопрос не показан и засчитан неверным («Сыграть без
 /// недоступных», ADR-36).
 const kDuelAnswerSkippedKey = 'skipped';
@@ -100,6 +110,43 @@ class DuelAnswerRecord {
     return [
       for (final id in selected)
         if (id is String) id,
+    ];
+  }
+
+  /// Тексты в пропусках `cloze` по id пропуска; пусто, если формы нет.
+  Map<String, String> get clozeAnswers {
+    final a = answer;
+    if (a is! Map) return const {};
+    final map = a[kDuelAnswerClozeKey];
+    if (map is! Map) return const {};
+    return {
+      for (final e in map.entries)
+        if (e.key is String && e.value is String)
+          e.key as String: e.value as String,
+    };
+  }
+
+  /// Порядок шагов `order` (id); пусто, если формы нет.
+  List<String> get orderedStepIds {
+    final a = answer;
+    if (a is! Map) return const [];
+    final ids = a[kDuelAnswerOrderKey];
+    if (ids is! List) return const [];
+    return [
+      for (final id in ids)
+        if (id is String) id,
+    ];
+  }
+
+  /// Выбранные строки `find_error`; пусто, если формы нет.
+  List<int> get selectedLines {
+    final a = answer;
+    if (a is! Map) return const [];
+    final lines = a[kDuelAnswerLinesKey];
+    if (lines is! List) return const [];
+    return [
+      for (final n in lines)
+        if (n is int) n,
     ];
   }
 

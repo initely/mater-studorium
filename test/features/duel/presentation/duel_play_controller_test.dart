@@ -117,8 +117,8 @@ void main() {
     expect(queue.queued.last.durationMs, 86400000);
   });
 
-  test('невалидный ответ (больше 512 байт) заменяется пропуском и не '
-      'зацикливает вопрос', () async {
+  test('ответ больше 512 байт заменяется пометкой, верность и время '
+      'сохраняются, вопрос не зацикливается', () async {
     await ctl().load();
     await answer(
       QuestionResult(
@@ -126,8 +126,8 @@ void main() {
         answer: {'selected': List.filled(100, 'option-aaaaaaaa')},
       ),
     );
-    expect(queue.queued.single.answer, {'skipped': true});
-    expect(queue.queued.single.isCorrect, isFalse);
+    expect(queue.queued.single.answer, {'omitted': true});
+    expect(queue.queued.single.isCorrect, isTrue);
     expect(st().currentAnswered, isTrue);
     expect(st().saveFailed, isFalse);
     ctl().next();
