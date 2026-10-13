@@ -553,6 +553,27 @@ class AppLocalizationsRu extends AppLocalizations {
   String get mcqOptionMissed => 'Верный ответ';
 
   @override
+  String get clozeAnswer => 'Проверить';
+
+  @override
+  String clozeBlankLabel(int number) {
+    return 'Пропуск $number';
+  }
+
+  @override
+  String get clozeBlankCorrect => 'Верно';
+
+  @override
+  String clozeBlankTypo(String expected) {
+    return 'Принято с опечаткой. Верно: $expected';
+  }
+
+  @override
+  String clozeBlankWrong(String expected) {
+    return 'Неверно. Верно: $expected';
+  }
+
+  @override
   String get orderHint =>
       'Расставьте шаги по порядку: перетащите или нажимайте стрелки';
 

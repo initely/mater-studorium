@@ -10,6 +10,8 @@ import 'package:mater_studorium/core/utils/clock.dart';
 import 'package:mater_studorium/core/utils/uuid.dart';
 import 'package:mater_studorium/features/catalog/domain/deck.dart';
 import 'package:mater_studorium/features/explanations/data/link_launcher.dart';
+import 'package:mater_studorium/features/questions/flip/flip_module.dart';
+import 'package:mater_studorium/features/questions/mcq/mcq_module.dart';
 import 'package:mater_studorium/features/session/data/session_providers.dart';
 import 'package:mater_studorium/features/session/presentation/session_screen.dart';
 import 'package:mater_studorium/features/srs/domain/rating.dart';
@@ -17,6 +19,7 @@ import 'package:mater_studorium/features/srs/domain/rating.dart';
 import '../../../helpers/db_fixtures.dart';
 import '../../../helpers/deck_fixtures.dart';
 import '../../../helpers/pump_app.dart';
+import '../../../helpers/sample_formats.dart';
 import '../../../helpers/session_db_fixtures.dart';
 import '../../../helpers/unmount_app.dart';
 
@@ -43,6 +46,7 @@ void main() {
           launched.add(uri);
           return true;
         }),
+        ...registryOverrides(const [McqModule(), FlipModule()]),
       ],
     );
     await tester.pumpAndSettle();

@@ -958,6 +958,36 @@ abstract class AppLocalizations {
   /// **'Верный ответ'**
   String get mcqOptionMissed;
 
+  /// Кнопка отправки ответа в cloze
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверить'**
+  String get clozeAnswer;
+
+  /// Подпись поля ввода пропуска cloze для скринридера
+  ///
+  /// In ru, this message translates to:
+  /// **'Пропуск {number}'**
+  String clozeBlankLabel(int number);
+
+  /// Подпись верно заполненного пропуска cloze
+  ///
+  /// In ru, this message translates to:
+  /// **'Верно'**
+  String get clozeBlankCorrect;
+
+  /// Подпись пропуска cloze, принятого с опечаткой
+  ///
+  /// In ru, this message translates to:
+  /// **'Принято с опечаткой. Верно: {expected}'**
+  String clozeBlankTypo(String expected);
+
+  /// Подпись неверно заполненного пропуска cloze
+  ///
+  /// In ru, this message translates to:
+  /// **'Неверно. Верно: {expected}'**
+  String clozeBlankWrong(String expected);
+
   /// Подсказка над шагами формата order
   ///
   /// In ru, this message translates to:
