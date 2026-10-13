@@ -10,7 +10,7 @@ import 'duel_code_card.dart';
 import 'duel_error_text.dart';
 
 /// Создание дуэли (ТЗ M10, §8.4): выбор скачанной колоды, 5 случайных
-/// вопросов, код для друга. Играть создатель будет в T23.
+/// вопросов, код для друга. Играет создатель с экрана дуэли («К дуэли»).
 class DuelCreateScreen extends ConsumerStatefulWidget {
   const DuelCreateScreen({super.key});
 

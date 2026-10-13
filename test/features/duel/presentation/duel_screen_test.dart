@@ -21,7 +21,7 @@ void main() {
         local: [localDeck('fixture-good', version: 2)],
       ),
     );
-    expect(find.text('Ждём соперника'), findsOneWidget);
+    expect(find.text('Твой ход'), findsOneWidget);
     expect(find.text('осталось 3 д'), findsOneWidget);
     expect(find.text('K7Q 2MX'), findsOneWidget);
     expect(_key('duel-deck-missing'), findsNothing);
@@ -120,7 +120,7 @@ void main() {
         local: [localDeck('fixture-good', version: 2)],
       ),
     );
-    expect(find.text('Дуэль завершена'), findsOneWidget);
+    expect(find.text('Результат готов'), findsOneWidget);
     expect(_key('duel-code'), findsNothing);
   });
 
@@ -156,7 +156,7 @@ void main() {
     await tester.tap(_key('duel-retry'));
     await tester.pumpAndSettle();
     expect(_key('duel-error'), findsNothing);
-    expect(find.text('Ждём соперника'), findsOneWidget);
+    expect(find.text('Твой ход'), findsOneWidget);
   });
 
   testWidgets('кнопка «Обновить» перечитывает состояние', (tester) async {
@@ -195,7 +195,7 @@ void main() {
     repo.getError = const NetworkError('x');
     await tester.tap(_key('duel-refresh'));
     await tester.pumpAndSettle();
-    expect(find.text('Ждём соперника'), findsOneWidget);
+    expect(find.text('Твой ход'), findsOneWidget);
     expect(_key('duel-error'), findsNothing);
   });
 

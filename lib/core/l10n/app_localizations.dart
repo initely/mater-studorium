@@ -1867,7 +1867,7 @@ abstract class AppLocalizations {
   /// Статус: оба ответили
   ///
   /// In ru, this message translates to:
-  /// **'Дуэль завершена'**
+  /// **'Результат готов'**
   String get duelStatusFinished;
 
   /// Статус: срок вышел
@@ -1959,6 +1959,353 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Обновить'**
   String get duelRefresh;
+
+  /// Статус дуэли: нужно ответить на вопросы
+  ///
+  /// In ru, this message translates to:
+  /// **'Твой ход'**
+  String get duelStatusYourTurn;
+
+  /// Статус: я ответил, ждём соперника с именем
+  ///
+  /// In ru, this message translates to:
+  /// **'Ждём {name}'**
+  String duelStatusWaitingNamed(String name);
+
+  /// Кнопка: начать или продолжить дуэль
+  ///
+  /// In ru, this message translates to:
+  /// **'Играть'**
+  String get duelPlayButton;
+
+  /// Пояснение к статусу «твой ход»
+  ///
+  /// In ru, this message translates to:
+  /// **'Пять вопросов, у каждого свой секундомер. Лимита по времени нет.'**
+  String get duelYourTurnBody;
+
+  /// Я закончил, соперник нет
+  ///
+  /// In ru, this message translates to:
+  /// **'Ты ответил на все вопросы. Результат появится, когда соперник тоже закончит.'**
+  String get duelWaitingBody;
+
+  /// Я закончил, соперник с именем нет
+  ///
+  /// In ru, this message translates to:
+  /// **'Ты ответил на все вопросы. Результат появится, когда {name} тоже закончит.'**
+  String duelWaitingBodyNamed(String name);
+
+  /// Ответы лежат в очереди отправки
+  ///
+  /// In ru, this message translates to:
+  /// **'Ответы ещё отправляются. Для этого нужна сеть.'**
+  String get duelSendingAnswers;
+
+  /// Заголовок экрана прохождения дуэли
+  ///
+  /// In ru, this message translates to:
+  /// **'Дуэль'**
+  String get duelPlayTitle;
+
+  /// Номер вопроса в дуэли
+  ///
+  /// In ru, this message translates to:
+  /// **'Вопрос {n} из {total}'**
+  String duelPlayProgress(int n, int total);
+
+  /// Секундомер вопроса (для скринридера)
+  ///
+  /// In ru, this message translates to:
+  /// **'Время на вопрос: {time}'**
+  String duelPlayTimerLabel(String time);
+
+  /// Кнопка перехода к следующему вопросу дуэли
+  ///
+  /// In ru, this message translates to:
+  /// **'Дальше'**
+  String get duelPlayNext;
+
+  /// Кнопка после последнего вопроса дуэли
+  ///
+  /// In ru, this message translates to:
+  /// **'Закончить'**
+  String get duelPlayFinish;
+
+  /// Ошибка локального сохранения ответа
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось сохранить ответ. Попробуй ещё раз.'**
+  String get duelPlaySaveError;
+
+  /// Кнопка повторного сохранения ответа
+  ///
+  /// In ru, this message translates to:
+  /// **'Повторить'**
+  String get duelPlaySaveRetry;
+
+  /// Заголовок после последнего ответа
+  ///
+  /// In ru, this message translates to:
+  /// **'Ты ответил на все вопросы'**
+  String get duelPlayDoneTitle;
+
+  /// Пояснение после последнего ответа
+  ///
+  /// In ru, this message translates to:
+  /// **'Ответы уходят на сервер сами, сеть нужна только для этого. Результат появится, когда соперник тоже закончит.'**
+  String get duelPlayDoneBody;
+
+  /// Кнопка возврата к экрану дуэли
+  ///
+  /// In ru, this message translates to:
+  /// **'К дуэли'**
+  String get duelPlayBackToDuel;
+
+  /// Дуэль закрыта для ответов
+  ///
+  /// In ru, this message translates to:
+  /// **'Эта дуэль уже закончилась или истекла.'**
+  String get duelPlayClosed;
+
+  /// Часть вопросов недоступна на устройстве
+  ///
+  /// In ru, this message translates to:
+  /// **'Дуэль нельзя сыграть как есть'**
+  String get duelPlayBlockedTitle;
+
+  /// Часть вопросов набора недоступна
+  ///
+  /// In ru, this message translates to:
+  /// **'{count, plural, one{{count} вопрос этой дуэли недоступен} few{{count} вопроса этой дуэли недоступны} many{{count} вопросов этой дуэли недоступны} other{{count} вопроса этой дуэли недоступны}} в твоей версии колоды: колода обновилась или вопрос скрыт. Обнови колоду или сыграй без них.'**
+  String duelPlayBlockedBody(int count);
+
+  /// Кнопка: докачать актуальную версию колоды
+  ///
+  /// In ru, this message translates to:
+  /// **'Обновить колоду'**
+  String get duelPlayUpdateDeck;
+
+  /// Подпись кнопки во время обновления колоды
+  ///
+  /// In ru, this message translates to:
+  /// **'Обновляем…'**
+  String get duelPlayUpdating;
+
+  /// Ошибка обновления колоды
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось обновить колоду. Нужна сеть.'**
+  String get duelPlayUpdateError;
+
+  /// Кнопка: недоступные вопросы засчитать неверными
+  ///
+  /// In ru, this message translates to:
+  /// **'Сыграть без них'**
+  String get duelPlaySkip;
+
+  /// Пояснение к кнопке «Сыграть без них»
+  ///
+  /// In ru, this message translates to:
+  /// **'Недоступные вопросы засчитаются как неверные, остальные сыграешь как обычно.'**
+  String get duelPlaySkipHint;
+
+  /// Итог дуэли: победа
+  ///
+  /// In ru, this message translates to:
+  /// **'Ты победил'**
+  String get duelResultWon;
+
+  /// Итог дуэли: поражение
+  ///
+  /// In ru, this message translates to:
+  /// **'Победил соперник'**
+  String get duelResultLost;
+
+  /// Итог дуэли: поражение, соперник с именем
+  ///
+  /// In ru, this message translates to:
+  /// **'Победил {name}'**
+  String duelResultLostNamed(String name);
+
+  /// Итог дуэли: ничья
+  ///
+  /// In ru, this message translates to:
+  /// **'Ничья'**
+  String get duelResultDraw;
+
+  /// Подпись твоего счёта
+  ///
+  /// In ru, this message translates to:
+  /// **'Ты'**
+  String get duelResultYou;
+
+  /// Подпись счёта соперника без имени
+  ///
+  /// In ru, this message translates to:
+  /// **'Соперник'**
+  String get duelResultOpponent;
+
+  /// Счёт: верных из всех
+  ///
+  /// In ru, this message translates to:
+  /// **'{correct} из {total}'**
+  String duelResultScore(int correct, int total);
+
+  /// Суммарное время ответов
+  ///
+  /// In ru, this message translates to:
+  /// **'время {time}'**
+  String duelResultTime(String time);
+
+  /// Счёт участника для скринридера
+  ///
+  /// In ru, this message translates to:
+  /// **'{who}: верных {correct} из {total}, время {time}'**
+  String duelResultScoreSemantics(
+    String who,
+    int correct,
+    int total,
+    String time,
+  );
+
+  /// Правило подсчёта
+  ///
+  /// In ru, this message translates to:
+  /// **'Побеждает больше верных ответов, при равенстве меньшее время.'**
+  String get duelResultRule;
+
+  /// Заголовок разбора вопроса
+  ///
+  /// In ru, this message translates to:
+  /// **'Вопрос {n}'**
+  String duelResultQuestionTitle(int n);
+
+  /// Подпись твоего ответа
+  ///
+  /// In ru, this message translates to:
+  /// **'Твой ответ'**
+  String get duelResultYourAnswer;
+
+  /// Подпись ответа соперника без имени
+  ///
+  /// In ru, this message translates to:
+  /// **'Ответ соперника'**
+  String get duelResultTheirAnswer;
+
+  /// Подпись ответа соперника с именем
+  ///
+  /// In ru, this message translates to:
+  /// **'Ответ: {name}'**
+  String duelResultTheirAnswerNamed(String name);
+
+  /// Подпись верного ответа
+  ///
+  /// In ru, this message translates to:
+  /// **'Верный ответ'**
+  String get duelResultCorrectAnswer;
+
+  /// Ответ верный
+  ///
+  /// In ru, this message translates to:
+  /// **'верно'**
+  String get duelResultRight;
+
+  /// Ответ неверный
+  ///
+  /// In ru, this message translates to:
+  /// **'неверно'**
+  String get duelResultWrong;
+
+  /// Ответа нет
+  ///
+  /// In ru, this message translates to:
+  /// **'нет ответа'**
+  String get duelResultNoAnswer;
+
+  /// Вопрос пропущен как недоступный
+  ///
+  /// In ru, this message translates to:
+  /// **'вопрос был недоступен, засчитан неверным'**
+  String get duelResultSkipped;
+
+  /// Не удалось показать выбранные варианты
+  ///
+  /// In ru, this message translates to:
+  /// **'ответ в неизвестном виде'**
+  String get duelResultUnknownAnswer;
+
+  /// Время ответа на вопрос
+  ///
+  /// In ru, this message translates to:
+  /// **'время {time}'**
+  String duelResultTimeOfAnswer(String time);
+
+  /// Тексты вопроса не показать
+  ///
+  /// In ru, this message translates to:
+  /// **'Вопрос недоступен на этом устройстве: его нет в твоей версии колоды или он скрыт.'**
+  String get duelResultQuestionUnavailable;
+
+  /// Нет колоды для экрана результата
+  ///
+  /// In ru, this message translates to:
+  /// **'Колоды нет на устройстве: тексты вопросов и разбор недоступны.'**
+  String get duelResultDeckMissing;
+
+  /// Заголовок разбора вопроса
+  ///
+  /// In ru, this message translates to:
+  /// **'Разбор'**
+  String get duelResultExplanation;
+
+  /// Ошибка загрузки результата
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось загрузить результат.'**
+  String get duelResultError;
+
+  /// Заголовок блока карточек дуэлей на главном
+  ///
+  /// In ru, this message translates to:
+  /// **'Дуэли'**
+  String get homeDuelsSection;
+
+  /// Карточка на главном: пора отвечать
+  ///
+  /// In ru, this message translates to:
+  /// **'Дуэль: твой ход'**
+  String get homeDuelYourTurn;
+
+  /// Карточка на главном: пора отвечать, с именем
+  ///
+  /// In ru, this message translates to:
+  /// **'{name}: твой ход'**
+  String homeDuelYourTurnNamed(String name);
+
+  /// Карточка на главном: ждём
+  ///
+  /// In ru, this message translates to:
+  /// **'Дуэль: ждём соперника'**
+  String get homeDuelWaiting;
+
+  /// Карточка на главном: ждём, с именем
+  ///
+  /// In ru, this message translates to:
+  /// **'{name}: ждём ответа'**
+  String homeDuelWaitingNamed(String name);
+
+  /// Карточка на главном: результат готов
+  ///
+  /// In ru, this message translates to:
+  /// **'Дуэль: посмотри результат'**
+  String get homeDuelResult;
+
+  /// Карточка на главном: результат готов, с именем
+  ///
+  /// In ru, this message translates to:
+  /// **'{name} ответил: посмотри результат'**
+  String homeDuelResultNamed(String name);
 }
 
 class _AppLocalizationsDelegate

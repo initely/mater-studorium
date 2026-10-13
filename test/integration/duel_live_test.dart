@@ -18,17 +18,31 @@ library;
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:drift/drift.dart' show driftRuntimeOptions;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mater_studorium/core/errors/app_error.dart';
+import 'package:mater_studorium/core/sync/data/supabase_sync_remote.dart';
+import 'package:mater_studorium/core/sync/domain/duel_answer_outbox_handler.dart';
+import 'package:mater_studorium/core/sync/domain/sync_service.dart';
+import 'package:mater_studorium/core/sync/outbox_entry.dart';
 import 'package:mater_studorium/core/utils/uuid.dart';
+import 'package:mater_studorium/features/duel/data/drift_duel_answer_queue.dart';
 import 'package:mater_studorium/features/duel/data/duel_providers.dart';
 import 'package:mater_studorium/features/duel/data/supabase_duel_repository.dart';
+import 'package:mater_studorium/features/duel/domain/duel_answer.dart';
 import 'package:mater_studorium/features/duel/domain/duel_code.dart';
+import 'package:mater_studorium/features/duel/domain/duel_result.dart';
 import 'package:mater_studorium/features/duel/domain/duel_status.dart';
 import 'package:mater_studorium/features/duel/presentation/create_duel_notifier.dart';
+import 'package:mater_studorium/features/duel/presentation/duel_play_controller.dart';
+import 'package:mater_studorium/features/questions/question_result.dart';
+import 'package:mater_studorium/features/srs/domain/answer_outcome.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../helpers/db_fixtures.dart' show memoryDb;
+import '../helpers/duel_fixtures.dart'
+    show FakeDuelContentSource, contentOf, duelQuestionIds;
 import '../helpers/fake_duel_repository.dart'
     show FakeDuelQuestionSource, snapshotOf;
 
@@ -38,6 +52,8 @@ String? _env(String name) {
 }
 
 void main() {
+  // Два игрока в одном тесте: по базе в памяти на каждого.
+  driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
   final url = _env('LIVE_SUPABASE_URL');
   final anonKey = _env('LIVE_SUPABASE_ANON_KEY');
   final serviceKey = _env('LIVE_SUPABASE_SERVICE_KEY');
@@ -351,4 +367,364 @@ void main() {
       throwsA(isA<PostgrestException>()),
     );
   });
+
+  DuelAnswerPayload answerOf(
+    String duelId,
+    int i, {
+    required bool correct,
+    required int ms,
+    List<String> selected = const ['a'],
+  }) => DuelAnswerPayload(
+    duelId: duelId,
+    questionId: questions[i],
+    answer: {'selected': selected},
+    isCorrect: correct,
+    durationMs: ms,
+  );
+
+  liveTest(
+    'T23: два игрока проходят дуэль через RPC; ответы скрыты до завершения '
+    '(AC10.1); результат у обоих согласован',
+    () async {
+      final (a, aId) = await signIn();
+      final (b, bId) = await signIn();
+      final ra = SupabaseDuelRepository(a);
+      final rb = SupabaseDuelRepository(b);
+      final sa = SupabaseSyncRemote(a);
+      final sb = SupabaseSyncRemote(b);
+      final id = duelUuid();
+      final duel = await ra.create(
+        duelId: id,
+        deckId: deckId,
+        deckVersion: 2,
+        questionIds: questions,
+      );
+      await rb.join(duel.code!);
+
+      // A отвечает на 3 из 5: ответы B (когда он ответит) ему не видны.
+      for (var i = 0; i < 3; i++) {
+        expect(
+          await sa.submitDuelAnswer(
+            aId,
+            answerOf(id, i, correct: i != 1, ms: 1000),
+          ),
+          isTrue,
+        );
+      }
+      // Повтор того же вопроса с другим ответом: duplicate, первый остаётся.
+      expect(
+        await sa.submitDuelAnswer(
+          aId,
+          answerOf(id, 0, correct: false, ms: 9, selected: ['b']),
+        ),
+        isFalse,
+      );
+      final mineBefore = (await ra.answers(id)).mine;
+      expect(mineBefore, hasLength(3));
+      expect(
+        mineBefore.firstWhere((r) => r.questionId == questions[0]).isCorrect,
+        isTrue,
+      );
+      expect(
+        mineBefore.firstWhere((r) => r.questionId == questions[0]).durationMs,
+        1000,
+      );
+
+      // B отвечает на все пять: видит ответы A (их 3), а A про B ничего.
+      for (var i = 0; i < 5; i++) {
+        await sb.submitDuelAnswer(
+          bId,
+          answerOf(id, i, correct: i < 2, ms: 1500),
+        );
+      }
+      final bSees = await rb.answers(id, withOther: true);
+      expect(bSees.mine, hasLength(5));
+      expect(bSees.other, hasLength(3), reason: 'B закончил: ответы A видны');
+      final aSees = await ra.answers(id, withOther: true);
+      expect(aSees.mine, hasLength(3));
+      expect(aSees.other, isEmpty, reason: 'AC10.1: A не закончил, B скрыт');
+      final midA = (await ra.get(id))!;
+      expect(midA.status, DuelStatus.active);
+      expect(midA.otherDoneAt, isNotNull);
+      expect(midA.myDoneAt, isNull);
+
+      // A заканчивает: дуэль finished, все ответы видны обоим.
+      await sa.submitDuelAnswer(aId, answerOf(id, 3, correct: true, ms: 1000));
+      await sa.submitDuelAnswer(aId, answerOf(id, 4, correct: true, ms: 1000));
+      expect((await ra.get(id))!.status, DuelStatus.finished);
+      expect((await rb.get(id))!.status, DuelStatus.finished);
+      final aFinal = await ra.answers(id, withOther: true);
+      final bFinal = await rb.answers(id, withOther: true);
+      expect(aFinal.mine, hasLength(5));
+      expect(aFinal.other, hasLength(5));
+      DuelResult result(DuelAnswers x) => computeDuelResult(
+        questionIds: questions,
+        mine: x.mine,
+        other: x.other,
+      );
+      final ar = result(aFinal);
+      final br = result(bFinal);
+      expect(
+        (ar.mine.correct, ar.mine.totalMs),
+        (br.other.correct, br.other.totalMs),
+      );
+      expect(
+        (ar.other.correct, ar.other.totalMs),
+        (br.mine.correct, br.mine.totalMs),
+      );
+      expect(ar.mine.correct, 4);
+      expect(ar.other.correct, 2);
+      expect(ar.outcome, DuelOutcome.won);
+      expect(br.outcome, DuelOutcome.lost);
+
+      // Повтор после завершения: duplicate, а не ошибка.
+      expect(
+        await sa.submitDuelAnswer(
+          aId,
+          answerOf(id, 0, correct: true, ms: 1000),
+        ),
+        isFalse,
+      );
+    },
+  );
+
+  liveTest('T23: чужой, просроченный и неверный ответ отклоняются', () async {
+    final (a, aId) = await signIn();
+    final (b, bId) = await signIn();
+    final (c, cId) = await signIn();
+    final ra = SupabaseDuelRepository(a);
+    final id = duelUuid();
+    final duel = await ra.create(
+      duelId: id,
+      deckId: deckId,
+      deckVersion: 2,
+      questionIds: questions,
+    );
+    await SupabaseDuelRepository(b).join(duel.code!);
+    final sa = SupabaseSyncRemote(a);
+
+    // Не участник: MS404 -> DuelClosedError, ничего не записано.
+    await expectLater(
+      SupabaseSyncRemote(c)
+          .submitDuelAnswer(cId, answerOf(id, 0, correct: true, ms: 1)),
+      throwsA(isA<DuelClosedError>()),
+    );
+    // p_user_id другого пользователя при своей сессии (в обход проверки клиента).
+    await expectLater(
+      a.rpc<dynamic>(
+        'submit_duel_answer',
+        params: {
+          'p_user_id': bId,
+          'p_duel_id': id,
+          'p_question_id': questions[0],
+          'p_answer': {
+            'selected': ['a'],
+          },
+          'p_is_correct': true,
+          'p_duration_ms': 1,
+        },
+      ),
+      throwsA(isA<PostgrestException>().having((e) => e.code, 'code', '42501')),
+    );
+    // Несуществующая дуэль выглядит как чужая.
+    await expectLater(
+      sa.submitDuelAnswer(
+        aId,
+        DuelAnswerPayload(
+          duelId: duelUuid(),
+          questionId: questions[0],
+          answer: const {},
+          isCorrect: true,
+          durationMs: 1,
+        ),
+      ),
+      throwsA(isA<DuelClosedError>()),
+    );
+    // Вне набора и слишком большой ответ: отказ по значению.
+    await expectLater(
+      sa.submitDuelAnswer(
+        aId,
+        DuelAnswerPayload(
+          duelId: id,
+          questionId: 'q.9',
+          answer: const {},
+          isCorrect: true,
+          durationMs: 1,
+        ),
+      ),
+      throwsA(isA<SyncRejectedError>()),
+    );
+    await expectLater(
+      sa.submitDuelAnswer(
+        aId,
+        DuelAnswerPayload(
+          duelId: id,
+          questionId: questions[0],
+          answer: {'x': 'a' * 600},
+          isCorrect: true,
+          durationMs: 1,
+        ),
+      ),
+      throwsA(isA<SyncRejectedError>()),
+    );
+    expect((await ra.answers(id)).mine, isEmpty);
+
+    // Просроченная дуэль: MS410 -> DuelClosedError.
+    final past = duelUuid();
+    await psql(
+      "insert into public.duels (id, code, deck_id, deck_version, question_ids, "
+      "creator_id, opponent_id, status, created_at, expires_at, joined_at) values "
+      "('$past', 'PASTBB', '$deckId', 1, array['q.1','q.2','q.3','q.4','q.5'], '$aId', "
+      "'$bId', 'active', now() - interval '80 hours', now() - interval '8 hours', "
+      "now() - interval '79 hours')",
+    );
+    await expectLater(
+      sa.submitDuelAnswer(aId, answerOf(past, 0, correct: true, ms: 1)),
+      throwsA(isA<DuelClosedError>()),
+    );
+    // Прямая вставка в таблицу клиенту закрыта.
+    await expectLater(
+      a.from('duel_answers').insert({
+        'duel_id': id,
+        'user_id': aId,
+        'question_id': questions[0],
+        'answer': <String, Object?>{},
+        'is_correct': true,
+        'duration_ms': 1,
+      }),
+      throwsA(isA<PostgrestException>()),
+    );
+  });
+
+  liveTest(
+    'T23: DuelPlayController + drift-очередь + SyncService на живом сервере: '
+    'ответы доходят, FSRS пуст, соперник видит результат',
+    () async {
+      final (a, aId) = await signIn();
+      final (b, bId) = await signIn();
+      final qIds = duelQuestionIds();
+      final id = duelUuid();
+      final duel = await SupabaseDuelRepository(
+        a,
+      ).create(duelId: id, deckId: deckId, deckVersion: 2, questionIds: qIds);
+      await SupabaseDuelRepository(b).join(duel.code!);
+
+      /// Один игрок: контроллер на настоящем сервере, очередь в drift.
+      Future<void> playAs(
+        SupabaseClient client,
+        String userId,
+        List<bool> correct, {
+        required DuelPlayPhase reopened,
+      }) async {
+        final db = memoryDb();
+        final queue = DriftDuelAnswerQueue(
+          db: db,
+          userId: () => userId,
+          clock: () => DateTime.now().toUtc(),
+        );
+        final container = ProviderContainer(
+          overrides: [
+            duelRepositoryProvider.overrideWithValue(
+              SupabaseDuelRepository(client),
+            ),
+            duelAnswerQueueProvider.overrideWithValue(queue),
+            duelContentSourceProvider.overrideWithValue(
+              FakeDuelContentSource(content: contentOf()),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        container.listen(duelPlayProvider(id), (_, _) {});
+        final controller = container.read(duelPlayProvider(id).notifier);
+        await controller.load();
+        for (var i = 0; i < 5; i++) {
+          expect(
+            container.read(duelPlayProvider(id)).phase,
+            DuelPlayPhase.playing,
+          );
+          await controller.onAnswered(
+            QuestionResult(
+              outcome: correct[i]
+                  ? AnswerOutcome.autoCorrect
+                  : AnswerOutcome.autoIncorrect,
+              answer: {
+                'selected': [correct[i] ? 'a' : 'b'],
+              },
+            ),
+          );
+          controller.next();
+        }
+        expect(container.read(duelPlayProvider(id)).phase, DuelPlayPhase.done);
+
+        // ADR-16: в drift только outbox.
+        expect(await db.select(db.outbox).get(), hasLength(5));
+        expect(await db.select(db.reviewLogs).get(), isEmpty);
+        expect(await db.select(db.userItemStates).get(), isEmpty);
+
+        final remote = SupabaseSyncRemote(client);
+        final service = SyncService(
+          remote: remote,
+          store: db.syncDao,
+          currentUserId: () => userId,
+          clock: () => DateTime.now().toUtc(),
+          outboxHandlers: {
+            OutboxKind.duelAnswer: duelAnswerOutboxHandler(remote),
+          },
+        );
+        final report = await service.sync();
+        expect(report.outboxSent, 5, reason: '$report');
+        expect(await db.select(db.outbox).get(), isEmpty);
+
+        // Повторное открытие игры: всё уже отвечено, новых вопросов нет.
+        container.invalidate(duelPlayProvider(id));
+        container.listen(duelPlayProvider(id), (_, _) {});
+        await container.read(duelPlayProvider(id).notifier).load();
+        // У активной дуэли играть больше нечего (done), у завершённой она
+        // закрыта (closed).
+        expect(container.read(duelPlayProvider(id)).phase, reopened);
+      }
+
+      await playAs(a, aId, [
+        true,
+        true,
+        true,
+        false,
+        false,
+      ], reopened: DuelPlayPhase.done);
+      final mid = await SupabaseDuelRepository(a).answers(id, withOther: true);
+      expect(mid.mine, hasLength(5));
+      expect(mid.other, isEmpty);
+      await playAs(b, bId, [
+        true,
+        false,
+        false,
+        false,
+        false,
+      ], reopened: DuelPlayPhase.closed);
+
+      final ra = SupabaseDuelRepository(a);
+      final rb = SupabaseDuelRepository(b);
+      expect((await ra.get(id))!.status, DuelStatus.finished);
+      final aSide = await ra.answers(id, withOther: true);
+      final bSide = await rb.answers(id, withOther: true);
+      final ar = computeDuelResult(
+        questionIds: qIds,
+        mine: aSide.mine,
+        other: aSide.other,
+      );
+      final br = computeDuelResult(
+        questionIds: qIds,
+        mine: bSide.mine,
+        other: bSide.other,
+      );
+      expect((ar.mine.correct, ar.other.correct), (3, 1));
+      expect((br.mine.correct, br.other.correct), (1, 3));
+      expect((ar.outcome, br.outcome), (DuelOutcome.won, DuelOutcome.lost));
+      expect(
+        aSide.mine.map((r) => r.selectedOptionIds.first).toList()..sort(),
+        ['a', 'a', 'a', 'b', 'b'],
+      );
+      expect(aSide.mine.every((r) => r.durationMs >= 0), isTrue);
+    },
+  );
 }

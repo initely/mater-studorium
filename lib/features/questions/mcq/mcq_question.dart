@@ -56,7 +56,15 @@ class _McqQuestionState extends State<McqQuestion> {
     if (_answered || _selected.isEmpty) return;
     final grade = gradeMcq(widget.payload, _selected);
     setState(() => _grade = grade);
-    widget.onAnswered(QuestionResult(outcome: grade.outcome));
+    widget.onAnswered(
+      QuestionResult(
+        outcome: grade.outcome,
+        answer: {
+          // Порядок по id: один и тот же ответ даёт один и тот же JSON.
+          'selected': (_selected.toList()..sort()),
+        },
+      ),
+    );
   }
 
   _OptionVerdict _verdictOf(String id) {

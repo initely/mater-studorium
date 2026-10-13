@@ -172,7 +172,7 @@ void main() {
     await tester.tap(_key('duel-open'));
     await tester.pumpAndSettle();
     expect(router.state.uri.path, '/duels/duel-uuid-1');
-    expect(find.text('Ждём соперника'), findsOneWidget);
+    expect(find.text('Твой ход'), findsOneWidget);
   });
 
   testWidgets(

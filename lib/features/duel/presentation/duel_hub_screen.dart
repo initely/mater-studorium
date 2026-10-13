@@ -11,7 +11,7 @@ import 'duel_tile.dart';
 import 'my_duels_notifier.dart';
 
 /// Экран «Дуэли» (ТЗ §8.1): создать, войти по коду, имя для соперника и
-/// список своих дуэлей. Игра и сравнение ответов — T23.
+/// список своих дуэлей; игра и результат — на экране дуэли.
 class DuelHubScreen extends ConsumerWidget {
   const DuelHubScreen({super.key});
 

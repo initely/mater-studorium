@@ -7,6 +7,5 @@ import '../outbox_entry.dart';
 /// прогон идёт дальше.
 typedef OutboxHandler = Future<void> Function(String userId, OutboxEntry entry);
 
-/// Реестр обработчиков по `kind`. Пока пуст: `report` добавит T20,
-/// `duelAnswer` — T23. Записи без обработчика остаются в outbox нетронутыми.
+/// Реестр обработчиков по `kind`: `report` (T20), `duelAnswer` (T23). Записи без обработчика остаются в outbox нетронутыми.
 typedef OutboxHandlers = Map<OutboxKind, OutboxHandler>;

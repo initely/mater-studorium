@@ -11,6 +11,7 @@ import '../../supabase/supabase_config.dart';
 import '../../supabase/supabase_init.dart';
 import '../../utils/clock.dart';
 import '../domain/account_switch_handler.dart';
+import '../domain/duel_answer_outbox_handler.dart';
 import '../domain/outbox_handler.dart';
 import '../domain/report_outbox_handler.dart';
 import '../domain/sync_coordinator.dart';
@@ -28,11 +29,14 @@ final syncStoreProvider = Provider<SyncStore>(
   (ref) => ref.watch(appDatabaseProvider).syncDao,
 );
 
-/// Реестр обработчиков outbox (шаг 3 §7.3): `report` (T20); `duelAnswer`
-/// добавит T23.
+/// Реестр обработчиков outbox (шаг 3 §7.3): `report` (T20), `duelAnswer`
+/// (T23).
 final outboxHandlersProvider = Provider<OutboxHandlers>(
   (ref) => {
     OutboxKind.report: reportOutboxHandler(ref.watch(syncRemoteProvider)),
+    OutboxKind.duelAnswer: duelAnswerOutboxHandler(
+      ref.watch(syncRemoteProvider),
+    ),
   },
 );
 

@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/l10n/app_localizations.dart';
 import '../../../core/utils/clock.dart';
+import '../../duel/presentation/duel_cards.dart';
+import '../../duel/presentation/my_duels_notifier.dart';
 import '../../session/presentation/format_next_due.dart';
 import '../../session/presentation/session_empty_view.dart' show kTakeNewCount;
 import '../domain/home_stats.dart';
@@ -11,7 +13,7 @@ import 'home_notifier.dart';
 
 /// Главный экран (ТЗ §8.1, §8.2 п. 1): «12 к повторению, 5 новых», кнопка
 /// «Начать сессию (5 мин)», пустые состояния (§8.5), переходы в колоды и
-/// настройки. Слот карточек дуэлей заполнит T23 (под блоком счётчиков).
+/// настройки, карточки дуэлей (T23) под блоком счётчиков.
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -58,16 +60,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // последнее совпадение: верхний экран стека.
     final isHome =
         router.routerDelegate.currentConfiguration.last.matchedLocation == '/';
-    if (isHome && !_wasHome) ref.read(homeProvider.notifier).refresh();
+    if (isHome && !_wasHome) _refreshAll();
     _wasHome = isHome;
   }
 
   /// Вернулись в приложение: время шло, `due` могло наступить.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      ref.read(homeProvider.notifier).refresh();
-    }
+    if (state == AppLifecycleState.resumed) _refreshAll();
+  }
+
+  /// Счётчики и карточки дуэлей (соперник мог ответить, пока нас не было).
+  void _refreshAll() {
+    ref.read(homeProvider.notifier).refresh();
+    ref.read(myDuelsProvider.notifier).refresh();
   }
 
   @override
@@ -128,7 +134,7 @@ class _Content extends StatelessWidget {
                 _Work(stats: stats)
               else
                 _AllDone(stats: stats),
-              // T23: сюда встанут карточки ожидающих дуэлей (ТЗ §8.2).
+              const DuelCards(),
               const _DecksButton(),
               const _DuelsButton(),
             ],

@@ -7,10 +7,12 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:mater_studorium/core/errors/app_error.dart';
 import 'package:mater_studorium/core/sync/data/supabase_sync_remote.dart';
+import 'package:mater_studorium/features/duel/domain/duel_answer.dart';
 import 'package:mater_studorium/features/reports/domain/report.dart';
 import 'package:mater_studorium/features/reports/domain/report_reason.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../helpers/duel_fixtures.dart' show kDuelId;
 import '../../helpers/sync_fixtures.dart';
 
 String _jwt(String sub) {
@@ -314,5 +316,101 @@ void main() {
         expect(await remote.pullHiddenQuestions(userA), isEmpty);
       },
     );
+  });
+
+  group('ответы дуэли (T23, ADR-36)', () {
+    const answer = DuelAnswerPayload(
+      duelId: kDuelId,
+      questionId: 'duel-deck.1.q1',
+      answer: {
+        'selected': ['a'],
+      },
+      isCorrect: true,
+      durationMs: 1500,
+    );
+
+    test(
+      'submit_duel_answer: тело RPC и результат recorded/duplicate',
+      () async {
+        restReply = (req) =>
+            _json(req, {'result': 'recorded', 'duel': <String, Object?>{}});
+        final remote = SupabaseSyncRemote(await clientAs(userA));
+        expect(await remote.submitDuelAnswer(userA, answer), isTrue);
+        expect(rest.single.url.path, '/rest/v1/rpc/submit_duel_answer');
+        expect(jsonDecode(rest.single.body), {
+          'p_user_id': userA,
+          'p_duel_id': kDuelId,
+          'p_question_id': 'duel-deck.1.q1',
+          'p_answer': {
+            'selected': ['a'],
+          },
+          'p_is_correct': true,
+          'p_duration_ms': 1500,
+        });
+
+        restReply = (req) =>
+            _json(req, {'result': 'duplicate', 'duel': <String, Object?>{}});
+        expect(await remote.submitDuelAnswer(userA, answer), isFalse);
+      },
+    );
+
+    test('ответ не объект или result неизвестен — UnexpectedError', () async {
+      final remote = SupabaseSyncRemote(await clientAs(userA));
+      for (final body in <Object>[
+        true,
+        <Object>[],
+        {'result': 'что-то'},
+        {'duel': <String, Object?>{}},
+      ]) {
+        restReply = (req) => _json(req, body);
+        await expectLater(
+          remote.submitDuelAnswer(userA, answer),
+          throwsA(isA<UnexpectedError>()),
+          reason: '$body',
+        );
+      }
+    });
+
+    test(
+      'сессия другого пользователя и нет сессии — AuthError без запроса',
+      () async {
+        await expectLater(
+          SupabaseSyncRemote(await clientAs(userB))
+              .submitDuelAnswer(userA, answer),
+          throwsA(isA<AuthError>()),
+        );
+        await expectLater(
+          SupabaseSyncRemote(await clientAs(null))
+              .submitDuelAnswer(userA, answer),
+          throwsA(isA<AuthError>()),
+        );
+        expect(rest, isEmpty);
+      },
+    );
+
+    Future<Object?> errorOf(String code, int status) async {
+      restReply = (req) => _json(req, {'code': code, 'message': 'x'}, status);
+      final remote = SupabaseSyncRemote(await clientAs(userA));
+      try {
+        await remote.submitDuelAnswer(userA, answer);
+      } on Object catch (e) {
+        return e;
+      }
+      return null;
+    }
+
+    test('MS410 и MS404 — DuelClosedError (повтор не поможет)', () async {
+      expect(await errorOf('MS410', 400), isA<DuelClosedError>());
+      expect(await errorOf('MS404', 400), isA<DuelClosedError>());
+    });
+
+    test('22023 и 23514 — SyncRejectedError; 42501 — AuthError; '
+        '55P03 и 5xx — NetworkError', () async {
+      expect(await errorOf('22023', 400), isA<SyncRejectedError>());
+      expect(await errorOf('23514', 400), isA<SyncRejectedError>());
+      expect(await errorOf('42501', 403), isA<AuthError>());
+      expect(await errorOf('55P03', 500), isA<NetworkError>());
+      expect(await errorOf('500', 500), isA<NetworkError>());
+    });
   });
 }

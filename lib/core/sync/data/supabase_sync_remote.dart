@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../features/catalog/domain/question_type.dart';
+import '../../../features/duel/domain/duel_answer.dart';
 import '../../../features/reports/domain/report.dart';
 import '../../../features/session/domain/grade_source.dart';
 import '../../../features/session/domain/review_log.dart';
@@ -132,6 +133,32 @@ class SupabaseSyncRemote implements SyncRemote {
       });
 
   @override
+  Future<bool> submitDuelAnswer(String userId, DuelAnswerPayload answer) =>
+      _guard(userId, () async {
+        final json = await _client.rpc<dynamic>(
+          'submit_duel_answer',
+          params: {
+            'p_user_id': userId,
+            'p_duel_id': answer.duelId,
+            'p_question_id': answer.questionId,
+            'p_answer': answer.answer,
+            'p_is_correct': answer.isCorrect,
+            'p_duration_ms': answer.durationMs,
+          },
+        );
+        if (json is! Map<String, dynamic>) {
+          throw const UnexpectedError('submit_duel_answer: ответ не объект');
+        }
+        return switch (json['result']) {
+          'recorded' => true,
+          'duplicate' => false,
+          final other => throw UnexpectedError(
+            'submit_duel_answer: result $other',
+          ),
+        };
+      });
+
+  @override
   Future<Set<String>> pullHiddenQuestions(String userId) =>
       _guard(userId, () async {
         final rows = await _client.rpc<dynamic>('hidden_questions');
@@ -215,6 +242,12 @@ AppError mapSyncRemoteError(Object e) {
           'Лимит жалоб на сегодня исчерпан: $message',
           cause: e,
         );
+      }
+      // MS410 — срок дуэли вышел или она закрыта, MS404 — дуэли нет у этого
+      // пользователя (`submit_duel_answer`, 0008_duel_play.sql): повтор не
+      // поможет, запись из outbox отбрасывается.
+      if (code == 'MS410' || code == 'MS404') {
+        return DuelClosedError('Дуэль закрыта для ответов ($code)', cause: e);
       }
       // 55P03 — lock_timeout в RPC (запись того же пользователя ждала
       // блокировку дольше 3 с): временное, повтор с паузой.

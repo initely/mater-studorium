@@ -1076,7 +1076,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get duelStatusFinished => 'Дуэль завершена';
+  String get duelStatusFinished => 'Результат готов';
 
   @override
   String get duelStatusExpired => 'Дуэль истекла';
@@ -1133,4 +1133,227 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get duelRefresh => 'Обновить';
+
+  @override
+  String get duelStatusYourTurn => 'Твой ход';
+
+  @override
+  String duelStatusWaitingNamed(String name) {
+    return 'Ждём $name';
+  }
+
+  @override
+  String get duelPlayButton => 'Играть';
+
+  @override
+  String get duelYourTurnBody =>
+      'Пять вопросов, у каждого свой секундомер. Лимита по времени нет.';
+
+  @override
+  String get duelWaitingBody =>
+      'Ты ответил на все вопросы. Результат появится, когда соперник тоже закончит.';
+
+  @override
+  String duelWaitingBodyNamed(String name) {
+    return 'Ты ответил на все вопросы. Результат появится, когда $name тоже закончит.';
+  }
+
+  @override
+  String get duelSendingAnswers =>
+      'Ответы ещё отправляются. Для этого нужна сеть.';
+
+  @override
+  String get duelPlayTitle => 'Дуэль';
+
+  @override
+  String duelPlayProgress(int n, int total) {
+    return 'Вопрос $n из $total';
+  }
+
+  @override
+  String duelPlayTimerLabel(String time) {
+    return 'Время на вопрос: $time';
+  }
+
+  @override
+  String get duelPlayNext => 'Дальше';
+
+  @override
+  String get duelPlayFinish => 'Закончить';
+
+  @override
+  String get duelPlaySaveError =>
+      'Не удалось сохранить ответ. Попробуй ещё раз.';
+
+  @override
+  String get duelPlaySaveRetry => 'Повторить';
+
+  @override
+  String get duelPlayDoneTitle => 'Ты ответил на все вопросы';
+
+  @override
+  String get duelPlayDoneBody =>
+      'Ответы уходят на сервер сами, сеть нужна только для этого. Результат появится, когда соперник тоже закончит.';
+
+  @override
+  String get duelPlayBackToDuel => 'К дуэли';
+
+  @override
+  String get duelPlayClosed => 'Эта дуэль уже закончилась или истекла.';
+
+  @override
+  String get duelPlayBlockedTitle => 'Дуэль нельзя сыграть как есть';
+
+  @override
+  String duelPlayBlockedBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count вопроса этой дуэли недоступны',
+      many: '$count вопросов этой дуэли недоступны',
+      few: '$count вопроса этой дуэли недоступны',
+      one: '$count вопрос этой дуэли недоступен',
+    );
+    return '$_temp0 в твоей версии колоды: колода обновилась или вопрос скрыт. Обнови колоду или сыграй без них.';
+  }
+
+  @override
+  String get duelPlayUpdateDeck => 'Обновить колоду';
+
+  @override
+  String get duelPlayUpdating => 'Обновляем…';
+
+  @override
+  String get duelPlayUpdateError => 'Не удалось обновить колоду. Нужна сеть.';
+
+  @override
+  String get duelPlaySkip => 'Сыграть без них';
+
+  @override
+  String get duelPlaySkipHint =>
+      'Недоступные вопросы засчитаются как неверные, остальные сыграешь как обычно.';
+
+  @override
+  String get duelResultWon => 'Ты победил';
+
+  @override
+  String get duelResultLost => 'Победил соперник';
+
+  @override
+  String duelResultLostNamed(String name) {
+    return 'Победил $name';
+  }
+
+  @override
+  String get duelResultDraw => 'Ничья';
+
+  @override
+  String get duelResultYou => 'Ты';
+
+  @override
+  String get duelResultOpponent => 'Соперник';
+
+  @override
+  String duelResultScore(int correct, int total) {
+    return '$correct из $total';
+  }
+
+  @override
+  String duelResultTime(String time) {
+    return 'время $time';
+  }
+
+  @override
+  String duelResultScoreSemantics(
+    String who,
+    int correct,
+    int total,
+    String time,
+  ) {
+    return '$who: верных $correct из $total, время $time';
+  }
+
+  @override
+  String get duelResultRule =>
+      'Побеждает больше верных ответов, при равенстве меньшее время.';
+
+  @override
+  String duelResultQuestionTitle(int n) {
+    return 'Вопрос $n';
+  }
+
+  @override
+  String get duelResultYourAnswer => 'Твой ответ';
+
+  @override
+  String get duelResultTheirAnswer => 'Ответ соперника';
+
+  @override
+  String duelResultTheirAnswerNamed(String name) {
+    return 'Ответ: $name';
+  }
+
+  @override
+  String get duelResultCorrectAnswer => 'Верный ответ';
+
+  @override
+  String get duelResultRight => 'верно';
+
+  @override
+  String get duelResultWrong => 'неверно';
+
+  @override
+  String get duelResultNoAnswer => 'нет ответа';
+
+  @override
+  String get duelResultSkipped => 'вопрос был недоступен, засчитан неверным';
+
+  @override
+  String get duelResultUnknownAnswer => 'ответ в неизвестном виде';
+
+  @override
+  String duelResultTimeOfAnswer(String time) {
+    return 'время $time';
+  }
+
+  @override
+  String get duelResultQuestionUnavailable =>
+      'Вопрос недоступен на этом устройстве: его нет в твоей версии колоды или он скрыт.';
+
+  @override
+  String get duelResultDeckMissing =>
+      'Колоды нет на устройстве: тексты вопросов и разбор недоступны.';
+
+  @override
+  String get duelResultExplanation => 'Разбор';
+
+  @override
+  String get duelResultError => 'Не удалось загрузить результат.';
+
+  @override
+  String get homeDuelsSection => 'Дуэли';
+
+  @override
+  String get homeDuelYourTurn => 'Дуэль: твой ход';
+
+  @override
+  String homeDuelYourTurnNamed(String name) {
+    return '$name: твой ход';
+  }
+
+  @override
+  String get homeDuelWaiting => 'Дуэль: ждём соперника';
+
+  @override
+  String homeDuelWaitingNamed(String name) {
+    return '$name: ждём ответа';
+  }
+
+  @override
+  String get homeDuelResult => 'Дуэль: посмотри результат';
+
+  @override
+  String homeDuelResultNamed(String name) {
+    return '$name ответил: посмотри результат';
+  }
 }

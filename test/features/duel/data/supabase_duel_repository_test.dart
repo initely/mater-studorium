@@ -378,4 +378,76 @@ void main() {
       expect(mapDuelError(StateError('x')), isA<UnexpectedError>());
     });
   });
+
+  group('answers (T23)', () {
+    List<Map<String, Object?>> rows() => [
+      {
+        'user_id': userA,
+        'question_id': 'q.1',
+        'answer': {
+          'selected': ['a'],
+        },
+        'is_correct': true,
+        'duration_ms': 1200,
+      },
+      {
+        'user_id': userB,
+        'question_id': 'q.1',
+        'answer': {
+          'selected': ['b'],
+        },
+        'is_correct': false,
+        'duration_ms': 3400,
+      },
+    ];
+
+    test(
+      'только свои: в запросе фильтр по user_id, чужое не запрашивается',
+      () async {
+        reply = (req) => _json(req, [rows().first]);
+        final answers = await (await repo()).answers('d1');
+        final q = sent.single.url.queryParameters;
+        expect(sent.single.url.path, '/rest/v1/duel_answers');
+        expect(q['duel_id'], 'eq.d1');
+        expect(q['user_id'], 'eq.$userA');
+        expect(answers.mine.single.selectedOptionIds, ['a']);
+        expect(answers.mine.single.durationMs, 1200);
+        expect(answers.other, isEmpty);
+      },
+    );
+
+    test(
+      'withOther: без фильтра по user_id, ответы делятся на свои и чужие',
+      () async {
+        reply = (req) => _json(req, rows());
+        final answers = await (await repo()).answers('d1', withOther: true);
+        expect(sent.single.url.queryParameters.containsKey('user_id'), isFalse);
+        expect(answers.mine.single.isCorrect, isTrue);
+        expect(answers.other.single.isCorrect, isFalse);
+        expect(answers.other.single.selectedOptionIds, ['b']);
+      },
+    );
+
+    test('строка неожиданной формы — UnexpectedError', () async {
+      reply = (req) => _json(req, [
+        {'user_id': userA, 'question_id': 'q.1'},
+      ]);
+      await expectLater(
+        (await repo()).answers('d1'),
+        throwsA(isA<UnexpectedError>()),
+      );
+    });
+
+    test('нет сети и нет входа — типизированные ошибки', () async {
+      reply = (req) => throw http.ClientException('нет сети');
+      await expectLater(
+        (await repo()).answers('d1'),
+        throwsA(isA<NetworkError>()),
+      );
+      await expectLater(
+        (await repo(user: null)).answers('d1'),
+        throwsA(isA<AuthError>()),
+      );
+    });
+  });
 }

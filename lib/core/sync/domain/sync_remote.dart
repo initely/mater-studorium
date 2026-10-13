@@ -1,3 +1,4 @@
+import '../../../features/duel/domain/duel_answer.dart';
 import '../../../features/reports/domain/report.dart';
 import '../../../features/session/domain/review_log.dart';
 import '../../../features/srs/domain/item_state.dart';
@@ -67,6 +68,13 @@ abstract interface class SyncRemote {
   /// (повторить после полуночи UTC), отказ сервера по значению —
   /// `SyncRejectedError`.
   Future<bool> submitReport(String userId, Report report);
+
+  /// Отправляет ответ дуэли (RPC `submit_duel_answer`, ТЗ M10, ADR-36).
+  /// Идемпотентно по (дуэль, пользователь, вопрос): `true` — сервер записал
+  /// ответ, `false` — он уже был (повтор). Дуэль закончилась или недоступна
+  /// (`MS410`, `MS404`) — `DuelClosedError`; отказ сервера по значению —
+  /// `SyncRejectedError`.
+  Future<bool> submitDuelAnswer(String userId, DuelAnswerPayload answer);
 
   /// Вопросы, скрытые по жалобам (RPC `hidden_questions`, ТЗ §5.3 п. 5,
   /// шаг 5 §7.3): весь список целиком, не страница.
