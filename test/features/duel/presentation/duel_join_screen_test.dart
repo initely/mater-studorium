@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mater_studorium/core/errors/app_error.dart';
 import 'package:mater_studorium/features/duel/domain/duel_status.dart';
+import 'package:mater_studorium/features/duel/presentation/isolate_name.dart';
 
 import '../../../helpers/fake_catalog_repository.dart';
 import '../../../helpers/fake_duel_repository.dart';
@@ -54,7 +55,46 @@ void main() {
       expect(repo.joined, ['K7Q2MX']);
       expect(catalog.downloads, ['fixture-good']);
       expect(router.state.uri.path, '/duels/duel-1');
-      expect(find.text('Алиса в дуэли'), findsOneWidget);
+      expect(find.text('${isolateName('Алиса')} в дуэли'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'русская раскладка: похожие кириллические буквы не теряются и работают (N4)',
+    (tester) async {
+      final repo = FakeDuelRepository()
+        ..getResult = duelFixture(
+          code: null,
+          isCreator: false,
+          otherJoined: true,
+        );
+      final catalog = FakeCatalogRepository(
+        remote: [remoteDeck('fixture-good', version: 2)],
+      );
+      await pumpDuelApp(
+        tester,
+        initial: '/duels/join',
+        repo: repo,
+        catalog: catalog,
+      );
+      // К7Q2МХ: К, М, Х набраны кириллицей.
+      final typed = String.fromCharCodes([
+        0x041A,
+        0x37,
+        0x51,
+        0x32,
+        0x041C,
+        0x0425,
+      ]);
+      await tester.enterText(_key('duel-code-field'), typed);
+      expect(
+        tester.widget<TextField>(_key('duel-code-field')).controller!.text,
+        typed,
+        reason: 'ввод не должен молча теряться',
+      );
+      await tester.tap(_key('duel-join-submit'));
+      await tester.pumpAndSettle();
+      expect(repo.joined, ['K7Q2MX']);
     },
   );
 

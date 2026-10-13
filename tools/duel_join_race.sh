@@ -5,11 +5,13 @@
 # (`supabase start` и `supabase db reset`), psql берётся из контейнера БД.
 #
 #   tools/duel_join_race.sh                 # ожидание: OK по обоим сценариям, код 0
-#   tools/duel_join_race.sh --without-lock  # демонстрация: без FOR UPDATE, без
+#   tools/duel_join_race.sh --without-lock  # демонстрация: без FOR NO KEY UPDATE, без
 #                                           # проверки «соперник не назначен» и без
 #                                           # триггера duels_guard двое входят в
 #                                           # одну дуэль; без advisory-блокировки
-#                                           # лимит активных дуэлей превышен
+#                                           # лимит активных дуэлей превышен; с
+#                                           # FOR UPDATE вместо FOR NO KEY UPDATE в
+#                                           # триггере ответов случаются deadlock
 #                                           # (код 1); функции затем восстанавливаются
 #
 # Сценарий 1 (место в дуэли): 20 разных пользователей одновременно входят по
@@ -19,6 +21,12 @@
 # Сценарий 2 (лимит активных дуэлей): один пользователь одновременно создаёт 12
 # дуэлей. Лимит — 5 активных созданных: принято должно быть ровно 5. Без
 # advisory-блокировки пользователя все сессии видят «0 активных».
+# Сценарий 3 (взаимная блокировка ответов, ревью T22 S1): создатель и соперник
+# одновременно отвечают на вопросы множества дуэлей двумя сессиями. Проверка
+# внешнего ключа при INSERT в duel_answers берёт FOR KEY SHARE на строку duels,
+# а триггер ответов затем берёт строку FOR NO KEY UPDATE. Раньше там был FOR
+# UPDATE: повышение блокировки у двух параллельных вставок давало deadlock.
+# Ожидание: 0 ошибок, все дуэли finished, ровно 10 ответов на дуэль.
 # Пользователи, колода и дуэли создаются и удаляются скриптом.
 set -euo pipefail
 
@@ -27,6 +35,7 @@ psql=(docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -qtAX)
 joiners=20
 creates=12
 active_limit=5
+answer_duels=300
 
 without_lock=false
 [[ "${1:-}" == "--without-lock" ]] && without_lock=true
@@ -37,7 +46,10 @@ maker="$("${psql[@]}" -c "select gen_random_uuid()")"
 deck="race$(date +%s)"
 join_def=""
 create_def=""
+trigger_def=""
 guard_dropped=false
+ua="$("${psql[@]}" -c "select gen_random_uuid()")"
+ub="$("${psql[@]}" -c "select gen_random_uuid()")"
 status=0
 
 cleanup() {
@@ -54,7 +66,11 @@ cleanup() {
     printf '%s;\n' "$create_def" | "${psql[@]}" >/dev/null
     echo "public.create_duel восстановлена"
   fi
-  local ids="'$creator', '$maker'"
+  if [[ -n "$trigger_def" ]]; then
+    printf '%s;\n' "$trigger_def" | "${psql[@]}" >/dev/null
+    echo "private.duel_answers_after_insert восстановлена"
+  fi
+  local ids="'$creator', '$maker', '$ua', '$ub'"
   while read -r uid; do ids="$ids, '$uid'"; done <"$tmp/joiners" 2>/dev/null || true
   "${psql[@]}" -c "delete from auth.users where id in ($ids)" >/dev/null 2>&1 || true
   "${psql[@]}" -c "delete from public.decks where id = '$deck'" >/dev/null 2>&1 || true
@@ -72,10 +88,11 @@ trap cleanup EXIT
 if $without_lock; then
   join_def="$("${psql[@]}" -c "select pg_get_functiondef('public.join_duel(uuid, text)'::regprocedure)")"
   create_def="$("${psql[@]}" -c "select pg_get_functiondef('public.create_duel(uuid, uuid, text, integer, text[])'::regprocedure)")"
+  trigger_def="$("${psql[@]}" -c "select pg_get_functiondef('private.duel_answers_after_insert()'::regprocedure)")"
   # join_duel: без FOR UPDATE, без «and x.opponent_id is null» в UPDATE и с паузой
   # между чтением дуэли и записью соперника; триггер duels_guard снят.
   printf '%s\n' "$join_def" | perl -0pe '
-    s/(from public\.duels x where x\.code = v_code) for update;/$1;\n  perform pg_catalog.pg_sleep(0.5);/s;
+    s/(from public\.duels x where x\.code = v_code) for no key update;/$1;\n  perform pg_catalog.pg_sleep(0.5);/s;
     s/where x\.id = d\.id\n\s+and x\.opponent_id is null\n/where x.id = d.id\n/s;
   ' | "${psql[@]}" >/dev/null
   "${psql[@]}" -c "drop trigger duels_guard on public.duels" >/dev/null
@@ -85,6 +102,8 @@ if $without_lock; then
     s/perform pg_catalog\.pg_advisory_xact_lock\(.*?\);\n//s;
     s/(select pg_catalog\.count\(\*\) into v_count\n\s+from public\.duels x\n\s+where x\.creator_id = v_uid\n\s+and x\.status in \(.open., .active.\)\n\s+and x\.expires_at > pg_catalog\.now\(\);\n)/$1  perform pg_catalog.pg_sleep(0.5);\n/s;
   ' | "${psql[@]}" >/dev/null
+  # триггер ответов: FOR UPDATE вместо FOR NO KEY UPDATE (прежняя ошибка S1).
+  printf '%s\n' "$trigger_def" | perl -0pe 's/for no key update/for update/g' | "${psql[@]}" >/dev/null
   echo "ВНИМАНИЕ: блокировки и защита временно убраны (демонстрация)"
 fi
 
@@ -155,6 +174,40 @@ if [[ "$accepted" -eq "$active_limit" ]]; then
   echo "OK: лимит активных дуэлей не превышен"
 else
   echo "LOST: принято $accepted при лимите $active_limit"
+  status=1
+fi
+
+# ---------- сценарий 3: параллельные ответы создателя и соперника ----------
+"${psql[@]}" -c "insert into auth.users (id, aud, role, is_anonymous)
+  values ('$ua', 'authenticated', 'authenticated', true), ('$ub', 'authenticated', 'authenticated', true)" >/dev/null
+"${psql[@]}" -c "insert into public.duels (id, code, deck_id, deck_version, question_ids, creator_id, opponent_id,
+    status, expires_at, joined_at)
+  select gen_random_uuid(), private.new_duel_code(), '$deck', 1, array['q.1','q.2','q.3','q.4','q.5'], '$ua', '$ub',
+         'active', now() + interval '72 hours', now()
+    from generate_series(1, $answer_duels)" >/dev/null
+duel_ids="$("${psql[@]}" -c "select id from public.duels where creator_id = '$ua' order by id")"
+for who in "$ua" "$ub"; do
+  : >"$tmp/answers.$who.sql"
+  while read -r d; do
+    for q in 1 2 3 4 5; do
+      echo "insert into public.duel_answers (duel_id, user_id, question_id, answer, is_correct, duration_ms) values ('$d', '$who', 'q.$q', '{}', true, 100);" >>"$tmp/answers.$who.sql"
+    done
+  done <<<"$duel_ids"
+done
+# Без ON_ERROR_STOP: ошибка одной вставки не должна останавливать сессию.
+for who in "$ua" "$ub"; do
+  docker exec -i "$container" psql -U postgres -qtAX <"$tmp/answers.$who.sql" >"$tmp/answers.$who.out" 2>"$tmp/answers.$who.err" &
+done
+wait
+errors="$(cat "$tmp"/answers.*.err | grep -c 'ERROR' || true)"
+deadlocks="$(cat "$tmp"/answers.*.err | grep -c 'deadlock detected' || true)"
+finished="$("${psql[@]}" -c "select count(*) from public.duels where creator_id = '$ua' and status = 'finished'")"
+answers="$("${psql[@]}" -c "select count(*) from public.duel_answers a join public.duels d on d.id = a.duel_id where d.creator_id = '$ua'")"
+echo "сценарий 3: дуэлей $answer_duels, ошибок: $errors (deadlock: $deadlocks), finished: $finished, ответов: $answers (ждали $((answer_duels * 10)))"
+if [[ "$errors" -eq 0 && "$finished" -eq "$answer_duels" && "$answers" -eq $((answer_duels * 10)) ]]; then
+  echo "OK: ответы двух участников не блокируют друг друга"
+else
+  echo "LOST: ошибок $errors (deadlock $deadlocks), finished $finished из $answer_duels, ответов $answers из $((answer_duels * 10))"
   status=1
 fi
 

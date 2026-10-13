@@ -201,7 +201,7 @@ void main() {
     },
   );
 
-  liveTest('неверный и просроченный коды неотличимы; перебор ограничен (AC10.2)', () async {
+  liveTest('неверный и просроченный коды неотличимы; перебор ограничен (AC10.2, молодой аккаунт: 3 в час)', () async {
     final (a, aId) = await signIn();
     final (b, _) = await signIn();
     final rb = SupabaseDuelRepository(b);
@@ -213,14 +213,9 @@ void main() {
     );
     await expectLater(rb.join('EXPRDK'), throwsA(isA<DuelCodeNotFoundError>()));
     await expectLater(rb.join('ZZZZZZ'), throwsA(isA<DuelCodeNotFoundError>()));
-    // Остальные неудачи до лимита (две уже были: 10 в час).
-    for (var i = 0; i < 8; i++) {
-      await expectLater(
-        rb.join('ZZZZZ${'BCDEFGHJ'[i]}'),
-        throwsA(isA<DuelCodeNotFoundError>()),
-      );
-    }
-    // Одиннадцатая: лимит, даже для верного по виду кода.
+    // Новый аккаунт «молодой»: 3 неудачи в час (старым 10); две уже были.
+    await expectLater(rb.join('ZZZZZB'), throwsA(isA<DuelCodeNotFoundError>()));
+    // Четвёртая: лимит, даже для верного по виду кода.
     await expectLater(
       rb.join('EXPRDK'),
       throwsA(

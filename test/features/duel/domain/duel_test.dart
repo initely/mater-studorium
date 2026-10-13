@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mater_studorium/features/duel/domain/duel_limits.dart';
 import 'package:mater_studorium/features/duel/domain/duel_status.dart';
 
 import '../../../helpers/fake_duel_repository.dart';
@@ -40,6 +41,10 @@ void main() {
       const Duration(hours: 2),
     );
     expect(d.remainingAt(duelNow.add(const Duration(days: 9))), Duration.zero);
+  });
+
+  test('кап ответа: 512 байт, как CHECK на сервере', () {
+    expect(kDuelAnswerMaxBytes, 512);
   });
 
   test('DuelStatus.fromWire', () {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mater_studorium/core/errors/app_error.dart';
 import 'package:mater_studorium/features/duel/domain/duel_status.dart';
+import 'package:mater_studorium/features/duel/presentation/isolate_name.dart';
 
 import '../../../helpers/fake_catalog_repository.dart';
 import '../../../helpers/fake_duel_repository.dart';
@@ -47,7 +48,7 @@ void main() {
         local: [localDeck('fixture-good', version: 2)],
       ),
     );
-    expect(find.text('Алиса в дуэли'), findsOneWidget);
+    expect(find.text('${isolateName('Алиса')} в дуэли'), findsOneWidget);
     expect(_key('duel-copy-code'), findsNothing);
   });
 
@@ -178,7 +179,7 @@ void main() {
     await tester.tap(_key('duel-refresh'));
     await tester.pumpAndSettle();
     expect(repo.getCalls, 2);
-    expect(find.text('Боб в дуэли'), findsOneWidget);
+    expect(find.text('${isolateName('Боб')} в дуэли'), findsOneWidget);
   });
 
   testWidgets('ошибка обновления не стирает показанную дуэль', (tester) async {

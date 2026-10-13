@@ -11,20 +11,32 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(223);
+select plan(269);
 
 insert into auth.users (id, aud, role, email, is_anonymous, created_at)
 values
-  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'authenticated', 'authenticated', null, true, now()),
-  ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'authenticated', 'authenticated', null, true, now()),
-  ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'authenticated', 'authenticated', null, true, now()),
-  ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'authenticated', 'authenticated', null, true, now()),
-  ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'authenticated', 'authenticated', null, true, now()),
-  ('ffffffff-ffff-4fff-8fff-ffffffffffff', 'authenticated', 'authenticated', null, true, now()),
-  ('11111111-1111-4111-8111-111111111111', 'authenticated', 'authenticated', null, true, now()),
-  ('22222222-2222-4222-8222-222222222222', 'authenticated', 'authenticated', null, true, now()),
-  ('33333333-3333-4333-8333-333333333333', 'authenticated', 'authenticated', null, true, now()),
-  ('44444444-4444-4444-8444-444444444444', 'authenticated', 'authenticated', null, true, now());
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'authenticated', 'authenticated', null, true, now() - interval '30 days'),
+  ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'authenticated', 'authenticated', null, true, now() - interval '30 days'),
+  ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'authenticated', 'authenticated', null, true, now() - interval '30 days'),
+  ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'authenticated', 'authenticated', null, true, now() - interval '30 days'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'authenticated', 'authenticated', null, true, now() - interval '30 days'),
+  ('ffffffff-ffff-4fff-8fff-ffffffffffff', 'authenticated', 'authenticated', null, true, now() - interval '30 days'),
+  ('11111111-1111-4111-8111-111111111111', 'authenticated', 'authenticated', null, true, now() - interval '30 days'),
+  ('22222222-2222-4222-8222-222222222222', 'authenticated', 'authenticated', null, true, now() - interval '30 days'),
+  ('33333333-3333-4333-8333-333333333333', 'authenticated', 'authenticated', null, true, now() - interval '30 days'),
+  ('44444444-4444-4444-8444-444444444444', 'authenticated', 'authenticated', null, true, now() - interval '30 days');
+
+-- Возраст аккаунта влияет на защиту от перебора (ADR-35, S2): «молодым» (моложе
+-- 24 ч) разрешено 3 неудачи в час и они делят общий потолок; остальным 10.
+-- Суффикс id = роль: 01-03 молодые (23 ч), 04 старый на границе (25 ч), 05-08
+-- старые для проверок лимитов и очистки, 09 молодой, 10 старый (источники
+-- «фоновых» неудач), 11-16 старые для лимитов дуэлей.
+insert into auth.users (id, aud, role, email, is_anonymous, created_at)
+select ('c0000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid, 'authenticated', 'authenticated', null, true,
+       case when n in (1, 2, 3, 9) then now() - interval '23 hours'
+            when n = 4 then now() - interval '25 hours'
+            else now() - interval '30 days' end
+  from generate_series(1, 16) n;
 
 insert into public.decks (id, title, topic, lang, version, owner_id, visibility, storage_path, item_count)
 values
@@ -112,6 +124,10 @@ select ok(not has_function_privilege('anon', 'public.create_duel(uuid, uuid, tex
       and not has_function_privilege('anon', 'public.get_duel(uuid)', 'execute')
       and not has_function_privilege('anon', 'public.my_duels()', 'execute'),
   'anon не исполняет RPC дуэли');
+select ok(has_function_privilege('authenticated', 'private.display_name_clean(text)', 'execute')
+      and has_function_privilege('service_role', 'private.display_name_clean(text)', 'execute')
+      and not has_function_privilege('anon', 'private.display_name_clean(text)', 'execute'),
+  'проверка имени: execute у authenticated и service_role (CHECK исполняется с их правами), anon не исполняет');
 select ok(not has_function_privilege('authenticated', 'private.duel_json(public.duels, uuid)', 'execute')
       and not has_function_privilege('anon', 'private.duel_json(public.duels, uuid)', 'execute')
       and not has_function_privilege('authenticated', 'private.new_duel_code()', 'execute')
@@ -154,7 +170,15 @@ select matches(pg_get_functiondef('public.join_duel(uuid, text)'::regprocedure),
   E'(?s)pg_advisory_xact_lock\\(\\s*pg_catalog\\.hashtextextended\\(''duels:'' \\|\\| v_uid::text, 0\\)\\s*\\).*pg_catalog\\.count\\(\\*\\) into v_count',
   'join_duel: блокировка пользователя до подсчёта попыток');
 select matches(pg_get_functiondef('public.join_duel(uuid, text)'::regprocedure),
-  'where x\.code = v_code for update', 'join_duel: строка дуэли берётся FOR UPDATE (гонка за место)');
+  'where x\.code = v_code for no key update', 'join_duel: строка дуэли берётся FOR NO KEY UPDATE (гонка за место)');
+select matches(pg_get_functiondef('private.duel_answers_after_insert()'::regprocedure),
+  'where id = new\.duel_id for no key update',
+  'триггер ответов берёт строку дуэли FOR NO KEY UPDATE (S1: FOR UPDATE давал deadlock с FK-проверкой)');
+select doesnt_match(pg_get_functiondef('private.duel_answers_after_insert()'::regprocedure),
+  'for update', 'триггер ответов нигде не берёт FOR UPDATE');
+select matches(pg_get_functiondef('private.duel_answers_before_insert()'::regprocedure),
+  E'if d\\.status not in \\(''open'', ''active''\\) or d\\.expires_at <= pg_catalog\\.now\\(\\) then\\s+raise exception ''duel_answers: срок дуэли вышел или дуэль закрыта'' using errcode = ''MS410''',
+  'ответы принимаются только в open и active до срока (S3)');
 select matches(pg_get_functiondef('public.create_duel(uuid, uuid, text, integer, text[])'::regprocedure),
   'if v_count >= 5 then\s+raise exception ''create_duel: слишком много активных дуэлей''\s+using errcode = ''MS429'', hint = ''active_limit''',
   'create_duel: не больше 5 активных созданных, MS429 active_limit');
@@ -162,11 +186,29 @@ select matches(pg_get_functiondef('public.create_duel(uuid, uuid, text, integer,
   'if v_count >= 20 then\s+raise exception ''create_duel: больше 20 дуэлей за сутки''\s+using errcode = ''MS429'', hint = ''daily_limit''',
   'create_duel: не больше 20 в сутки, MS429 daily_limit');
 select matches(pg_get_functiondef('public.join_duel(uuid, text)'::regprocedure),
-  'where f\.user_id = v_uid and f\.at > pg_catalog\.now\(\) - interval ''1 hour''\;\s+if v_count >= 10 then\s+raise exception ''join_duel: слишком много неудачных попыток''\s+using errcode = ''MS429'', hint = ''join_attempts''',
-  'join_duel: не больше 10 неудачных попыток пользователя в час');
+  'v_hour_limit := case when v_young then 3 else 10 end;',
+  'join_duel: 3 неудачи в час для молодых аккаунтов, 10 для остальных');
 select matches(pg_get_functiondef('public.join_duel(uuid, text)'::regprocedure),
-  'where f\.at > pg_catalog\.now\(\) - interval ''1 hour''\;\s+if v_count >= 1000 then\s+raise exception ''join_duel: слишком много неудачных попыток''\s+using errcode = ''MS429'', hint = ''join_attempts''',
-  'join_duel: не больше 1000 неудачных попыток всех в час');
+  'if v_count >= v_hour_limit then\s+raise exception ''join_duel: слишком много неудачных попыток''\s+using errcode = ''MS429'', hint = ''join_attempts''',
+  'join_duel: лимит в час, MS429 join_attempts');
+select matches(pg_get_functiondef('public.join_duel(uuid, text)'::regprocedure),
+  'where f\.user_id = v_uid and f\.at > pg_catalog\.now\(\) - interval ''24 hours''\;\s+if v_count >= 30 then\s+raise exception ''join_duel: слишком много неудачных попыток''\s+using errcode = ''MS429'', hint = ''join_attempts''',
+  'join_duel: не больше 30 неудач в сутки на пользователя');
+select matches(pg_get_functiondef('public.join_duel(uuid, text)'::regprocedure),
+  'if v_young then\s+select pg_catalog\.count\(\*\) into v_count\s+from public\.duel_join_failures f\s+join auth\.users u on u\.id = f\.user_id\s+where f\.at > pg_catalog\.now\(\) - interval ''1 hour''\s+and u\.created_at > pg_catalog\.now\(\) - interval ''24 hours''\;\s+if v_count >= 1000 then',
+  'join_duel: общий потолок 1000 в час только для молодых и только по их неудачам');
+select matches(pg_get_functiondef('public.join_duel(uuid, text)'::regprocedure),
+  'u\.id = v_uid and u\.created_at > pg_catalog\.now\(\) - interval ''24 hours''',
+  'join_duel: молодой аккаунт — моложе 24 часов');
+select matches(pg_get_functiondef('public.join_duel(uuid, text)'::regprocedure),
+  'v_found := found and d\.status <> ''expired'' and d\.expires_at > pg_catalog\.now\(\);',
+  'join_duel: просрочка любого статуса и expired — not_found (S3, N2)');
+select matches(pg_get_functiondef('public.join_duel(uuid, text)'::regprocedure),
+  'if pg_catalog\.char_length\(coalesce\(p_code, ''''\)\) > 32 then\s+return pg_catalog\.jsonb_build_object\(''result'', ''not_found''\);',
+  'join_duel: слишком длинный код сразу not_found (N3)');
+select ok((select count(*) from regexp_matches(pg_get_functiondef('public.join_duel(uuid, text)'::regprocedure),
+            'delete from public\.duel_join_failures f where f\.at < pg_catalog\.now\(\) - interval ''1 day''', 'g')) = 2,
+  'join_duel: очистка неудач старше суток при записи новой (оба пути)');
 select matches(pg_get_functiondef('public.join_duel(uuid, text)'::regprocedure),
   'if v_count >= 10 then\s+raise exception ''join_duel: слишком много активных дуэлей''\s+using errcode = ''MS429'', hint = ''active_limit''',
   'join_duel: не больше 10 активных дуэлей участника');
@@ -484,55 +526,179 @@ reset role;
 select is((select status from public.duels where id = '00000000-0000-4000-8000-0000000000d2'), 'open',
   'чтение статус не меняет (просрочка вычисляется при чтении)');
 
--- ---------- перебор кода: лимит попыток ----------
+-- ---------- закрытые и просроченные дуэли: код как у несуществующей (S3, S5 б, N2) ----------
+-- Закрытая дуэль (stored expired) с будущим сроком; просроченная active; просроченная finished.
+insert into public.duels (id, code, deck_id, deck_version, question_ids, creator_id, status, expires_at)
+values ('00000000-0000-4000-8000-0000000004e1', 'STEXPD', 'infosec', 1, array['q.1','q.2','q.3','q.4','q.5'], 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'expired',
+        now() + interval '72 hours');
+insert into public.duels (id, code, deck_id, deck_version, question_ids, creator_id, opponent_id, status,
+  created_at, expires_at, joined_at)
+values ('00000000-0000-4000-8000-0000000004e2', 'ACTEXP', 'infosec', 1, array['q.1','q.2','q.3','q.4','q.5'], 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'active',
+        now() - interval '80 hours', now() - interval '8 hours', now() - interval '79 hours');
+insert into public.duels (id, code, deck_id, deck_version, question_ids, creator_id, opponent_id, status,
+  created_at, expires_at, joined_at, creator_done_at, opponent_done_at)
+values ('00000000-0000-4000-8000-0000000004e3', 'FNEXPD', 'infosec', 1, array['q.1','q.2','q.3','q.4','q.5'], 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'finished',
+        now() - interval '80 hours', now() - interval '8 hours', now() - interval '79 hours',
+        now() - interval '70 hours', now() - interval '60 hours');
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"dddddddd-dddd-4ddd-8ddd-dddddddddddd","role":"authenticated"}', true);
+select is(pg_temp.jd('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'STEXPD'), pg_temp.jd('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'ZZZZZX'),
+  'закрытая (expired) дуэль с будущим сроком неотличима от несуществующей');
+select is((pg_temp.jd('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'ACTEXP')) ->> 'result', 'not_found',
+  'просроченная active-дуэль для третьего: not_found, а не full (AC10.2, S5 б)');
+select is((pg_temp.jd('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'FNEXPD')) ->> 'result', 'not_found',
+  'просроченная finished-дуэль для третьего: not_found, история не перечисляется (N2)');
+reset role;
+select is((select opponent_id from public.duels where id = '00000000-0000-4000-8000-0000000004e1'), null,
+  'в закрытую дуэль войти нельзя: соперник не назначен, статус не ожил');
+select is((select status from public.duels where id = '00000000-0000-4000-8000-0000000004e1'), 'expired',
+  'закрытая дуэль осталась expired');
+select is(pg_temp.err($$ insert into public.duel_answers (duel_id, user_id, question_id, answer, is_correct, duration_ms)
+  values ('00000000-0000-4000-8000-0000000004e1', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'q.1', '{}', true, 1) $$),
+  'MS410:', 'в закрытую (expired) дуэль с будущим сроком ответ не принимается (S3)');
+select is(pg_temp.err($$ insert into public.duel_answers (duel_id, user_id, question_id, answer, is_correct, duration_ms)
+  values ('00000000-0000-4000-8000-0000000004e3', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'q.1', '{}', true, 1) $$),
+  'MS410:', 'в завершённую дуэль ответ не принимается');
+
+-- ---------- перебор кода: лимиты попыток (S2) ----------
 set local role authenticated;
 select set_config('request.jwt.claims',
   '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}', true);
 select is((select count(*) from (select pg_temp.jd('11111111-1111-4111-8111-111111111111', 'ZZZZZ' || substr('BCDEFGHJKM', i, 1)) from generate_series(1, 10) i) t),
-  10::bigint, '10 неудачных попыток разрешены');
+  10::bigint, 'старый аккаунт: 10 неудачных попыток разрешены');
 select is(pg_temp.fails('11111111-1111-4111-8111-111111111111'), 10::bigint, 'все 10 записаны');
 select is(pg_temp.err($$ select pg_temp.jd('11111111-1111-4111-8111-111111111111', 'ZZZZZA') $$),
   'MS429:join_attempts', '11-я попытка: MS429 join_attempts');
 select is(pg_temp.err($$ select pg_temp.jd('11111111-1111-4111-8111-111111111111', 'EXPRDK') $$),
   'MS429:join_attempts', 'после лимита и верный по виду код не проверяется (перебор не помогает)');
-select is(pg_temp.fails('11111111-1111-4111-8111-111111111111'), 10::bigint,
-  'отказ по лимиту новых записей не добавляет');
--- Другой пользователь не затронут.
+select is(pg_temp.fails('11111111-1111-4111-8111-111111111111'), 10::bigint, 'отказ по лимиту новых записей не добавляет');
+set local role authenticated;
 select set_config('request.jwt.claims',
   '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}', true);
-select is((pg_temp.jd('22222222-2222-4222-8222-222222222222', 'ZZZZZA')) ->> 'result', 'not_found',
-  'лимит одного пользователя другого не блокирует');
+select is((pg_temp.jd('22222222-2222-4222-8222-222222222222', 'ZZZZZA')) ->> 'result', 'not_found', 'лимит одного пользователя другого не блокирует');
 reset role;
 -- Окно скользящее: через час попытки снова доступны.
-update public.duel_join_failures set at = now() - interval '61 minutes'
- where user_id = '11111111-1111-4111-8111-111111111111';
+update public.duel_join_failures set at = now() - interval '61 minutes' where user_id = '11111111-1111-4111-8111-111111111111';
 set local role authenticated;
 select set_config('request.jwt.claims',
   '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}', true);
-select is((pg_temp.jd('11111111-1111-4111-8111-111111111111', 'ZZZZZA')) ->> 'result', 'not_found',
-  'через час лимит попыток обнуляется');
+select is((pg_temp.jd('11111111-1111-4111-8111-111111111111', 'ZZZZZA')) ->> 'result', 'not_found', 'через час лимит попыток обнуляется');
 reset role;
--- Общий лимит: 1000 неудач всех пользователей за час блокируют вход всем.
+
+-- Молодой аккаунт (23 ч): 3 неудачи в час, четвёртая — MS429.
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"c0000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+select is((select count(*) from (select pg_temp.jd('c0000000-0000-4000-8000-000000000001', 'ZZZZZ' || substr('BCD', i, 1)) from generate_series(1, 3) i) t),
+  3::bigint, 'молодой аккаунт: 3 неудачные попытки разрешены');
+select is(pg_temp.err($$ select pg_temp.jd('c0000000-0000-4000-8000-000000000001', 'ZZZZZE') $$),
+  'MS429:join_attempts', 'молодой аккаунт: 4-я попытка в час — MS429');
+reset role;
+-- Граница возраста: аккаунту 25 ч положены 10 попыток, а не 3.
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"c0000000-0000-4000-8000-000000000004","role":"authenticated"}', true);
+select is((select count(*) from (select pg_temp.jd('c0000000-0000-4000-8000-000000000004', 'ZZZZZ' || substr('BCDEFGH', i, 1)) from generate_series(1, 7) i) t),
+  7::bigint, 'аккаунт 25 ч — уже не молодой: больше 3 попыток');
+reset role;
+
+-- Общий потолок молодых: 1000 неудач молодых за час блокируют молодых, но не остальных.
 insert into public.duel_join_failures (user_id, at)
-select '44444444-4444-4444-8444-444444444444', now() - interval '5 minutes' from generate_series(1, 1000);
+select 'c0000000-0000-4000-8000-000000000009', now() - interval '5 minutes' from generate_series(1, 1000);
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"c0000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
+select is(pg_temp.err($$ select pg_temp.jd('c0000000-0000-4000-8000-000000000002', 'ZZZZZA') $$),
+  'MS429:join_attempts', 'общий потолок молодых: другой молодой аккаунт заблокирован');
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"c0000000-0000-4000-8000-000000000005","role":"authenticated"}', true);
+select is((pg_temp.jd('c0000000-0000-4000-8000-000000000005', 'ZZZZZA')) ->> 'result', 'not_found',
+  'поток молодых не блокирует старые аккаунты');
+reset role;
+delete from public.duel_join_failures where user_id = 'c0000000-0000-4000-8000-000000000009';
+-- И наоборот: 1000 неудач старых аккаунтов не считаются в потолок молодых.
+insert into public.duel_join_failures (user_id, at)
+select 'c0000000-0000-4000-8000-000000000010', now() - interval '5 minutes' from generate_series(1, 1000);
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"c0000000-0000-4000-8000-000000000003","role":"authenticated"}', true);
+select is((pg_temp.jd('c0000000-0000-4000-8000-000000000003', 'ZZZZZA')) ->> 'result', 'not_found',
+  'неудачи старых аккаунтов не входят в потолок молодых');
+reset role;
+delete from public.duel_join_failures where user_id = 'c0000000-0000-4000-8000-000000000010';
+-- Неудачи молодых старше часа в потолок не входят.
+insert into public.duel_join_failures (user_id, at)
+select 'c0000000-0000-4000-8000-000000000009', now() - interval '61 minutes' from generate_series(1, 1000);
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"c0000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
+select is((pg_temp.jd('c0000000-0000-4000-8000-000000000002', 'ZZZZZA')) ->> 'result', 'not_found',
+  'потолок молодых скользит: неудачи старше часа не считаются');
+reset role;
+delete from public.duel_join_failures where user_id = 'c0000000-0000-4000-8000-000000000009';
+
+-- Суточный потолок: 30 неудач за сутки блокируют, даже если за час их нет.
+insert into public.duel_join_failures (user_id, at)
+select 'c0000000-0000-4000-8000-000000000006', now() - interval '5 hours' from generate_series(1, 30);
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"c0000000-0000-4000-8000-000000000006","role":"authenticated"}', true);
+select is(pg_temp.err($$ select pg_temp.jd('c0000000-0000-4000-8000-000000000006', 'ZZZZZA') $$),
+  'MS429:join_attempts', '30 неудач за сутки: MS429 при нуле за последний час');
+reset role;
+insert into public.duel_join_failures (user_id, at)
+select 'c0000000-0000-4000-8000-000000000007', now() - interval '5 hours' from generate_series(1, 29);
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"c0000000-0000-4000-8000-000000000007","role":"authenticated"}', true);
+select is((pg_temp.jd('c0000000-0000-4000-8000-000000000007', 'ZZZZZA')) ->> 'result', 'not_found',
+  '29 неудач за сутки: ещё можно');
+reset role;
+-- Неудачи старше суток в суточный потолок не входят.
+insert into public.duel_join_failures (user_id, at)
+select 'c0000000-0000-4000-8000-000000000008', now() - interval '25 hours' from generate_series(1, 30);
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"c0000000-0000-4000-8000-000000000008","role":"authenticated"}', true);
+select is((pg_temp.jd('c0000000-0000-4000-8000-000000000008', 'ZZZZZA')) ->> 'result', 'not_found',
+  'неудачи старше 24 часов в суточный потолок не входят');
+reset role;
+
+-- S5 (а): очистка не трогает свежие неудачи: 9 неудач 59 минут назад + новая =
+-- 10 в час, следующая попытка блокируется (путь not_found и путь full).
+insert into public.duel_join_failures (user_id, at)
+select '33333333-3333-4333-8333-333333333333', now() - interval '59 minutes' from generate_series(1, 9);
 set local role authenticated;
 select set_config('request.jwt.claims',
   '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}', true);
+select is((pg_temp.jd('33333333-3333-4333-8333-333333333333', 'ZZZZZA')) ->> 'result', 'not_found', 'путь not_found: десятая неудача записана');
+select is(pg_temp.fails('33333333-3333-4333-8333-333333333333'), 10::bigint, 'путь not_found: свежие неудачи (59 минут) очисткой не удалены');
 select is(pg_temp.err($$ select pg_temp.jd('33333333-3333-4333-8333-333333333333', 'ZZZZZA') $$),
-  'MS429:join_attempts', 'общий лимит 1000 неудач в час: MS429 join_attempts');
+  'MS429:join_attempts', 'путь not_found: 9 неудач 59 минут назад и одна новая = лимит часа');
 reset role;
-delete from public.duel_join_failures where user_id = '44444444-4444-4444-8444-444444444444';
--- Старые записи удаляются при записи новой неудачи.
+delete from public.duel_join_failures where user_id = '33333333-3333-4333-8333-333333333333';
 insert into public.duel_join_failures (user_id, at)
-values ('44444444-4444-4444-8444-444444444444', now() - interval '2 days');
+select 'c0000000-0000-4000-8000-000000000012', now() - interval '59 minutes' from generate_series(1, 9);
 set local role authenticated;
 select set_config('request.jwt.claims',
-  '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}', true);
-select is((pg_temp.jd('33333333-3333-4333-8333-333333333333', 'ZZZZZA')) ->> 'result', 'not_found',
-  'после снятия общего лимита вход работает');
+  '{"sub":"c0000000-0000-4000-8000-000000000012","role":"authenticated"}', true);
+select is((pg_temp.jd('c0000000-0000-4000-8000-000000000012', pg_temp.code('00000000-0000-4000-8000-0000000000d1'))) ->> 'result', 'full',
+  'путь full: десятая неудача записана');
+select is(pg_temp.fails('c0000000-0000-4000-8000-000000000012'), 10::bigint, 'путь full: свежие неудачи (59 минут) очисткой не удалены');
+select is(pg_temp.err($$ select pg_temp.jd('c0000000-0000-4000-8000-000000000012', pg_temp.code('00000000-0000-4000-8000-0000000000d1')) $$),
+  'MS429:join_attempts', 'путь full: лимит часа достигнут');
 reset role;
-select is((select count(*) from public.duel_join_failures where at < now() - interval '1 day'), 0::bigint,
-  'записи старше суток удалены');
+delete from public.duel_join_failures where user_id = 'c0000000-0000-4000-8000-000000000012';
+
+-- N3: слишком длинный код — not_found без записи неудачи и без разбора.
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"c0000000-0000-4000-8000-000000000011","role":"authenticated"}', true);
+select is((pg_temp.jd('c0000000-0000-4000-8000-000000000011', repeat('A', 100000))) ->> 'result', 'not_found', 'код из 100000 знаков: not_found');
+select is(pg_temp.fails('c0000000-0000-4000-8000-000000000011'), 0::bigint, 'слишком длинный код неудачей не считается');
+reset role;
 
 -- ---------- лимиты создания и участия ----------
 set local role authenticated;
@@ -580,6 +746,63 @@ reset role;
 select is((select opponent_id from public.duels where id = '00000000-0000-4000-8000-000000000399'), null,
   'при лимите участия соперник не назначен');
 
+-- S5 (в): просроченные open-дуэли не блокируют создание (считаются только живые).
+insert into public.duels (id, code, deck_id, deck_version, question_ids, creator_id, status, created_at, expires_at)
+select ('00000000-0000-4000-8000-0000000005' || lpad(i::text, 2, '0'))::uuid,
+       'QQQQ' || substr('ABCDEFGHJKMNPQRSTUVWXYZ23456789', i, 1) || 'C', 'infosec', 1, array['q.1','q.2','q.3','q.4','q.5'], 'c0000000-0000-4000-8000-000000000013', 'open',
+       now() - interval '80 hours', now() - interval '8 hours'
+  from generate_series(1, 5) i;
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"c0000000-0000-4000-8000-000000000013","role":"authenticated"}', true);
+select is((pg_temp.cd('c0000000-0000-4000-8000-000000000013', '00000000-0000-4000-8000-000000000599')) ->> 'status', 'open',
+  'пять просроченных open-дуэлей не занимают лимит активных (S5 в)');
+reset role;
+-- S5 (д): дневной лимит — UTC-сутки, а не скользящие 24 часа: 20 дуэлей за минуту до
+-- полуночи UTC (всегда в пределах 24 часов назад) сегодняшний лимит не занимают.
+insert into public.duels (id, code, deck_id, deck_version, question_ids, creator_id, status, created_at, expires_at)
+select ('00000000-0000-4000-8000-0000000006' || lpad(i::text, 2, '0'))::uuid,
+       'RRRR' || substr('ABCDEFGHJKMNPQRSTUVWXYZ23456789', i, 1) || 'D', 'infosec', 1, array['q.1','q.2','q.3','q.4','q.5'], 'c0000000-0000-4000-8000-000000000014', 'expired',
+       (date_trunc('day', now() at time zone 'utc') at time zone 'utc') - interval '1 minute',
+       (date_trunc('day', now() at time zone 'utc') at time zone 'utc') - interval '1 minute' + interval '72 hours'
+  from generate_series(1, 20) i;
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"c0000000-0000-4000-8000-000000000014","role":"authenticated"}', true);
+select is((pg_temp.cd('c0000000-0000-4000-8000-000000000014', '00000000-0000-4000-8000-000000000699')) ->> 'status', 'open',
+  '20 дуэлей до полуночи UTC не считаются в сегодняшний лимит (S5 д)');
+reset role;
+-- S5 (г): лимит участия считает обе роли: 5 как создатель и 5 как соперник.
+insert into public.duels (id, code, deck_id, deck_version, question_ids, creator_id, status, expires_at)
+select ('00000000-0000-4000-8000-0000000007' || lpad(i::text, 2, '0'))::uuid,
+       'PPPP' || substr('ABCDEFGHJKMNPQRSTUVWXYZ23456789', i, 1) || 'E', 'infosec', 1, array['q.1','q.2','q.3','q.4','q.5'], 'c0000000-0000-4000-8000-000000000015', 'open',
+       now() + interval '72 hours'
+  from generate_series(1, 5) i;
+insert into public.duels (id, code, deck_id, deck_version, question_ids, creator_id, opponent_id, status, expires_at, joined_at)
+select ('00000000-0000-4000-8000-0000000008' || lpad(i::text, 2, '0'))::uuid,
+       'PPPP' || substr('ABCDEFGHJKMNPQRSTUVWXYZ23456789', i, 1) || 'F', 'infosec', 1, array['q.1','q.2','q.3','q.4','q.5'], 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'c0000000-0000-4000-8000-000000000015', 'active',
+       now() + interval '72 hours', now()
+  from generate_series(1, 5) i;
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"c0000000-0000-4000-8000-000000000015","role":"authenticated"}', true);
+select is(pg_temp.err($$ select pg_temp.jd('c0000000-0000-4000-8000-000000000015', 'WWWWWW') $$),
+  'MS429:active_limit', '5 созданных и 5 как соперник = 10 активных: MS429 (S5 г)');
+reset role;
+-- S5 (е): my_duels отдаёт не больше 50 дуэлей.
+insert into public.duels (id, code, deck_id, deck_version, question_ids, creator_id, status, created_at, expires_at)
+select ('00000000-0000-4000-8000-0000000009' || lpad(i::text, 2, '0'))::uuid,
+       'SSSS' || substr('ABCDEFGHJKMNPQRSTUVWXYZ23456789', ((i - 1) / 31) + 1, 1) || substr('ABCDEFGHJKMNPQRSTUVWXYZ23456789', ((i - 1) % 31) + 1, 1),
+       'infosec', 1, array['q.1','q.2','q.3','q.4','q.5'], 'c0000000-0000-4000-8000-000000000016', 'expired',
+       now() - (i::text || ' minutes')::interval, now() - (i::text || ' minutes')::interval + interval '72 hours'
+  from generate_series(1, 55) i;
+select is((select count(*) from public.duels where creator_id = 'c0000000-0000-4000-8000-000000000016'), 55::bigint, 'у S 55 дуэлей');
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"c0000000-0000-4000-8000-000000000016","role":"authenticated"}', true);
+select is(jsonb_array_length(public.my_duels()), 50, 'my_duels: не больше 50 дуэлей (S5 е)');
+reset role;
+
 -- ---------- display_name: валидация (ревью T04) ----------
 set local role authenticated;
 select set_config('request.jwt.claims',
@@ -620,6 +843,199 @@ select throws_ok($$ update public.profiles set display_name = E'\u00a0' where id
   '23514', null, 'имя из одного NBSP отклоняется');
 reset role;
 
+-- S4: каждая категория скрытых и пустых символов отвергается прямым UPDATE профиля
+-- (как делает PostgREST): внутри имени и как единственный знак имени.
+create function pg_temp.name_accepted(n text) returns boolean language plpgsql as $$
+begin
+  update public.profiles set display_name = n where id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+  return true;
+exception when check_violation then
+  return false;
+end $$;
+grant execute on function pg_temp.name_accepted(text) to authenticated;
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","role":"authenticated"}', true);
+select is_empty(
+  $$ select v.label from (values
+  ('C0 01', 1),
+  ('C0 1f', 31),
+  ('DEL', 127),
+  ('C1 80', 128),
+  ('C1 85', 133),
+  ('C1 9f', 159),
+  ('SHY ad', 173),
+  ('CGJ 34f', 847),
+  ('arab 600', 1536),
+  ('arab 605', 1541),
+  ('ALM 61c', 1564),
+  ('arab 6dd', 1757),
+  ('syriac 70f', 1807),
+  ('arab 890', 2192),
+  ('arab 891', 2193),
+  ('arab 8e2', 2274),
+  ('hangul 115f', 4447),
+  ('hangul 1160', 4448),
+  ('ogham 1680', 5760),
+  ('khmer 17b4', 6068),
+  ('khmer 17b5', 6069),
+  ('mongol 180b', 6155),
+  ('mongol 180e', 6158),
+  ('mongol 180f', 6159),
+  ('space 2000', 8192),
+  ('space 2007', 8199),
+  ('space 200a', 8202),
+  ('zw 200b', 8203),
+  ('zwnj 200c', 8204),
+  ('zwj 200d', 8205),
+  ('lrm 200e', 8206),
+  ('rlm 200f', 8207),
+  ('LS 2028', 8232),
+  ('PS 2029', 8233),
+  ('bidi 202a', 8234),
+  ('bidi 202e', 8238),
+  ('nnbsp 202f', 8239),
+  ('mmsp 205f', 8287),
+  ('wj 2060', 8288),
+  ('isolate 2066', 8294),
+  ('isolate 2069', 8297),
+  ('2064', 8292),
+  ('206f', 8303),
+  ('braille 2800', 10240),
+  ('hangul 3164', 12644),
+  ('vs fe00', 65024),
+  ('vs fe0f', 65039),
+  ('bom feff', 65279),
+  ('hangul ffa0', 65440),
+  ('specials fff0', 65520),
+  ('fff9', 65529),
+  ('fffb', 65531),
+  ('fffc', 65532),
+  ('110bd', 69821),
+  ('110cd', 69837),
+  ('13430', 78896),
+  ('1343f', 78911),
+  ('1bca0', 113824),
+  ('1bca3', 113827),
+  ('1d173', 119155),
+  ('1d17a', 119162),
+  ('tag e0000', 917504),
+  ('tag e0041', 917569),
+  ('tag e007f', 917631),
+  ('e0fff', 921599)
+  ) v(label, cp) where pg_temp.name_accepted('Са' || chr(v.cp) || 'ша') $$,
+  'S4: ни одна запрещённая категория не принята внутри имени');
+select is_empty(
+  $$ select v.label from (values
+  ('C0 01', 1),
+  ('C0 1f', 31),
+  ('DEL', 127),
+  ('C1 80', 128),
+  ('C1 85', 133),
+  ('C1 9f', 159),
+  ('SHY ad', 173),
+  ('CGJ 34f', 847),
+  ('arab 600', 1536),
+  ('arab 605', 1541),
+  ('ALM 61c', 1564),
+  ('arab 6dd', 1757),
+  ('syriac 70f', 1807),
+  ('arab 890', 2192),
+  ('arab 891', 2193),
+  ('arab 8e2', 2274),
+  ('hangul 115f', 4447),
+  ('hangul 1160', 4448),
+  ('ogham 1680', 5760),
+  ('khmer 17b4', 6068),
+  ('khmer 17b5', 6069),
+  ('mongol 180b', 6155),
+  ('mongol 180e', 6158),
+  ('mongol 180f', 6159),
+  ('space 2000', 8192),
+  ('space 2007', 8199),
+  ('space 200a', 8202),
+  ('zw 200b', 8203),
+  ('zwnj 200c', 8204),
+  ('zwj 200d', 8205),
+  ('lrm 200e', 8206),
+  ('rlm 200f', 8207),
+  ('LS 2028', 8232),
+  ('PS 2029', 8233),
+  ('bidi 202a', 8234),
+  ('bidi 202e', 8238),
+  ('nnbsp 202f', 8239),
+  ('mmsp 205f', 8287),
+  ('wj 2060', 8288),
+  ('isolate 2066', 8294),
+  ('isolate 2069', 8297),
+  ('2064', 8292),
+  ('206f', 8303),
+  ('braille 2800', 10240),
+  ('hangul 3164', 12644),
+  ('vs fe00', 65024),
+  ('vs fe0f', 65039),
+  ('bom feff', 65279),
+  ('hangul ffa0', 65440),
+  ('specials fff0', 65520),
+  ('fff9', 65529),
+  ('fffb', 65531),
+  ('fffc', 65532),
+  ('110bd', 69821),
+  ('110cd', 69837),
+  ('13430', 78896),
+  ('1343f', 78911),
+  ('1bca0', 113824),
+  ('1bca3', 113827),
+  ('1d173', 119155),
+  ('1d17a', 119162),
+  ('tag e0000', 917504),
+  ('tag e0041', 917569),
+  ('tag e007f', 917631),
+  ('e0fff', 921599)
+  ) v(label, cp) where pg_temp.name_accepted(chr(v.cp)) $$,
+  'S4: имя из одного запрещённого знака не принято');
+select is_empty(
+  $$ select v.label from (values
+  ('301 x3', 769),
+  ('483 x3', 1155),
+  ('489 x3', 1161),
+  ('1ab0 x3', 6832),
+  ('1aff x3', 6911),
+  ('1dc0 x3', 7616),
+  ('1dff x3', 7679),
+  ('20d0 x3', 8400),
+  ('20ff x3', 8447),
+  ('fe20 x3', 65056),
+  ('fe2f x3', 65071),
+  ('36f x3', 879)
+  ) v(label, cp) where pg_temp.name_accepted('e' || repeat(chr(v.cp), 3)) $$,
+  'S4: три и больше подряд комбинирующих знаков (zalgo) не приняты');
+select ok(pg_temp.name_accepted('e' || chr(769) || chr(770)), 'S4: два комбинирующих знака допустимы');
+select is_empty(
+  $$ select v.name from (values
+  ('Саша'),
+  ('Саша Петров'),
+  ('Alice'),
+  ('Alice  Bob'),
+  ('José'),
+  ('Zoë'),
+  ('Анна-Мария'),
+  ('Ёлка'),
+  ('O''Neil'),
+  ('山田太郎'),
+  ('😀'),
+  ('👍🏽')
+  ) v(name) where not pg_temp.name_accepted(v.name) $$,
+  'S4: обычные имена, кириллица, CJK, эмодзи принимаются');
+select ok(pg_temp.name_accepted('Alice' || chr(160) || 'Bob')
+          and pg_temp.name_accepted('a' || chr(174) || 'b')
+          and pg_temp.name_accepted('a' || chr(8208) || 'b')
+          and pg_temp.name_accepted('a' || chr(8304) || 'b')
+          and pg_temp.name_accepted('a' || chr(65040) || 'b')
+          and pg_temp.name_accepted('a' || chr(12645) || 'b'),
+  'S4: знаки рядом с запрещёнными диапазонами (NBSP внутри, ®, дефис U+2010, U+2070, U+FE10, U+3165) допустимы');
+reset role;
+
 -- ---------- ответы: AC10.1 ----------
 -- Дуэль d1 (A создатель, B соперник, активна). Вопросы q.1..q.5.
 select is(pg_temp.err($$ insert into public.duel_answers (duel_id, user_id, question_id, answer, is_correct, duration_ms)
@@ -637,7 +1053,18 @@ select is(pg_temp.err($$ insert into public.duel_answers (duel_id, user_id, ques
 select is(pg_temp.err($$ insert into public.duel_answers (duel_id, user_id, question_id, answer, is_correct, duration_ms)
   values ('00000000-0000-4000-8000-0000000000d1', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'q.1',
           jsonb_build_object('x', repeat('я', 5000)), true, 1) $$),
-  '23514:', 'ответ больше 4 КБ отклоняется');
+  '23514:', 'ответ больше 512 байт отклоняется');
+select is(octet_length(jsonb_build_object('x', repeat('a', 503))::text), 512, 'ответ на границе: 503 знака дают ровно 512 байт JSON');
+select is(pg_temp.err($$ insert into public.duel_answers (duel_id, user_id, question_id, answer, is_correct, duration_ms)
+  values ('00000000-0000-4000-8000-0000000000d1', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'q.1',
+          jsonb_build_object('x', repeat('a', 504)), true, 1) $$),
+  '23514:', 'ответ в 513 байт отклоняется (кап 512)');
+insert into public.duels (id, code, deck_id, deck_version, question_ids, creator_id, expires_at)
+values ('00000000-0000-4000-8000-0000000004c1', 'CAPDUM', 'infosec', 1, array['q.1','q.2','q.3','q.4','q.5'], 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', now() + interval '72 hours');
+select lives_ok($$ insert into public.duel_answers (duel_id, user_id, question_id, answer, is_correct, duration_ms)
+  values ('00000000-0000-4000-8000-0000000004c1', 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'q.1',
+          jsonb_build_object('x', repeat('a', 503)), true, 1) $$,
+  'ответ ровно в 512 байт принимается');
 select is(pg_temp.err($$ insert into public.duel_answers (duel_id, user_id, question_id, answer, is_correct, duration_ms)
   values ('00000000-0000-4000-8000-0000000000d2', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'q.1', '{}', true, 1) $$),
   'MS410:', 'в просроченную дуэль ответ не принимается');
@@ -712,10 +1139,12 @@ reset role;
 set local role authenticated;
 select set_config('request.jwt.claims',
   '{"sub":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","role":"authenticated"}', true);
-select is(jsonb_array_length(public.my_duels()), 3, 'A: my_duels — d1, d2 (просрочена, но моложе 7 суток) и дуэль версии 2');
-select is((public.my_duels() -> 2 ->> 'status'), 'expired', 'my_duels: самая старая (просроченная) последняя');
-select is((select count(*) from jsonb_array_elements(public.my_duels()) e where e ->> 'status' = 'expired'), 1::bigint,
-  'my_duels: просроченная помечена expired');
+select is(jsonb_array_length(public.my_duels()), 6,
+  'A: my_duels — все свои дуэли, в том числе просроченные моложе 7 суток');
+select is((select count(*) from jsonb_array_elements(public.my_duels()) e where e ->> 'status' = 'expired'), 3::bigint,
+  'my_duels: просроченная open, просроченная active и закрытая помечены expired');
+select is((select count(*) from jsonb_array_elements(public.my_duels()) e where e ->> 'status' = 'finished'), 2::bigint,
+  'my_duels: завершённые остаются finished');
 select is((select e ->> 'other_name' from jsonb_array_elements(public.my_duels()) e
             where e ->> 'id' = '00000000-0000-4000-8000-0000000000d1'), 'Боб',
   'my_duels: имя соперника в своей дуэли');

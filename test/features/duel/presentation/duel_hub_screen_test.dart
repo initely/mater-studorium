@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mater_studorium/core/errors/app_error.dart';
 import 'package:mater_studorium/features/duel/domain/duel_status.dart';
+import 'package:mater_studorium/features/duel/presentation/isolate_name.dart';
 
 import '../../../helpers/fake_duel_repository.dart';
 import 'duel_pump.dart';
@@ -60,8 +61,11 @@ void main() {
     final router = await pumpDuelApp(tester, initial: '/duels', repo: repo);
     expect(find.text('Дуэль, ждём соперника'), findsNWidgets(2));
     expect(find.text('Ждём соперника · осталось 3 д'), findsOneWidget);
-    expect(find.text('Дуэль с Алиса'), findsOneWidget);
-    expect(find.text('Алиса в дуэли · осталось 3 д'), findsOneWidget);
+    expect(find.text('Дуэль с ${isolateName('Алиса')}'), findsOneWidget);
+    expect(
+      find.text('${isolateName('Алиса')} в дуэли · осталось 3 д'),
+      findsOneWidget,
+    );
     expect(find.text('Соперник без имени'), findsOneWidget);
     expect(find.text('Дуэль завершена'), findsOneWidget);
     // Просроченная по часам клиента: без срока.
@@ -71,6 +75,33 @@ void main() {
     await tester.pumpAndSettle();
     expect(router.state.uri.path, '/duels/b');
   });
+
+  testWidgets(
+    'длинное имя соперника: заголовок в одну строку с многоточием, имя в изоляции',
+    (tester) async {
+      final name = 'Я' * 64;
+      final repo = FakeDuelRepository(
+        mineResult: [
+          duelFixture(
+            id: 'long',
+            otherJoined: true,
+            otherName: name,
+            status: DuelStatus.active,
+          ),
+        ],
+      );
+      await pumpDuelApp(tester, initial: '/duels', repo: repo);
+      final title = tester.widget<Text>(
+        find.descendant(
+          of: find.byKey(const Key('duel-long')),
+          matching: find.text('Дуэль с ${isolateName(name)}'),
+        ),
+      );
+      expect(title.maxLines, 1);
+      expect(title.overflow, TextOverflow.ellipsis);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('ошибка загрузки списка: сообщение и повтор', (tester) async {
     final repo = FakeDuelRepository()..mineError = const NetworkError('x');

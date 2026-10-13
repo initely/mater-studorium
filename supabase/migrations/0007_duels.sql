@@ -17,32 +17,47 @@
 
 set lock_timeout = '5s';
 
--- ---------- profiles.display_name: валидация (ревью T04) ----------
--- Имя увидит соперник по дуэли, поэтому пустая строка, управляющие и bidi-
--- символы (подмена отображения, «невидимые» имена) запрещены на уровне БД.
--- Запрещены: C0 и DEL, C1 (U+0080–009F), U+061C, U+180E, U+200B–200F,
--- U+2028–202E (в том числе разделители строк и bidi-встраивания), U+2060–206F
--- (в том числе bidi-изоляты), U+FEFF, U+FFF9–FFFB.
--- Прежние значения, не проходящие проверку, обнуляются (имя нигде не
--- выставлялось до T22; обнулить безопаснее, чем отказаться применять миграцию).
+-- ---------- profiles.display_name: валидация (ревью T04, ревью T22 S4) ----------
+-- Имя увидит соперник по дуэли, поэтому пустая строка, управляющие, bidi и
+-- «невидимые» символы (подмена отображения, пустые имена) запрещены на уровне
+-- БД. Запрещены: C0, DEL и C1; мягкий перенос U+00AD; U+034F; арабские
+-- форматирующие U+0600–0605, U+061C, U+06DD, U+070F, U+0890–0891, U+08E2;
+-- Hangul filler U+115F, U+1160, U+3164, U+FFA0; U+1680; U+17B4–17B5;
+-- U+180B–180F; все пробелы и форматирующие U+2000–200F (в том числе ZWJ и
+-- ZWNJ), U+2028–202F, U+205F–206F; брайлевский пробел U+2800; вариационные
+-- селекторы U+FE00–FE0F; U+FEFF; U+FFF0–FFFC; U+110BD, U+110CD, U+13430–1343F,
+-- U+1BCA0–1BCA3, U+1D173–1D17A; теги U+E0000–E0FFF; три и больше подряд
+-- комбинирующих знаков (zalgo). Цена: составные эмодзи (ZWJ-последовательности)
+-- и эмодзи-представление U+FE0F в имени не пройдут; клиент вырезает те же
+-- символы, и имя сохранится без них (ADR-35).
+-- Проверка одна, в private.display_name_clean: её вызывают CHECK и очистка
+-- прежних значений (имя нигде не выставлялось до T22; обнулить безопаснее, чем
+-- отказаться применять миграцию). Клиентским ролям нужен execute: CHECK
+-- исполняется с правами менявшего профиль.
+create function private.display_name_clean(p_name text)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select p_name is null
+    or (
+      p_name <> ''
+      and p_name = pg_catalog.btrim(p_name, E' \t\r\n\u00a0\u3000')
+      and p_name !~ E'[\\x00-\\x1f\\x7f-\\u009f\\u00ad\\u034f\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u115f\\u1160\\u1680\\u17b4\\u17b5\\u180b-\\u180f\\u2000-\\u200f\\u2028-\\u202f\\u205f-\\u206f\\u2800\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffc\\U000110bd\\U000110cd\\U00013430-\\U0001343f\\U0001bca0-\\U0001bca3\\U0001d173-\\U0001d17a\\U000e0000-\\U000e0fff]'
+      and p_name !~ E'[\\u0300-\\u036f\\u0483-\\u0489\\u1ab0-\\u1aff\\u1dc0-\\u1dff\\u20d0-\\u20ff\\ufe20-\\ufe2f]{3,}'
+    )
+$$;
+
+revoke all on function private.display_name_clean(text) from public, anon, authenticated, service_role;
+grant execute on function private.display_name_clean(text) to authenticated, service_role;
+
 update public.profiles
    set display_name = null
- where display_name is not null
-   and (
-     btrim(display_name, E' \t\r\n\u00a0\u3000') <> display_name
-     or display_name = ''
-     or display_name ~ E'[\\x00-\\x1f\\x7f\\u0080-\\u009f\\u061c\\u180e\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\ufeff\\ufff9-\\ufffb]'
-   );
+ where not private.display_name_clean(display_name);
 
 alter table public.profiles
-  add constraint profiles_display_name_clean check (
-    display_name is null
-    or (
-      display_name <> ''
-      and display_name = btrim(display_name, E' \t\r\n\u00a0\u3000')
-      and display_name !~ E'[\\x00-\\x1f\\x7f\\u0080-\\u009f\\u061c\\u180e\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\ufeff\\ufff9-\\ufffb]'
-    )
-  );
+  add constraint profiles_display_name_clean check (private.display_name_clean(display_name));
 
 -- ---------- помощники ----------
 -- Набор вопросов дуэли: одномерный массив из ровно 5 разных id в формате
@@ -213,9 +228,10 @@ create table public.duel_answers (
   question_id text not null
     check (char_length(question_id) <= 128 and question_id ~ '^[a-z0-9]+([._-][a-z0-9]+)*$'),
   -- Ответ как выбрал клиент (для mcq: выбранные варианты); сервер его не
-  -- проверяет по колоде (ADR-35). Размер ограничен.
+  -- проверяет по колоде (ADR-35). Не больше 512 байт JSON: для mcq с запасом
+  -- хватает, а рост хранилища ограничен (ревью T22, S6).
   answer jsonb not null
-    check (jsonb_typeof(answer) in ('object', 'array') and octet_length(answer::text) <= 4096),
+    check (jsonb_typeof(answer) in ('object', 'array') and octet_length(answer::text) <= 512),
   -- Со слов клиента: верного ответа сервер не знает (ADR-35).
   is_correct boolean not null,
   duration_ms integer not null check (duration_ms between 0 and 86400000),
@@ -271,8 +287,10 @@ begin
   if not (new.question_id = any (d.question_ids)) then
     raise exception 'duel_answers: вопроса нет в наборе дуэли' using errcode = '23514';
   end if;
-  if d.expires_at <= pg_catalog.now() then
-    raise exception 'duel_answers: срок дуэли вышел' using errcode = 'MS410';
+  -- Ответы принимаются только в open и active до срока: дуэль со stored
+  -- status = expired или finished отвечать не даёт.
+  if d.status not in ('open', 'active') or d.expires_at <= pg_catalog.now() then
+    raise exception 'duel_answers: срок дуэли вышел или дуэль закрыта' using errcode = 'MS410';
   end if;
   return new;
 end;
@@ -304,9 +322,14 @@ create trigger duel_answers_no_update
 
 -- После вставки: когда участник ответил на все вопросы набора, ставится его
 -- *_done_at; когда ответили оба — status = finished. Строка duels берётся
--- FOR UPDATE: параллельные ответы двух участников идут по очереди и «оба
--- готовы» не теряется. Одним UPDATE: CHECK duels_shape видит согласованное
--- состояние.
+-- FOR NO KEY UPDATE: параллельные ответы двух участников идут по очереди и
+-- «оба готовы» не теряется. Именно NO KEY, а не FOR UPDATE: проверка внешнего
+-- ключа при INSERT в duel_answers уже взяла FOR KEY SHARE на эту строку, и
+-- повышение до FOR UPDATE у двух параллельных вставок давало взаимную
+-- блокировку (deadlock, ревью T22 S1); FOR NO KEY UPDATE с KEY SHARE совместим.
+-- Порядок блокировок во всех RPC дуэли: сначала advisory пользователя
+-- (`duels:<uid>`), затем строка дуэли. Одним UPDATE: CHECK duels_shape видит
+-- согласованное состояние.
 create function private.duel_answers_after_insert()
 returns trigger
 language plpgsql
@@ -319,7 +342,7 @@ declare
   v_creator_done timestamptz;
   v_opponent_done timestamptz;
 begin
-  select * into d from public.duels where id = new.duel_id for update;
+  select * into d from public.duels where id = new.duel_id for no key update;
   select pg_catalog.count(*) into v_count
     from public.duel_answers a
    where a.duel_id = new.duel_id and a.user_id = new.user_id;
@@ -528,17 +551,24 @@ $$;
 -- должны зафиксировать неудачную попытку: исключение откатило бы её запись.
 --   joined       — вошли (или уже были соперником: повтор идемпотентен);
 --   own_duel     — код своей дуэли, дуэль возвращается;
---   not_found    — кода нет, код просрочен или формат неверен: ответ один и
---                  тот же (нет оракула «код есть, но истёк»);
---   full         — соперник уже есть (код существует; считается неудачной
---                  попыткой, как и not_found).
--- Защита от перебора (ADR-35): не больше 10 неудачных попыток входа
--- пользователя за скользящий час и 1000 всех пользователей; сверх — MS429 с
--- hint join_attempts (одинаково для обоих лимитов). Неверный формат кода
--- ничего не раскрывает и неудачей не считается. Участие: не больше 10
--- активных дуэлей (MS429, active_limit).
--- Гонка двоих по одному коду: строка duels берётся FOR UPDATE, второй видит
--- opponent_id и получает full (tools/duel_join_race.sh).
+--   not_found    — кода нет, дуэль просрочена (любого статуса), закрыта
+--                  (status expired) или формат кода неверен: ответ один и тот
+--                  же (нет оракула «код есть, но истёк», AC10.2);
+--   full         — соперник уже есть (код существует и не просрочен;
+--                  считается неудачной попыткой, как и not_found).
+-- Защита от перебора (ADR-35, ревью T22 S2). Неудачные попытки пишутся в
+-- duel_join_failures и считаются: для обычных аккаунтов 10 в час, для
+-- «молодых» (auth.users.created_at моложе 24 ч, дёшево создаются пачкой) 3 в
+-- час; 30 в сутки для всех; общий потолок 1000 в час действует только для
+-- молодых аккаунтов и считает только их неудачи, поэтому пачка новых
+-- анонимов не может закрыть вход по коду обычным пользователям. Сверх
+-- любого лимита MS429 с hint join_attempts, верный по виду код уже не
+-- проверяется. Код неверного формата или длиннее 32 знаков ничего не
+-- раскрывает и неудачей не считается. Участие: не больше 10 активных дуэлей
+-- (MS429, active_limit).
+-- Гонка двоих по одному коду: строка duels берётся FOR NO KEY UPDATE (как в
+-- триггере ответов, см. S1), второй видит opponent_id и получает full
+-- (tools/duel_join_race.sh).
 create function public.join_duel(p_user_id uuid, p_code text)
 returns jsonb
 language plpgsql
@@ -552,6 +582,8 @@ declare
   d public.duels;
   v_count integer;
   v_found boolean;
+  v_young boolean;
+  v_hour_limit integer;
 begin
   if v_uid is null then
     raise exception 'join_duel: нужен вход' using errcode = '42501';
@@ -564,29 +596,50 @@ begin
     pg_catalog.hashtextextended('duels:' || v_uid::text, 0)
   );
 
+  v_young := exists (
+    select 1 from auth.users u
+     where u.id = v_uid and u.created_at > pg_catalog.now() - interval '24 hours'
+  );
+
+  v_hour_limit := case when v_young then 3 else 10 end;
   select pg_catalog.count(*) into v_count
     from public.duel_join_failures f
    where f.user_id = v_uid and f.at > pg_catalog.now() - interval '1 hour';
-  if v_count >= 10 then
+  if v_count >= v_hour_limit then
     raise exception 'join_duel: слишком много неудачных попыток'
       using errcode = 'MS429', hint = 'join_attempts';
   end if;
   select pg_catalog.count(*) into v_count
     from public.duel_join_failures f
-   where f.at > pg_catalog.now() - interval '1 hour';
-  if v_count >= 1000 then
+   where f.user_id = v_uid and f.at > pg_catalog.now() - interval '24 hours';
+  if v_count >= 30 then
     raise exception 'join_duel: слишком много неудачных попыток'
       using errcode = 'MS429', hint = 'join_attempts';
   end if;
+  if v_young then
+    select pg_catalog.count(*) into v_count
+      from public.duel_join_failures f
+      join auth.users u on u.id = f.user_id
+     where f.at > pg_catalog.now() - interval '1 hour'
+       and u.created_at > pg_catalog.now() - interval '24 hours';
+    if v_count >= 1000 then
+      raise exception 'join_duel: слишком много неудачных попыток'
+        using errcode = 'MS429', hint = 'join_attempts';
+    end if;
+  end if;
 
+  if pg_catalog.char_length(coalesce(p_code, '')) > 32 then
+    return pg_catalog.jsonb_build_object('result', 'not_found');
+  end if;
   v_code := pg_catalog.upper(pg_catalog.regexp_replace(coalesce(p_code, ''), '\s', '', 'g'));
   if v_code !~ '^[ABCDEFGHJKMNPQRSTUVWXYZ2-9]{6}$' then
     return pg_catalog.jsonb_build_object('result', 'not_found');
   end if;
 
-  select * into d from public.duels x where x.code = v_code for update;
-  -- Просроченная дуэль (open/active после срока) неотличима от несуществующей.
-  v_found := found and not (d.status in ('open', 'active') and d.expires_at <= pg_catalog.now());
+  select * into d from public.duels x where x.code = v_code for no key update;
+  -- Просроченная дуэль любого статуса и дуэль со stored status = expired
+  -- неотличимы от несуществующей.
+  v_found := found and d.status <> 'expired' and d.expires_at > pg_catalog.now();
   if not v_found then
     delete from public.duel_join_failures f where f.at < pg_catalog.now() - interval '1 day';
     insert into public.duel_join_failures (user_id) values (v_uid);
@@ -620,8 +673,8 @@ begin
    where x.id = d.id
      and x.opponent_id is null
    returning * into d;
-  -- Место уже занято (строка берётся FOR UPDATE, так что сюда не дойти; запасная
-  -- проверка на случай, если блокировку когда-нибудь уберут).
+  -- Место уже занято (строка берётся FOR NO KEY UPDATE, так что сюда не дойти;
+  -- запасная проверка на случай, если блокировку когда-нибудь уберут).
   if not found then
     insert into public.duel_join_failures (user_id) values (v_uid);
     return pg_catalog.jsonb_build_object('result', 'full');
@@ -699,3 +752,60 @@ grant execute on function public.create_duel(uuid, uuid, text, integer, text[]) 
 grant execute on function public.join_duel(uuid, text) to authenticated;
 grant execute on function public.get_duel(uuid) to authenticated;
 grant execute on function public.my_duels() to authenticated;
+
+-- ---------- чистка (ревью T22, S6) ----------
+-- Запускает вручную куратор (SQL editor в Dashboard или psql под postgres; pg_cron
+-- не нужен, README «Чистка дуэлей»):
+--   select * from private.purge_old_duels();                    -- пробный запуск
+--   select * from private.purge_old_duels(interval '30 days', false);
+-- Удаляет дуэли (и ответы каскадом), срок которых вышел больше p_min_age назад
+-- (по умолчанию 30 суток), и неудачные попытки входа старше суток. Минимум 7
+-- суток: защита от опечатки вроде `interval '0'`. Анонима с дуэлью чистка
+-- сиротских анонимов (0006) не удаляет, пока дуэль есть: сначала эта функция,
+-- потом purge_orphan_anonymous_users.
+create function private.purge_old_duels(
+  p_min_age interval default interval '30 days',
+  p_dry_run boolean default true
+)
+returns table (item text, affected bigint)
+language plpgsql
+security definer
+set search_path = ''
+set lock_timeout = '3s'
+as $$
+declare
+  v_duels bigint;
+  v_failures bigint;
+begin
+  if p_min_age is null or p_min_age < interval '7 days' then
+    raise exception 'p_min_age должен быть не меньше 7 дней' using errcode = '22023';
+  end if;
+  if p_dry_run is null then
+    raise exception 'p_dry_run не может быть null' using errcode = '22023';
+  end if;
+  if p_dry_run then
+    select pg_catalog.count(*) into v_duels
+      from public.duels d where d.expires_at < pg_catalog.now() - p_min_age;
+    select pg_catalog.count(*) into v_failures
+      from public.duel_join_failures f where f.at < pg_catalog.now() - interval '1 day';
+  else
+    with gone as (
+      delete from public.duels d
+       where d.expires_at < pg_catalog.now() - p_min_age
+      returning 1
+    )
+    select pg_catalog.count(*) into v_duels from gone;
+    with gone as (
+      delete from public.duel_join_failures f
+       where f.at < pg_catalog.now() - interval '1 day'
+      returning 1
+    )
+    select pg_catalog.count(*) into v_failures from gone;
+  end if;
+  return query values ('duels'::text, v_duels), ('duel_join_failures'::text, v_failures);
+end;
+$$;
+
+revoke all on function private.purge_old_duels(interval, boolean)
+  from public, anon, authenticated, service_role;
+grant execute on function private.purge_old_duels(interval, boolean) to service_role;

@@ -21,6 +21,65 @@ void main() {
       expect(normalizeDuelCode('k7q\n2mx'), 'K7Q2MX');
     });
 
+    test('похожие кириллические буквы заменяются латинскими (N4)', () {
+      // «К7Q2МХ»: К, М, Х — кириллица, как на русской раскладке.
+      final typed = String.fromCharCodes([
+        0x041A,
+        0x37,
+        0x51,
+        0x32,
+        0x041C,
+        0x0425,
+      ]);
+      expect(normalizeDuelCode(typed), 'K7Q2MX');
+      // Строчные, с пробелом посередине.
+      final lower = String.fromCharCodes([
+        0x043A,
+        0x37,
+        0x71,
+        0x20,
+        0x32,
+        0x043C,
+        0x0445,
+      ]);
+      expect(normalizeDuelCode(lower), 'K7Q2MX');
+      // Все десять пар заглавных и строчных.
+      const pairs = {
+        0x0410: 'A',
+        0x0412: 'B',
+        0x0415: 'E',
+        0x041A: 'K',
+        0x041C: 'M',
+        0x041D: 'H',
+        0x0420: 'P',
+        0x0421: 'C',
+        0x0422: 'T',
+        0x0425: 'X',
+      };
+      pairs.forEach((cyr, lat) {
+        expect(
+          normalizeDuelCode('${String.fromCharCode(cyr)}DCDEF'),
+          '${lat}DCDEF',
+          reason: 'заглавная $lat',
+        );
+        expect(
+          normalizeDuelCode('${String.fromCharCode(cyr + 0x20)}DCDEF'),
+          '${lat}DCDEF',
+          reason: 'строчная $lat',
+        );
+      });
+    });
+
+    test('кириллица без латинского двойника — null', () {
+      // «Ж» не похожа ни на одну букву алфавита кода.
+      expect(
+        normalizeDuelCode(
+          String.fromCharCodes([0x0416, 0x37, 0x51, 0x32, 0x4D, 0x58]),
+        ),
+        isNull,
+      );
+    });
+
     test('неверная длина — null', () {
       expect(normalizeDuelCode(''), isNull);
       expect(normalizeDuelCode('K7Q2M'), isNull);
@@ -32,7 +91,6 @@ void main() {
         expect(normalizeDuelCode(bad), isNull, reason: bad);
       }
       expect(normalizeDuelCode('K7Q2M!'), isNull);
-      expect(normalizeDuelCode('К7Q2MX'), isNull); // кириллическая К
     });
   });
 

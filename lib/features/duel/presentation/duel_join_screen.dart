@@ -64,7 +64,9 @@ class _DuelJoinScreenState extends ConsumerState<DuelJoinScreen> {
                       keyboardType: TextInputType.visiblePassword,
                       inputFormatters: [
                         FilteringTextInputFormatter.allow(
-                          RegExp('[A-Za-z0-9 ]'),
+                          // Кириллица допустима: на русской раскладке похожие буквы (К, М, Х...)
+                          // нормализуются в латиницу (normalizeDuelCode), ввод не теряется.
+                          RegExp('[A-Za-z0-9 А-Яа-яЁё]'),
                         ),
                         LengthLimitingTextInputFormatter(12),
                       ],
