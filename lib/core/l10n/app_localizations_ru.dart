@@ -574,6 +574,41 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get findErrorHintCode =>
+      'Нажмите на строку с ошибкой (не больше двух)';
+
+  @override
+  String get findErrorHintText =>
+      'Нажмите на утверждение с ошибкой (не больше двух)';
+
+  @override
+  String get findErrorCheck => 'Проверить';
+
+  @override
+  String findErrorLine(int number, String text) {
+    return 'Строка $number: $text';
+  }
+
+  @override
+  String findErrorLineSelected(int number, String text) {
+    return 'Строка $number: $text, выбрана';
+  }
+
+  @override
+  String get findErrorFound => 'Ошибка найдена';
+
+  @override
+  String get findErrorWrong => 'Здесь ошибки нет';
+
+  @override
+  String get findErrorMissed => 'Пропущенная ошибка';
+
+  @override
+  String findErrorExplanation(int number, String text) {
+    return 'Строка $number: $text';
+  }
+
+  @override
   String get flipShowAnswer => 'Показать ответ';
 
   @override
