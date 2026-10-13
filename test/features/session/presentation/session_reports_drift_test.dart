@@ -17,6 +17,9 @@ import 'package:mater_studorium/core/utils/uuid.dart';
 import 'package:mater_studorium/features/catalog/domain/deck.dart';
 import 'package:mater_studorium/features/grading/data/grading_providers.dart';
 import 'package:mater_studorium/features/grading/domain/open_grade.dart';
+import 'package:mater_studorium/features/questions/flip/flip_module.dart';
+import 'package:mater_studorium/features/questions/mcq/mcq_module.dart';
+import 'package:mater_studorium/features/questions/open/open_module.dart';
 import 'package:mater_studorium/features/session/data/session_providers.dart';
 import 'package:mater_studorium/features/session/presentation/session_screen.dart';
 import 'package:mater_studorium/features/speech/data/speech_providers.dart';
@@ -26,6 +29,7 @@ import '../../../helpers/db_fixtures.dart';
 import '../../../helpers/deck_fixtures.dart';
 import '../../../helpers/fake_open_services.dart';
 import '../../../helpers/pump_app.dart';
+import '../../../helpers/sample_formats.dart';
 import '../../../helpers/session_db_fixtures.dart';
 import '../../../helpers/unmount_app.dart';
 
@@ -75,6 +79,7 @@ Future<void> _pump(
       ),
       if (grading != null) gradingRepositoryProvider.overrideWithValue(grading),
       speechServiceProvider.overrideWithValue(FakeSpeechService()),
+      ...registryOverrides(const [McqModule(), FlipModule(), OpenModule()]),
     ],
   );
   await tester.pumpAndSettle();

@@ -12,6 +12,9 @@ import 'package:mater_studorium/features/catalog/domain/payload_parts.dart';
 import 'package:mater_studorium/features/catalog/domain/question.dart';
 import 'package:mater_studorium/features/catalog/domain/question_payload.dart';
 import 'package:mater_studorium/features/catalog/domain/question_type.dart';
+import 'package:mater_studorium/features/questions/flip/flip_module.dart';
+import 'package:mater_studorium/features/questions/mcq/mcq_module.dart';
+import 'package:mater_studorium/features/questions/open/open_module.dart';
 import 'package:mater_studorium/features/questions/registry.dart';
 import 'package:mater_studorium/features/reports/domain/report.dart';
 import 'package:mater_studorium/features/session/data/session_providers.dart';
@@ -25,6 +28,7 @@ import 'package:mater_studorium/features/srs/domain/rating.dart';
 
 import '../../../helpers/fake_session_repository.dart';
 import '../../../helpers/pump_app.dart';
+import '../../../helpers/sample_formats.dart';
 
 final _t0 = DateTime.utc(2026, 10, 11, 12);
 
@@ -504,7 +508,17 @@ void main() {
             _item('i1', _mcq('q1')),
           ],
         );
-        await _pump(tester, repo, _MutableClock());
+        await _pump(
+          tester,
+          repo,
+          _MutableClock(),
+          // Реестр без cloze, как до T27: тип не поддержан и знание пропущено.
+          overrides: registryOverrides(const [
+            McqModule(),
+            FlipModule(),
+            OpenModule(),
+          ]),
+        );
         expect(find.text('Вопрос 1 из 1'), findsOneWidget);
         expect(find.text('Вопрос q1'), findsOneWidget);
       },
