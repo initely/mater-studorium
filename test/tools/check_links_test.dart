@@ -263,7 +263,7 @@ void main() {
   group('нормализация', () {
     test('регистр, пробелы, кавычки, тире, ё, мягкий перенос', () {
       expect(
-        normalizeText('  It’s  “Quoted”\n\t— «Ёлка» con­tent x '),
+        normalizeText('  It’s  “Quoted”\n\t— «Ёлка» con\u00ADtent x '),
         'it\'s "quoted" - "елка" content x',
       );
     });
