@@ -46,6 +46,14 @@ deno test supabase/functions
 dart run tools/validate_deck.dart content/decks/<deck>.json [--release]
 ```
 
+## Состояние и окружения
+- Что сделано, что в работе, очередь: `TASKS.md` (читать первым делом), карточки: `docs/tasks/`, решения: `docs/TZ.md` §14, дела пользователя: `docs/USER_TODO.md`.
+- Версии инструментов фиксированы (`.github/workflows/ci.yml`): Flutter 3.47.2, Deno 2.9.7, Supabase CLI 2.120.0; проверка согласованности: `bash tools/cloud/check_versions.sh`.
+- `dart` только из Flutter SDK (другая версия ломает форматирование и инструменты). Перед завершением задачи: `make check`, `python3 -I tools/check_invisible_chars.py`; для БД: `supabase test db`, `supabase db lint --fail-on error`; для функций: `deno test supabase/functions`.
+- Локальный Supabase один на проект (одни порты): не запускать два агента с ним одновременно; вывод `supabase start` не скрывать; `supabase stop` в конце. `pkill -f` с шаблоном из собственной команды убивает свою оболочку.
+- Облачные сессии (claude.ai/code): окружение ставит `tools/cloud/setup.sh`, хук `.claude/settings.json` → `tools/cloud/session-start.sh` выполняет `flutter pub get` и поднимает docker. Подробно: `docs/CLOUD.md`. Android SDK в облаке нет (APK собирается локально), деплой в облачные проекты (Supabase, Firebase) и `git push` делаются только по прямой просьбе пользователя.
+- Невидимые и bidi-символы в исходниках запрещены (только escape-последовательности `\uXXXX`); проверка в CI: `tools/check_invisible_chars.py`. Инструмент записи файлов превращает одиночные `\uXXXX` в реальные символы: для таких случаев писать с двойным обратным слэшем и проверять сканером.
+
 ## Соглашения
 - Все строки UI только через ARB (`lib/core/l10n/app_ru.arb`). Никакого захардкоженного текста в виджетах.
 - Время — только через `clockProvider`. `DateTime.now()` в коде запрещён (кроме самого провайдера). Время хранится в UTC.

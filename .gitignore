@@ -61,3 +61,24 @@ supabase/.temp
 # Отчёты верификации колод (content/PIPELINE.md, шаг 4)
 content/reports/
 .cc-history/
+
+# Ключи, сертификаты и сервисные аккаунты (никогда не коммитить)
+*.jks
+*.keystore
+*.pem
+*.p12
+*.pfx
+*.key
+android/key.properties
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+**/service-account*.json
+**/*-firebase-adminsdk-*.json
+supabase/.env
+supabase/.env.*
+!supabase/.env.example
+.env.openrouter
+
+# Локальные служебные файлы Claude Code (settings.json с хуком облака отслеживается)
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
