@@ -6,6 +6,7 @@ import 'package:mater_studorium/features/duel/presentation/isolate_name.dart';
 
 import '../../../helpers/fake_catalog_repository.dart';
 import '../../../helpers/fake_duel_repository.dart';
+import '../../../helpers/unmount_app.dart';
 import 'duel_pump.dart';
 
 Finder _key(String key) => find.byKey(Key(key));
@@ -256,5 +257,42 @@ void main() {
       await tester.pumpAndSettle();
       expect(_key('duel-deck-missing'), findsNothing);
     });
+  });
+
+  testWidgets('опрос раз в 30 с стоит в фоне и возобновляется после возврата', (
+    tester,
+  ) async {
+    final repo = FakeDuelRepository()..getResult = duelFixture();
+    await pumpDuelApp(
+      tester,
+      initial: '/duels/duel-1',
+      repo: repo,
+      catalog: FakeCatalogRepository(
+        local: [localDeck('fixture-good', version: 2)],
+      ),
+      pollInterval: const Duration(seconds: 30),
+    );
+    final base = repo.getCalls;
+
+    await tester.pump(const Duration(seconds: 30));
+    expect(repo.getCalls, base + 1);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump(const Duration(seconds: 120));
+    expect(repo.getCalls, base + 1, reason: 'в фоне опроса нет');
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    final afterResume = repo.getCalls;
+    expect(afterResume, base + 2, reason: 'возврат обновляет сразу');
+
+    await tester.pump(const Duration(seconds: 30));
+    expect(repo.getCalls, afterResume + 1, reason: 'опрос возобновился');
+
+    await tester.unmountApp();
   });
 }

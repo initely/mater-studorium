@@ -44,22 +44,39 @@ class _DuelScreenState extends ConsumerState<DuelScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _startPoll();
+  }
+
+  void _startPoll() {
     final interval = ref.read(duelPollIntervalProvider);
-    if (interval != null) {
-      _poll = Timer.periodic(interval, (_) => _pollTick());
-    }
+    if (interval == null || _poll != null) return;
+    _poll = Timer.periodic(interval, (_) => _pollTick());
+  }
+
+  void _stopPoll() {
+    _poll?.cancel();
+    _poll = null;
   }
 
   @override
   void dispose() {
-    _poll?.cancel();
+    _stopPoll();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) unawaited(_refresh());
+    switch (state) {
+      // В фоне опрос не идёт (батарея, трафик); после возврата сразу обновляем.
+      case AppLifecycleState.paused || AppLifecycleState.hidden:
+        _stopPoll();
+      case AppLifecycleState.resumed:
+        _startPoll();
+        unawaited(_refresh());
+      case AppLifecycleState.inactive || AppLifecycleState.detached:
+        break;
+    }
   }
 
   /// Опрос только пока дуэль не закончена и не истекла: у завершённой
