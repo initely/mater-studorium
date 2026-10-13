@@ -10,7 +10,8 @@ import 'duel_answer.dart';
 abstract interface class DuelAnswerQueue {
   /// Ставит ответ в очередь. `false`, если ответ на этот вопрос этой дуэли
   /// уже стоит в очереди (повторный ответ не принимается и локально). Ошибка
-  /// хранилища — `LocalStorageError`, ничего не записано.
+  /// хранилища — `LocalStorageError`, ответ, не проходящий ограничения сервера
+  /// (`isValidDuelAnswerPayload`), — `InvalidDuelAnswerError`; ничего не записано.
   Future<bool> enqueue(DuelAnswerPayload answer);
 
   /// Вопросы дуэли [duelId], ответы на которые стоят в очереди и ещё не ушли

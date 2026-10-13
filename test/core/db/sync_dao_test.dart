@@ -1,8 +1,8 @@
 // SyncDao: записи синхронизации не выходят за пределы своего user_id, курсор
 // pull не уменьшается.
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mater_studorium/core/sync/outbox_entry.dart';
 import 'package:mater_studorium/core/sync/domain/sync_store.dart';
+import 'package:mater_studorium/core/sync/outbox_entry.dart';
 
 import '../../helpers/db_fixtures.dart';
 import '../../helpers/sync_fixtures.dart';

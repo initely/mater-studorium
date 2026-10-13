@@ -29,6 +29,7 @@ void main() {
       DuelLimitError() => 'duel_limit',
       DuelNotEnoughQuestionsError() => 'duel_not_enough',
       DuelClosedError() => 'duel_closed',
+      InvalidDuelAnswerError() => 'invalid_duel_answer',
       UnexpectedError() => 'unexpected',
     };
     expect(label, 'network');

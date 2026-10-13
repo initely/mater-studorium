@@ -230,7 +230,10 @@ class DuelPlayController extends Notifier<DuelPlayState> {
   /// «Сыграть без них»: недоступные вопросы засчитываются неверными (ответ
   /// `{"skipped": true}`, время 0), остальные играются как обычно (ADR-36).
   Future<void> playWithoutUnavailable() async {
-    if (state.phase != DuelPlayPhase.blocked || _busy) return;
+    // Колоды нет: недоступно всё, пропускать нечего (сперва докачка).
+    if (state.phase != DuelPlayPhase.blocked || state.deckMissing || _busy) {
+      return;
+    }
     _busy = true;
     try {
       final queue = ref.read(duelAnswerQueueProvider);
@@ -284,8 +287,17 @@ class DuelPlayController extends Notifier<DuelPlayState> {
   Future<void> retrySave() => _save();
 
   Future<void> _save() async {
-    final payload = _unsaved;
+    var payload = _unsaved;
     if (payload == null || _busy) return;
+    // Ответ, который сервер не примёт, в очередь не идёт (иначе вопрос навсегда
+    // остался бы неотвеченным): вместо него засчитывается пропуск.
+    if (!isValidDuelAnswerPayload(payload)) {
+      payload = DuelAnswerPayload.skipped(
+        duelId: duelId,
+        questionId: payload.questionId,
+      );
+      _unsaved = payload;
+    }
     _busy = true;
     try {
       // `false` — такой ответ уже стоит в очереди: для игры это то же самое.
@@ -297,6 +309,18 @@ class DuelPlayController extends Notifier<DuelPlayState> {
         currentAnswered: true,
         saveFailed: false,
       );
+    } on InvalidDuelAnswerError catch (e) {
+      // Повтор не поможет: вопрос закрывается локально, ошибка остаётся в
+      // состоянии.
+      _unsaved = null;
+      if (ref.mounted) {
+        state = state.copyWith(
+          answered: {...state.answered, payload.questionId},
+          currentAnswered: true,
+          saveFailed: false,
+          error: e,
+        );
+      }
     } on AppError {
       if (ref.mounted) state = state.copyWith(saveFailed: true);
     } finally {

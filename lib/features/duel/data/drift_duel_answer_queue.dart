@@ -5,6 +5,7 @@ import '../../../core/errors/app_error.dart';
 import '../../../core/sync/outbox_entry.dart';
 import '../domain/duel_answer.dart';
 import '../domain/duel_answer_queue.dart';
+import '../domain/duel_answer_validator.dart';
 
 /// [DuelAnswerQueue] поверх outbox в drift. Проверка «уже в очереди» и вставка
 /// идут одной транзакцией. Ошибки drift превращаются в [LocalStorageError].
@@ -27,6 +28,12 @@ class DriftDuelAnswerQueue implements DuelAnswerQueue {
 
   @override
   Future<bool> enqueue(DuelAnswerPayload answer) async {
+    if (!isValidDuelAnswerPayload(answer)) {
+      throw InvalidDuelAnswerError(
+        'ответ дуэли ${answer.duelId}/${answer.questionId} не проходит '
+        'ограничения сервера',
+      );
+    }
     final bool queued;
     try {
       final userId = _userId();

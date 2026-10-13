@@ -117,6 +117,46 @@ void main() {
     expect(queue.queued.last.durationMs, 86400000);
   });
 
+  test('невалидный ответ (больше 512 байт) заменяется пропуском и не '
+      'зацикливает вопрос', () async {
+    await ctl().load();
+    await answer(
+      QuestionResult(
+        outcome: AnswerOutcome.autoCorrect,
+        answer: {'selected': List.filled(100, 'option-aaaaaaaa')},
+      ),
+    );
+    expect(queue.queued.single.answer, {'skipped': true});
+    expect(queue.queued.single.isCorrect, isFalse);
+    expect(st().currentAnswered, isTrue);
+    expect(st().saveFailed, isFalse);
+    ctl().next();
+    expect(st().index, 1);
+  });
+
+  test('очередь отвергла ответ как невалидный: вопрос считается отвеченным, '
+      'сохранение не зацикливается', () async {
+    await ctl().load();
+    queue.enqueueError = const InvalidDuelAnswerError('x');
+    await answer(_right());
+    expect(st().currentAnswered, isTrue);
+    expect(st().saveFailed, isFalse);
+    expect(st().error, isA<InvalidDuelAnswerError>());
+  });
+
+  test('колоды нет на устройстве: «сыграть без них» ничего не делает и '
+      'не завершает игру', () async {
+    content.content = null;
+    await ctl().load();
+    expect(st().phase, DuelPlayPhase.blocked);
+    expect(st().deckMissing, isTrue);
+
+    await ctl().playWithoutUnavailable();
+
+    expect(st().phase, DuelPlayPhase.blocked);
+    expect(queue.queued, isEmpty);
+  });
+
   test('повторный ответ на тот же вопрос игнорируется', () async {
     await ctl().load();
     await answer(_right());

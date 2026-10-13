@@ -96,5 +96,6 @@ String deckErrorText(AppLocalizations l10n, AppError error) => switch (error) {
   DuelLimitError() ||
   DuelNotEnoughQuestionsError() ||
   DuelClosedError() ||
+  InvalidDuelAnswerError() ||
   LocalStorageError() => l10n.decksErrorGeneric,
 };
