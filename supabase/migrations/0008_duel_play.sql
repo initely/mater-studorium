@@ -8,11 +8,23 @@
 -- здесь только точка входа, которая берёт блокировки в одном порядке с
 -- остальными RPC дуэли и делает повтор безвредным.
 --
--- Чтение результата отдельной RPC не требует: политика duel_answers уже
--- отдаёт свои ответы всегда, а ответы соперника только тому, кто сам ответил
--- на все вопросы (его *_done_at). Клиент читает таблицу обычным SELECT.
+-- Чтение результата отдельной RPC не требует: клиент читает duel_answers
+-- обычным SELECT. Политику чтения (AC10.1, ревью T23 N1) эта миграция
+-- ужесточает: свои ответы всегда, ответы соперника только когда дуэль
+-- finished (оба закончили); раньше хватало собственного *_done_at.
 
 set lock_timeout = '5s';
+
+alter policy duel_answers_select on public.duel_answers
+  using (
+    user_id = (select auth.uid())
+    or exists (
+      select 1 from public.duels d
+       where d.id = duel_answers.duel_id
+         and d.status = 'finished'
+         and (d.creator_id = (select auth.uid()) or d.opponent_id = (select auth.uid()))
+    )
+  );
 
 -- submit_duel_answer
 -- * пишет ответ auth.uid(); p_user_id — утверждение клиента «это я», при другой
@@ -69,6 +81,12 @@ begin
   if p_duel_id is null or p_question_id is null or p_answer is null
      or p_is_correct is null or p_duration_ms is null then
     raise exception 'submit_duel_answer: все аргументы обязательны' using errcode = '22023';
+  end if;
+
+  -- Дешёвая проверка размера до любых блокировок (ревью T23 N6): тот же отказ,
+  -- что дал бы CHECK таблицы (23514), но без ожидания advisory и строки дуэли.
+  if pg_catalog.octet_length(p_answer::text) > 512 then
+    raise exception 'submit_duel_answer: ответ длиннее 512 байт' using errcode = '23514';
   end if;
 
   perform pg_catalog.pg_advisory_xact_lock(

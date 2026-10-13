@@ -13,7 +13,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(103);
+select plan(104);
 
 insert into auth.users (id, aud, role, email, is_anonymous, created_at)
 values
@@ -114,6 +114,11 @@ select ok(
   and position('pg_advisory_xact_lock' in pg_get_functiondef('public.submit_duel_answer(uuid, uuid, text, jsonb, boolean, integer)'::regprocedure))
     < position('for no key update' in pg_get_functiondef('public.submit_duel_answer(uuid, uuid, text, jsonb, boolean, integer)'::regprocedure)),
   'тело: порядок блокировок: advisory пользователя, затем строка дуэли');
+select ok(
+  position('octet_length(p_answer::text) > 512' in pg_get_functiondef('public.submit_duel_answer(uuid, uuid, text, jsonb, boolean, integer)'::regprocedure)) > 0
+  and position('octet_length(p_answer::text) > 512' in pg_get_functiondef('public.submit_duel_answer(uuid, uuid, text, jsonb, boolean, integer)'::regprocedure))
+    < position('pg_advisory_xact_lock' in pg_get_functiondef('public.submit_duel_answer(uuid, uuid, text, jsonb, boolean, integer)'::regprocedure)),
+  'тело: размер ответа проверяется до advisory-блокировки (N6)');
 select matches(pg_get_functiondef('public.submit_duel_answer(uuid, uuid, text, jsonb, boolean, integer)'::regprocedure),
   E'hashtextextended\\(''duels:'' \\|\\| v_uid::text, 0\\)',
   'тело: advisory-ключ тот же, что у create_duel и join_duel (duels:<uid>)');
@@ -188,10 +193,10 @@ select is(pg_temp.errm($$ select pg_temp.sub('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa
   'ответ — число: 23514');
 select is(octet_length(jsonb_build_object('x', repeat('a', 503))::text), 512, 'граница: 503 знака дают ровно 512 байт JSON');
 select is(pg_temp.errm($$ select pg_temp.sub('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '00000000-0000-4000-8000-0000000000d5', 'q.1', jsonb_build_object('x', repeat('a', 504))) $$),
-  '23514|new row for relation "duel_answers" violates check constraint "duel_answers_answer_check"',
+  '23514|submit_duel_answer: ответ длиннее 512 байт',
   'ответ в 513 байт отклоняется (кап 512)');
 select is(pg_temp.errm($$ select pg_temp.sub('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '00000000-0000-4000-8000-0000000000d5', 'q.1', jsonb_build_object('x', repeat('я', 300))) $$),
-  '23514|new row for relation "duel_answers" violates check constraint "duel_answers_answer_check"',
+  '23514|submit_duel_answer: ответ длиннее 512 байт',
   'кап считается в байтах, а не в знаках: 300 русских букв = 600 байт');
 select is(pg_temp.errm($$ select pg_temp.sub('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '00000000-0000-4000-8000-0000000000d5', 'q.1', '{}', true, -1) $$),
   '23514|new row for relation "duel_answers" violates check constraint "duel_answers_duration_ms_check"',
@@ -270,7 +275,7 @@ select is((select count(*) from public.duel_answers where duel_id = '00000000-00
 select is(pg_temp.n('00000000-0000-4000-8000-0000000000d1', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'), 5::bigint, 'у B на самом деле 5 ответов');
 select set_config('request.jwt.claims', '{"sub":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","role":"authenticated"}', true);
 select is((select count(*) from public.duel_answers where duel_id = '00000000-0000-4000-8000-0000000000d1' and user_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
-  3::bigint, 'AC10.1: B закончил и видит ответы A');
+  0::bigint, 'AC10.1: B закончил, но дуэль не finished: ответов A не видит');
 -- Не участник: ничего.
 select set_config('request.jwt.claims', '{"sub":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","role":"authenticated"}', true);
 select is((select count(*) from public.duel_answers), 0::bigint, 'не участник не видит ответов');
