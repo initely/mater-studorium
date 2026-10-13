@@ -1,0 +1,44 @@
+name: APK preview
+
+# Debug-APK как артефакт для веток claude/*: ставится на телефон для просмотра.
+# Без секретов и без бэкенда (облачных проектов пока нет): приложение стартует офлайн.
+on:
+  push:
+    branches: ["claude/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Новый пуш в ту же ветку отменяет устаревшую сборку.
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
+# Версия Flutter та же, что в ci.yml (держать синхронно, см. tools/cloud/check_versions.sh).
+env:
+  FLUTTER_VERSION: "3.47.2"
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter pub get
+      - run: flutter build apk --debug
+      - uses: actions/upload-artifact@v5
+        with:
+          name: mater-studorium-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14

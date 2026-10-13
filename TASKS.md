@@ -36,7 +36,7 @@ T01–T04, T06, T07, T09–T22. С оговорками:
 
 ## Очередь после T23
 
-0. **CI-превью для телефона** (договорились с владельцем): workflow GitHub Actions, собирающий debug-APK как артефакт для `claude/*` и web-превью на GitHub Pages. Ни один workflow ещё не запускался по-настоящему; пуш workflow делать только по просьбе владельца.
+0. **CI-превью для телефона**: `.github/workflows/apk-preview.yml` собирает debug-APK как артефакт для `claude/*` (в PR, ещё не проверен на живом запуске). `deploy-web.yml` падает на `configure-pages` (`Get Pages site failed`): **владельцу включить Pages** (Settings → Pages → Source: GitHub Actions), потом перезапустить workflow. Сборка web и проверка drift-файлов до этого шага проходят.
 
 1. **T24 Push для дуэли** требует Firebase-проект пользователя (FCM, `google-services.json`, VAPID, сервисный аккаунт) → заблокировано, можно отложить в v1 (R6).
 2. **T25 Колода ИБ 60–100 знаний** требует тему от пользователя и вычитки людьми (агенты не ставят `approved`); зависит от T08.
