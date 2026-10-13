@@ -8,15 +8,16 @@ import 'cloze/cloze_module.dart';
 import 'flip/flip_module.dart';
 import 'mcq/mcq_module.dart';
 import 'open/open_module.dart';
+import 'order/order_module.dart';
 import 'question_module.dart';
 
-/// Форматы, которые умеет показывать приложение. T28–T29 добавят `order`,
-/// `find_error`.
+/// Форматы, которые умеет показывать приложение. T29 добавит `find_error`.
 final List<QuestionModule> defaultQuestionModules = List.unmodifiable([
   const McqModule(),
   const FlipModule(),
   const OpenModule(),
   const ClozeModule(),
+  const OrderModule(),
 ]);
 
 /// Тип вопроса → модуль формата.
