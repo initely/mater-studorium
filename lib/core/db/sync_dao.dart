@@ -319,6 +319,18 @@ class SyncDao extends DatabaseAccessor<AppDatabase>
           variables: vars,
           updates: {reviewLogs},
         );
+        // Ответы дуэли привязаны к user_id и не переносятся (дуэли тоже): иначе
+        // при игре против себя ответы прежнего пользователя ушли бы как ответы
+        // нового. Остальные записи outbox переходят к новому пользователю.
+        await customUpdate(
+          'DELETE FROM outbox WHERE user_id = ?1 AND kind = ?2',
+          variables: [
+            Variable<String>(from),
+            Variable<String>(OutboxKind.duelAnswer.name),
+          ],
+          updates: {outbox},
+          updateKind: UpdateKind.delete,
+        );
         await customUpdate(
           'UPDATE outbox SET user_id = ?2 WHERE user_id = ?1',
           variables: vars,
