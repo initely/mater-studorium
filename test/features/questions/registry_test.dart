@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mater_studorium/features/catalog/domain/question_type.dart';
+import 'package:mater_studorium/features/questions/cloze/cloze_module.dart';
 import 'package:mater_studorium/features/questions/flip/flip_module.dart';
 import 'package:mater_studorium/features/questions/mcq/mcq_module.dart';
 import 'package:mater_studorium/features/questions/open/open_module.dart';
@@ -21,25 +22,23 @@ class _FakeModule implements QuestionModule {
 }
 
 void main() {
-  test('по умолчанию зарегистрированы mcq, flip и open', () {
+  test('по умолчанию зарегистрированы mcq, flip, open и cloze', () {
     final registry = QuestionRegistry(defaultQuestionModules);
     expect(registry.moduleFor(QuestionType.mcq), isA<McqModule>());
     expect(registry.moduleFor(QuestionType.flip), isA<FlipModule>());
     expect(registry.moduleFor(QuestionType.open), isA<OpenModule>());
+    expect(registry.moduleFor(QuestionType.cloze), isA<ClozeModule>());
     expect(registry.supportedTypes, {
       QuestionType.mcq,
       QuestionType.flip,
       QuestionType.open,
+      QuestionType.cloze,
     });
   });
 
   test('формата нет — moduleFor возвращает null', () {
     final registry = QuestionRegistry(defaultQuestionModules);
-    for (final type in [
-      QuestionType.cloze,
-      QuestionType.order,
-      QuestionType.findError,
-    ]) {
+    for (final type in [QuestionType.order, QuestionType.findError]) {
       expect(registry.moduleFor(type), isNull, reason: '$type');
     }
   });
@@ -47,10 +46,10 @@ void main() {
   test('новый формат добавляется записью в реестр, без правок сессии', () {
     final registry = QuestionRegistry([
       ...defaultQuestionModules,
-      const _FakeModule(QuestionType.cloze),
+      const _FakeModule(QuestionType.order),
     ]);
-    expect(registry.moduleFor(QuestionType.cloze), isA<_FakeModule>());
-    expect(registry.supportedTypes, contains(QuestionType.cloze));
+    expect(registry.moduleFor(QuestionType.order), isA<_FakeModule>());
+    expect(registry.supportedTypes, contains(QuestionType.order));
   });
 
   test('два модуля с одним типом — ошибка (assert)', () {
@@ -70,6 +69,7 @@ void main() {
       QuestionType.mcq,
       QuestionType.flip,
       QuestionType.open,
+      QuestionType.cloze,
     });
 
     final custom = ProviderContainer(

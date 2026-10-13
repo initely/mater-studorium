@@ -16,7 +16,11 @@ import 'package:mater_studorium/features/catalog/data/drift_catalog_repository.d
 import 'package:mater_studorium/features/catalog/domain/catalog_repository.dart';
 import 'package:mater_studorium/features/catalog/domain/deck.dart';
 import 'package:mater_studorium/features/catalog/domain/deck_parser.dart';
+import 'package:mater_studorium/features/catalog/domain/question_type.dart';
 import 'package:mater_studorium/features/catalog/domain/remote_deck.dart';
+import 'package:mater_studorium/features/questions/flip/flip_module.dart';
+import 'package:mater_studorium/features/questions/mcq/mcq_module.dart';
+import 'package:mater_studorium/features/questions/registry.dart';
 import 'package:mater_studorium/features/session/data/session_providers.dart';
 
 import 'db_fixtures.dart';
@@ -75,6 +79,15 @@ List<Override> appOverrides(
   sessionUserIdProvider.overrideWithValue(() => sessionUser),
   clockProvider.overrideWithValue(() => now ?? t0),
   randomProvider.overrideWithValue(math.Random(1)),
+  // Сценарии T18 написаны на mcq и flip из sample.json; остальные форматы
+  // (cloze, open) в очередь не попадают. Их покрывают свои widget-тесты.
+  questionRegistryProvider.overrideWithValue(
+    QuestionRegistry(const [McqModule(), FlipModule()]),
+  ),
+  supportedQuestionTypesProvider.overrideWithValue({
+    QuestionType.mcq,
+    QuestionType.flip,
+  }),
   uuidGeneratorProvider.overrideWithValue(() => 'log-${_ids++}'),
   if (remote != null) deckRemoteSourceProvider.overrideWithValue(remote),
   // Разбор колоды без изолята: в тестах `compute` не дожидается FakeAsync.
