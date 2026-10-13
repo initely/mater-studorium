@@ -7,9 +7,14 @@ import '../../catalog/domain/question_type.dart';
 const kDuelQuestionCount = 5;
 
 /// Форматы, которые можно взять в дуэль: автопроверяемые (ТЗ M10). Единственное
-/// место со списком. В MVP-a только `mcq`; MVP-b (T30) добавит `cloze`,
-/// `order`, `find_error`, когда у них появятся модули.
-const kDuelQuestionTypes = {QuestionType.mcq};
+/// место со списком: `mcq` и форматы MVP-b (T30) `cloze`, `order`,
+/// `find_error`. Сервер тип вопроса не проверяет (ADR-35).
+const kDuelQuestionTypes = {
+  QuestionType.mcq,
+  QuestionType.cloze,
+  QuestionType.order,
+  QuestionType.findError,
+};
 
 /// Вопрос колоды, который можно взять в дуэль.
 class DuelCandidate {

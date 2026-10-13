@@ -208,4 +208,56 @@ void main() {
       expect(isValidDuelAnswerPayload(_answer(duelId: '')), isFalse);
     });
   });
+
+  group('DuelAnswerRecord: ответы форматов MVP-b', () {
+    DuelAnswerRecord rec(Object? answer) => DuelAnswerRecord(
+      questionId: 'q',
+      answer: answer,
+      isCorrect: true,
+      durationMs: 1,
+    );
+
+    test('cloze: тексты по id пропусков', () {
+      expect(
+        rec({
+          'answers': {'a': 'tcp', 'b': 'x'},
+        }).clozeAnswers,
+        {'a': 'tcp', 'b': 'x'},
+      );
+    });
+    test('order: id шагов в порядке игрока', () {
+      expect(
+        rec({
+          'order': ['s2', 's1'],
+        }).orderedStepIds,
+        ['s2', 's1'],
+      );
+    });
+    test('find_error: номера строк', () {
+      expect(
+        rec({
+          'lines': [2, 4],
+        }).selectedLines,
+        [2, 4],
+      );
+    });
+    test('чужая форма, пометка о размере и не-объект дают пустой разбор', () {
+      for (final a in [
+        {'omitted': true},
+        {'answers': 'x', 'order': 5, 'lines': 'x'},
+        'строка',
+        null,
+        {
+          'answers': {'a': 1},
+          'order': [1],
+          'lines': ['x'],
+        },
+      ]) {
+        final r = rec(a);
+        expect(r.clozeAnswers, isEmpty, reason: '$a');
+        expect(r.orderedStepIds, isEmpty, reason: '$a');
+        expect(r.selectedLines, isEmpty, reason: '$a');
+      }
+    });
+  });
 }

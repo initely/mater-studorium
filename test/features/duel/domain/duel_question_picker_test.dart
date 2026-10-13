@@ -9,9 +9,14 @@ DuelCandidate _c(String q, String item) =>
     DuelCandidate(questionId: q, itemId: item);
 
 void main() {
-  test('в дуэли 5 вопросов; в MVP-a допустим только mcq (константа)', () {
+  test('в дуэли 5 вопросов; допустимы mcq и форматы MVP-b (константа)', () {
     expect(kDuelQuestionCount, 5);
-    expect(kDuelQuestionTypes, {QuestionType.mcq});
+    expect(kDuelQuestionTypes, {
+      QuestionType.mcq,
+      QuestionType.cloze,
+      QuestionType.order,
+      QuestionType.findError,
+    });
   });
 
   test('берёт ровно 5 разных вопросов', () {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/l10n/app_localizations.dart';
+import '../../catalog/domain/payload_parts.dart';
 import '../../catalog/domain/question_payload.dart';
 import '../../explanations/domain/explanation.dart';
 import '../domain/duel_answer.dart';
@@ -158,16 +159,10 @@ class _QuestionCard extends StatelessWidget {
     final theme = Theme.of(context);
     final content = row.content;
     final payload = content?.question.payload;
-    final mcq = payload is McqPayload ? payload : null;
+    final describer = payload == null ? null : _AnswerDescriber(l10n, payload);
     final explanation = content == null
         ? null
         : Explanation.of(content.item, content.question).short;
-
-    String optionTexts(List<String> ids) => [
-      for (final id in ids)
-        for (final o in mcq!.options)
-          if (o.id == id) o.text,
-    ].join('; ');
 
     return Card(
       child: Padding(
@@ -194,7 +189,7 @@ class _QuestionCard extends StatelessWidget {
               keyPrefix: 'mine-${row.questionId}',
               label: l10n.duelResultYourAnswer,
               record: row.mine,
-              optionTexts: mcq == null ? null : optionTexts,
+              describe: describer?.describe,
             ),
             _AnswerLine(
               keyPrefix: 'other-${row.questionId}',
@@ -202,9 +197,9 @@ class _QuestionCard extends StatelessWidget {
                   ? l10n.duelResultTheirAnswerNamed(opponent)
                   : l10n.duelResultTheirAnswer,
               record: row.other,
-              optionTexts: mcq == null ? null : optionTexts,
+              describe: describer?.describe,
             ),
-            if (mcq != null)
+            if (describer?.correct() case final correct?)
               Text.rich(
                 key: Key('duel-result-correct-${row.questionId}'),
                 TextSpan(
@@ -213,7 +208,7 @@ class _QuestionCard extends StatelessWidget {
                       text: '${l10n.duelResultCorrectAnswer}: ',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    TextSpan(text: optionTexts(mcq.correct)),
+                    TextSpan(text: correct),
                   ],
                 ),
               ),
@@ -242,13 +237,13 @@ class _AnswerLine extends StatelessWidget {
     required this.keyPrefix,
     required this.label,
     required this.record,
-    required this.optionTexts,
+    required this.describe,
   });
 
   final String keyPrefix;
   final String label;
   final DuelAnswerRecord? record;
-  final String Function(List<String> ids)? optionTexts;
+  final String? Function(DuelAnswerRecord record)? describe;
 
   @override
   Widget build(BuildContext context) {
@@ -263,12 +258,9 @@ class _AnswerLine extends StatelessWidget {
     }
     final picked = r.wasSkipped
         ? l10n.duelResultSkipped
-        : optionTexts == null
+        : describe == null
         ? null
-        : (() {
-            final text = optionTexts!(r.selectedOptionIds);
-            return text.isEmpty ? l10n.duelResultUnknownAnswer : text;
-          })();
+        : (describe!(r) ?? l10n.duelResultUnknownAnswer);
     final verdict = r.isCorrect ? l10n.duelResultRight : l10n.duelResultWrong;
     final time = r.wasSkipped
         ? null
@@ -300,4 +292,64 @@ class _AnswerLine extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Как показать ответ игрока и верный ответ для формата вопроса. Ответ
+/// в неожиданной форме (с другого клиента, пометка о размере) даёт `null`,
+/// и экран пишет «ответ не распознан».
+class _AnswerDescriber {
+  _AnswerDescriber(this.l10n, this.payload);
+
+  final AppLocalizations l10n;
+  final QuestionPayload payload;
+
+  String? _nonEmpty(String text) => text.isEmpty ? null : text;
+
+  String? describe(DuelAnswerRecord r) => switch (payload) {
+    McqPayload(:final options) => _nonEmpty(
+      _optionTexts(options, r.selectedOptionIds),
+    ),
+    ClozePayload(:final blanks) => _nonEmpty(
+      [
+        for (final b in blanks)
+          if ((r.clozeAnswers[b.id] ?? '').isNotEmpty) r.clozeAnswers[b.id]!,
+      ].join('; '),
+    ),
+    OrderPayload(:final steps) => _nonEmpty(
+      [
+        for (final id in r.orderedStepIds)
+          for (final s in steps)
+            if (s.id == id) s.text,
+      ].join(' \u2192 '),
+    ),
+    FindErrorPayload() =>
+      r.selectedLines.isEmpty
+          ? null
+          : l10n.duelResultLines(r.selectedLines.join(', ')),
+    _ => null,
+  };
+
+  String? correct() => switch (payload) {
+    McqPayload(:final options, :final correct) => _optionTexts(
+      options,
+      correct,
+    ),
+    ClozePayload(:final blanks) => [
+      for (final b in blanks)
+        if (b.accepted.isNotEmpty) b.accepted.first,
+    ].join('; '),
+    OrderPayload(:final steps) => [
+      for (final s in steps) s.text,
+    ].join(' \u2192 '),
+    FindErrorPayload(:final errorLines) => l10n.duelResultLines(
+      ([...errorLines]..sort()).join(', '),
+    ),
+    _ => null,
+  };
+
+  String _optionTexts(List<McqOption> options, List<String> ids) => [
+    for (final id in ids)
+      for (final o in options)
+        if (o.id == id) o.text,
+  ].join('; ');
 }

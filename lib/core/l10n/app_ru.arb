@@ -875,6 +875,8 @@
   "@duelResultTheirAnswer": {"description": "Подпись ответа соперника без имени"},
   "duelResultTheirAnswerNamed": "Ответ: {name}",
   "@duelResultTheirAnswerNamed": {"description": "Подпись ответа соперника с именем", "placeholders": {"name": {"type": "String"}}},
+  "duelResultLines": "строки {lines}",
+  "@duelResultLines": {"description": "Ответ find_error в результате дуэли: номера строк", "placeholders": {"lines": {"type": "String"}}},
   "duelResultCorrectAnswer": "Верный ответ",
   "@duelResultCorrectAnswer": {"description": "Подпись верного ответа"},
   "duelResultRight": "верно",
