@@ -18,9 +18,9 @@ import 'drift_session_repository.dart';
 /// Id текущего пользователя (`auth.uid`). Без сессии — [AuthError]; в
 /// тестах подменяется. Данные в локальной БД привязаны к нему.
 final sessionUserIdProvider = Provider<String Function()>((ref) {
-  final auth = ref.watch(supabaseClientProvider).auth;
+  final auth = ref.watch(supabaseClientProvider)?.auth;
   return () {
-    final user = auth.currentUser;
+    final user = auth?.currentUser;
     if (user == null) throw const AuthError('нет сессии пользователя');
     return user.id;
   };

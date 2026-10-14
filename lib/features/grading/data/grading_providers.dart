@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/db/database_providers.dart';
 import '../../../core/errors/app_error.dart';
-import '../../../core/supabase/supabase_config.dart';
 import '../../../core/supabase/supabase_init.dart';
 import '../domain/grading_repository.dart';
 import '../domain/llm_consent.dart';
@@ -12,11 +11,12 @@ import 'supabase_grading_repository.dart';
 
 /// Оценка `open` на сервере. Без `SUPABASE_URL` и ключа (запуск без бэкенда)
 /// ведёт себя как «нет сети»: самооценка. В тестах подменяется.
-final gradingRepositoryProvider = Provider<GradingRepository>(
-  (ref) => SupabaseConfig.isConfigured
-      ? SupabaseGradingRepository(ref.watch(supabaseClientProvider))
-      : const _UnconfiguredGradingRepository(),
-);
+final gradingRepositoryProvider = Provider<GradingRepository>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  return client == null
+      ? const _UnconfiguredGradingRepository()
+      : SupabaseGradingRepository(client);
+});
 
 class _UnconfiguredGradingRepository implements GradingRepository {
   const _UnconfiguredGradingRepository();

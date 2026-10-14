@@ -15,11 +15,15 @@ import 'drift_duel_content_source.dart';
 import 'drift_duel_question_source.dart';
 import 'drift_duel_seen_store.dart';
 import 'supabase_duel_repository.dart';
+import 'unavailable_duel_repository.dart';
 
 /// Дуэли на сервере. В тестах подменяется.
-final duelRepositoryProvider = Provider<DuelRepository>(
-  (ref) => SupabaseDuelRepository(ref.watch(supabaseClientProvider)),
-);
+final duelRepositoryProvider = Provider<DuelRepository>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  return client == null
+      ? const UnavailableDuelRepository()
+      : SupabaseDuelRepository(client);
+});
 
 /// Вопросы скачанных колод для новой дуэли. В тестах подменяется.
 final duelQuestionSourceProvider = Provider<DuelQuestionSource>(
