@@ -249,7 +249,7 @@ void _writeItem(
   final mark = switch (verdict) {
     'ok' => '✅ ok',
     null => 'проверка не приложена',
-    _ => '⚠️ $verdict',
+    _ => '⚠ $verdict',
   };
   final review = item['review'] as Map<String, dynamic>;
 
@@ -332,7 +332,7 @@ void _writeQuestion(
               .cast<Map<String, dynamic>>()) {
         final right = correct.contains(o['id']);
         buf.writeln(
-          '  - ${right ? '✅' : '▫️'} ${o['id']}) ${_oneLine(o['text'] as String)}',
+          '  - ${right ? '✅' : '▫'} ${o['id']}) ${_oneLine(o['text'] as String)}',
         );
       }
     case 'flip':

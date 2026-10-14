@@ -106,7 +106,7 @@ void main() {
       final text = report(verify: _verifyFor(deck, needsFix: {'t.b'}));
 
       expect(text, contains('✅ ok'));
-      expect(text, contains('⚠️ needs_fix'));
+      expect(text, contains('⚠ needs_fix'));
       expect(text, contains('лишнее утверждение'));
       expect(text, contains('спорная опция b'));
       expect(text, contains('| ok | 2 |'));
