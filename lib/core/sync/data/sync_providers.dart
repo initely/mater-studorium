@@ -20,10 +20,14 @@ import '../domain/sync_service.dart';
 import '../domain/sync_store.dart';
 import '../outbox_entry.dart';
 import 'supabase_sync_remote.dart';
+import 'unavailable_sync_remote.dart';
 
-final syncRemoteProvider = Provider<SyncRemote>(
-  (ref) => SupabaseSyncRemote(ref.watch(supabaseClientProvider)),
-);
+final syncRemoteProvider = Provider<SyncRemote>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  return client == null
+      ? const UnavailableSyncRemote()
+      : SupabaseSyncRemote(client);
+});
 
 final syncStoreProvider = Provider<SyncStore>(
   (ref) => ref.watch(appDatabaseProvider).syncDao,

@@ -2,26 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app.dart';
+import 'core/supabase/backend_bootstrap.dart';
 import 'core/supabase/supabase_config.dart';
 import 'core/supabase/supabase_init.dart';
-import 'core/sync/data/sync_providers.dart';
-import 'features/auth/presentation/auth_session_notifier.dart';
 import 'features/settings/presentation/settings_notifier.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final container = ProviderContainer();
   if (SupabaseConfig.isConfigured) {
-    try {
-      await initSupabase();
-      // Анонимный вход; без сети повторяется в фоне, приложение открывается сразу.
-      container.read(authSessionProvider);
-      // Синхронизация прогресса (T17): при входе, по расписанию, при
-      // возврате в приложение; без сети тихо ждёт.
-      container.read(syncBootstrapProvider);
-    } catch (e) {
-      debugPrint('Supabase не инициализирован: $e');
-    }
+    // Сбой инициализации не мешает запуску: бэкенд «недоступен» до повтора
+    // (кнопка «Повторить» на экране колод), причина с трассой — в журнале.
+    await container.read(supabaseStatusProvider.notifier).ensureInitialized();
+    // Анонимный вход и синхронизация стартуют, как только Supabase готов
+    // (сейчас или после повторной инициализации).
+    container.read(backendBootstrapProvider);
   } else {
     debugPrint(
       'SUPABASE_URL / SUPABASE_ANON_KEY не заданы '
