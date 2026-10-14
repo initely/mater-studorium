@@ -1,0 +1,1995 @@
+{
+  "schema_version": 1,
+  "id": "infosec-basics",
+  "version": 1,
+  "lang": "ru",
+  "topic": "infosec",
+  "title": "Основы информационной безопасности (защита)",
+  "description": "Защитный уклон: пароли и аутентификация, криптография. Первая порция из 20 знаний; не вычитана человеком, статус draft.",
+  "sources": [
+    {
+      "id": "owasp-password-storage",
+      "title": "OWASP Cheat Sheet Series: Password Storage",
+      "url": "https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html",
+      "license": "CC BY-SA 4.0"
+    },
+    {
+      "id": "owasp-authentication",
+      "title": "OWASP Cheat Sheet Series: Authentication",
+      "url": "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html",
+      "license": "CC BY-SA 4.0"
+    },
+    {
+      "id": "owasp-mfa",
+      "title": "OWASP Cheat Sheet Series: Multifactor Authentication",
+      "url": "https://cheatsheetseries.owasp.org/cheatsheets/Multifactor_Authentication_Cheat_Sheet.html",
+      "license": "CC BY-SA 4.0"
+    },
+    {
+      "id": "owasp-cryptographic-storage",
+      "title": "OWASP Cheat Sheet Series: Cryptographic Storage",
+      "url": "https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html",
+      "license": "CC BY-SA 4.0"
+    },
+    {
+      "id": "rfc6238",
+      "title": "RFC 6238: TOTP: Time-Based One-Time Password Algorithm",
+      "url": "https://www.rfc-editor.org/rfc/rfc6238.html",
+      "license": "IETF Trust Legal Provisions (BCP 78)"
+    },
+    {
+      "id": "wiki-symmetric-key",
+      "title": "Wikipedia: Symmetric-key algorithm",
+      "url": "https://en.wikipedia.org/wiki/Symmetric-key_algorithm",
+      "license": "CC BY-SA 4.0"
+    },
+    {
+      "id": "wiki-public-key",
+      "title": "Wikipedia: Public-key cryptography",
+      "url": "https://en.wikipedia.org/wiki/Public-key_cryptography",
+      "license": "CC BY-SA 4.0"
+    },
+    {
+      "id": "wiki-hybrid-cryptosystem",
+      "title": "Wikipedia: Hybrid cryptosystem",
+      "url": "https://en.wikipedia.org/wiki/Hybrid_cryptosystem",
+      "license": "CC BY-SA 4.0"
+    },
+    {
+      "id": "wiki-digital-signature",
+      "title": "Wikipedia: Digital signature",
+      "url": "https://en.wikipedia.org/wiki/Digital_signature",
+      "license": "CC BY-SA 4.0"
+    },
+    {
+      "id": "wiki-diffie-hellman",
+      "title": "Wikipedia: Diffie–Hellman key exchange",
+      "url": "https://en.wikipedia.org/wiki/Diffie%E2%80%93Hellman_key_exchange",
+      "license": "CC BY-SA 4.0"
+    },
+    {
+      "id": "wiki-kerckhoffs",
+      "title": "Wikipedia: Kerckhoffs's principle",
+      "url": "https://en.wikipedia.org/wiki/Kerckhoffs%27s_principle",
+      "license": "CC BY-SA 4.0"
+    },
+    {
+      "id": "wiki-cryptographic-hash",
+      "title": "Wikipedia: Cryptographic hash function",
+      "url": "https://en.wikipedia.org/wiki/Cryptographic_hash_function",
+      "license": "CC BY-SA 4.0"
+    }
+  ],
+  "items": [
+    {
+      "id": "infosec.pw.hash-not-encrypt",
+      "title": "Пароли хешируют, а не шифруют",
+      "tags": [
+        "passwords",
+        "hashing"
+      ],
+      "fact": "Пароли хранят в виде медленного хеша, а не шифруют: хеш — односторонняя функция, и восстановить по нему пароль нельзя, а шифрование двустороннее.",
+      "explanation_short": "Хеширование необратимо: восстановить пароль по хешу нельзя, и это самый подходящий способ проверки паролей. Шифрование двустороннее: из шифртекста можно получить открытый текст. Шифровать пароли стоит лишь в редких случаях, когда нужен исходный пароль.",
+      "explanation_long": "**Хеш или шифр.** Хеш-функция односторонняя: из значения нельзя получить исходный пароль. Шифрование двустороннее: атакующий может получить из шифртекста открытый текст. Поэтому для проверки паролей подходит хеширование.\n\n**Какие алгоритмы.** Пароль нельзя хранить открытым текстом. Его защищают сильными медленными алгоритмами: Argon2id, bcrypt или PBKDF2.\n\n**Следствие.** Для паролей нужен односторонний хеш, а не обратимое шифрование.",
+      "refs": [
+        {
+          "source_id": "owasp-password-storage",
+          "quote": "Because hashing is a one-way function (i.e., it is impossible to \"decrypt\" a hash and obtain the original plaintext value), it is the most appropriate approach for password validation.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "owasp-password-storage",
+          "quote": "Passwords should never be stored in plain text. Instead, they must be protected using strong, slow hashing algorithms such as Argon2id, bcrypt, or PBKDF2.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "owasp-password-storage",
+          "quote": "Since encryption is a two-way function, attackers can retrieve the original plaintext from the encrypted data.",
+          "quote_unverifiable": false
+        }
+      ],
+      "review": {
+        "status": "draft",
+        "notes": "Проверить, что формулировка «по хешу нельзя войти» не переоценена (хеш можно подбирать, см. знание про соль и медленные алгоритмы)."
+      },
+      "questions": [
+        {
+          "id": "infosec.pw.hash-not-encrypt.q1",
+          "type": "mcq",
+          "prompt": "Почему для хранения паролей, по которым пользователь входит в систему, выбирают хеширование, а не шифрование?",
+          "payload": {
+            "options": [
+              {
+                "id": "a",
+                "text": "Хеш — односторонняя функция: исходный пароль по нему не восстановить"
+              },
+              {
+                "id": "b",
+                "text": "Хеш занимает меньше места, чем шифртекст"
+              },
+              {
+                "id": "c",
+                "text": "Шифрование не позволяет сравнить введённый пароль с сохранённым"
+              },
+              {
+                "id": "d",
+                "text": "Хеш нельзя вычислить без секретного ключа"
+              }
+            ],
+            "correct": [
+              "a"
+            ],
+            "multiple": false
+          }
+        },
+        {
+          "id": "infosec.pw.hash-not-encrypt.q2",
+          "type": "flip",
+          "prompt": "Почему пароли хранят в виде хеша, а не шифртекста?",
+          "payload": {
+            "back": "Хеш — односторонняя функция: исходный пароль по нему не восстановить. Шифрование двустороннее, и из шифртекста можно получить открытый текст."
+          }
+        },
+        {
+          "id": "infosec.pw.hash-not-encrypt.q3",
+          "type": "open",
+          "prompt": "Объясните, чем хеширование отличается от шифрования и почему для паролей входа выбирают хеширование.",
+          "payload": {
+            "reference_answer": "Хеширование — односторонняя функция: по хешу нельзя восстановить исходный пароль. Шифрование двустороннее: из шифртекста можно получить открытый текст.",
+            "rubric": [
+              {
+                "id": "p1",
+                "text": "Хеш односторонний: пароль по нему не восстановить",
+                "weight": 3,
+                "required": true
+              },
+              {
+                "id": "p2",
+                "text": "Шифрование двустороннее: из шифртекста можно получить открытый текст",
+                "weight": 2,
+                "required": false
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "infosec.pw.salt",
+      "title": "Соль при хешировании паролей",
+      "tags": [
+        "passwords",
+        "salt"
+      ],
+      "fact": "Соль — уникальная случайная строка, которую добавляют к каждому паролю при хешировании: она защищает от заранее посчитанных таблиц (rainbow tables), и по хешам нельзя понять, что у двух пользователей одинаковые пароли.",
+      "explanation_short": "Соль защищает от rainbow tables и поиска по базам готовых хешей. Из-за разных солей одинаковые пароли дают разные хеши.",
+      "explanation_long": "**Что такое соль.** Уникальная случайно сгенерированная строка, которую добавляют к каждому паролю в процессе хеширования.\n\n**Что она даёт.**\n- Защита от заранее посчитанных таблиц (rainbow tables) и поиска по базам готовых хешей.\n- Нельзя определить, что у двух пользователей одинаковый пароль, не взломав хеши: разные соли дают разные хеши.\n\n**Частая ошибка.** Одна общая соль на всех пользователей: часть защиты теряется.",
+      "refs": [
+        {
+          "source_id": "owasp-password-storage",
+          "quote": "A salt is a unique, randomly generated string that is added to each password as part of the hashing process.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "owasp-password-storage",
+          "quote": "Salting also protects against an attacker's pre-computing hashes using rainbow tables or database-based lookups.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "owasp-password-storage",
+          "quote": "Finally, salting means that it is impossible to determine whether two users have the same password without cracking the hashes, as the different salts will result in different hashes even if the passwords are the same.",
+          "quote_unverifiable": false
+        }
+      ],
+      "review": {
+        "status": "draft",
+        "notes": "Проверить cloze: слова из определения OWASP («unique», «each password»); в find_error ошибка только в строке 2."
+      },
+      "questions": [
+        {
+          "id": "infosec.pw.salt.q1",
+          "type": "mcq",
+          "prompt": "Какую атаку затрудняет использование соли?",
+          "payload": {
+            "options": [
+              {
+                "id": "a",
+                "text": "От использования заранее вычисленных таблиц хешей (rainbow tables)"
+              },
+              {
+                "id": "b",
+                "text": "От перехвата пароля при передаче по сети"
+              },
+              {
+                "id": "c",
+                "text": "От подбора пароля через форму входа"
+              },
+              {
+                "id": "d",
+                "text": "От кражи cookie сессии"
+              }
+            ],
+            "correct": [
+              "a"
+            ],
+            "multiple": false
+          }
+        },
+        {
+          "id": "infosec.pw.salt.q2",
+          "type": "cloze",
+          "prompt": "Соль — это {{1}} случайная строка, которую добавляют к {{2}} паролю в процессе хеширования.",
+          "payload": {
+            "blanks": [
+              {
+                "id": "1",
+                "accepted": [
+                  "уникальная"
+                ]
+              },
+              {
+                "id": "2",
+                "accepted": [
+                  "каждому"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "infosec.pw.salt.q3",
+          "type": "find_error",
+          "prompt": "Разработчик хеширует пароли при регистрации. Какая строка ослабляет защиту?",
+          "payload": {
+            "mode": "code",
+            "language": "python",
+            "lines": [
+              "def register(user, password):",
+              "    salt = SITE_SALT  # одна и та же соль для всех пользователей",
+              "    digest = argon2id(password, salt)",
+              "    db.save(user, salt, digest)"
+            ],
+            "error_lines": [
+              2
+            ],
+            "line_explanations": {
+              "2": "Соль должна быть уникальной для каждого пароля и случайной, а здесь одна и та же соль используется для всех пользователей."
+            }
+          }
+        },
+        {
+          "id": "infosec.pw.salt.q4",
+          "type": "flip",
+          "prompt": "Почему у двух пользователей с одинаковым паролем хеши в базе должны различаться?",
+          "payload": {
+            "back": "Потому что к каждому паролю добавляют свою соль: разные соли дают разные хеши, даже если пароли одинаковы."
+          }
+        }
+      ]
+    },
+    {
+      "id": "infosec.pw.slow-hash",
+      "title": "Быстрые хеши не подходят для паролей",
+      "tags": [
+        "passwords",
+        "hashing"
+      ],
+      "fact": "Для паролей нужны намеренно медленные алгоритмы (Argon2id, bcrypt, PBKDF2) с настраиваемой стоимостью, а не быстрые хеши вроде MD5 и SHA-1.",
+      "explanation_short": "Алгоритмы для паролей намеренно медленные (в отличие от MD5 и SHA-1), а степень замедления настраивается. Перебор паролей на GPU и арендованных серверах обходится атакующему относительно дёшево, если не следовать лучшим практикам хеширования.",
+      "explanation_long": "**Проблема.** MD5 и SHA-1 проектировали быстрыми; алгоритмы для паролей, наоборот, медленные по замыслу.\n\n**Решение.** Специальные алгоритмы хеширования паролей медленные по замыслу, а степень замедления настраивается коэффициентом стоимости (work factor). OWASP называет Argon2id, bcrypt и PBKDF2.",
+      "refs": [
+        {
+          "source_id": "owasp-password-storage",
+          "quote": "This means that they should be slow (unlike algorithms such as MD5 and SHA-1, which were designed to be fast), and you can change how slow they are by changing the work factor.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "owasp-password-storage",
+          "quote": "While the number of permutations can be enormous, with high speed hardware (such as GPUs) and cloud services with many servers for rent, the cost to an attacker is relatively small to do successful password cracking, especially when best practices for hashing are not followed.",
+          "quote_unverifiable": false
+        }
+      ],
+      "review": {
+        "status": "draft",
+        "notes": "Проверить, что в mcq нет второго верного варианта."
+      },
+      "questions": [
+        {
+          "id": "infosec.pw.slow-hash.q1",
+          "type": "mcq",
+          "prompt": "Чем алгоритмы хеширования паролей (Argon2id, bcrypt) принципиально отличаются от MD5 и SHA-1?",
+          "payload": {
+            "options": [
+              {
+                "id": "a",
+                "text": "Они намеренно медленные, и степень замедления настраивается"
+              },
+              {
+                "id": "b",
+                "text": "Они обратимы, если известен ключ"
+              },
+              {
+                "id": "c",
+                "text": "Они выдают хеш переменной длины"
+              },
+              {
+                "id": "d",
+                "text": "Они шифруют пароль, а не хешируют"
+              }
+            ],
+            "correct": [
+              "a"
+            ],
+            "multiple": false
+          }
+        },
+        {
+          "id": "infosec.pw.slow-hash.q2",
+          "type": "flip",
+          "prompt": "Почему быстрый хеш вроде SHA-1 плох для хранения паролей?",
+          "payload": {
+            "back": "MD5 и SHA-1 проектировали быстрыми, а перебор паролей на быстром железе (GPU, арендованные серверы) обходится атакующему относительно дёшево. Алгоритмы для паролей намеренно медленные, и замедление настраивается."
+          }
+        },
+        {
+          "id": "infosec.pw.slow-hash.q3",
+          "type": "open",
+          "prompt": "Почему для хранения паролей нужны медленные алгоритмы и что такое work factor?",
+          "payload": {
+            "reference_answer": "MD5 и SHA-1 проектировали быстрыми, а перебор паролей на быстром железе обходится атакующему недорого, поэтому для паролей берут намеренно медленные алгоритмы вроде Argon2id, bcrypt, PBKDF2. Степень замедления настраивают коэффициентом стоимости (work factor).",
+            "rubric": [
+              {
+                "id": "p1",
+                "text": "Быстрые хеши (MD5, SHA-1) делают перебор паролей дешёвым для атакующего",
+                "weight": 3,
+                "required": true
+              },
+              {
+                "id": "p2",
+                "text": "Алгоритмы для паролей намеренно медленные (Argon2id, bcrypt, PBKDF2)",
+                "weight": 2,
+                "required": false
+              },
+              {
+                "id": "p3",
+                "text": "Замедление настраивается коэффициентом стоимости (work factor)",
+                "weight": 2,
+                "required": false
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "infosec.pw.argon2id",
+      "title": "Argon2id как первый выбор",
+      "tags": [
+        "passwords",
+        "argon2"
+      ],
+      "fact": "OWASP считает Argon2id лучшим выбором; Argon2 — победитель конкурса Password Hashing Competition 2015; scrypt применяют, если Argon2id недоступен.",
+      "explanation_short": "Argon2id даёт сбалансированную защиту от атак по побочным каналам и перебора на GPU. Если его нет, берут scrypt.",
+      "explanation_long": "**Рекомендация.** Из трёх вариантов Argon2 выбирают Argon2id: он даёт сбалансированную защиту от атак по побочным каналам и перебора на GPU. Argon2 выиграл конкурс Password Hashing Competition в 2015 году.\n\n**Запасной вариант.** Если Argon2id недоступен, используют scrypt.",
+      "refs": [
+        {
+          "source_id": "owasp-password-storage",
+          "quote": "Argon2 was the winner of the 2015 Password Hashing Competition.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "owasp-password-storage",
+          "quote": "Out of the three Argon2 versions, use the Argon2id variant since it provides a balanced approach to resisting both side-channel and GPU-based attacks.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "owasp-password-storage",
+          "quote": "While Argon2id should be the best choice for password hashing, scrypt should be used when the former is not available.",
+          "quote_unverifiable": false
+        }
+      ],
+      "review": {
+        "status": "draft",
+        "notes": "Проверить актуальность рекомендаций OWASP на дату вычитки; PBKDF2 остаётся вариантом, когда нужна совместимость с FIPS-140 (в вопросах не используется)."
+      },
+      "questions": [
+        {
+          "id": "infosec.pw.argon2id.q1",
+          "type": "mcq",
+          "prompt": "Какой алгоритм хеширования паролей OWASP рекомендует как лучший выбор для нового приложения?",
+          "payload": {
+            "options": [
+              {
+                "id": "a",
+                "text": "Argon2id"
+              },
+              {
+                "id": "b",
+                "text": "bcrypt"
+              },
+              {
+                "id": "c",
+                "text": "PBKDF2 с HMAC-SHA-1"
+              },
+              {
+                "id": "d",
+                "text": "SHA-256 с солью"
+              }
+            ],
+            "correct": [
+              "a"
+            ],
+            "multiple": false
+          }
+        },
+        {
+          "id": "infosec.pw.argon2id.q2",
+          "type": "cloze",
+          "prompt": "Победителем конкурса Password Hashing Competition 2015 года стал алгоритм {{1}}.",
+          "payload": {
+            "blanks": [
+              {
+                "id": "1",
+                "accepted": [
+                  "Argon2"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "infosec.pw.argon2id.q3",
+          "type": "flip",
+          "prompt": "Что OWASP рекомендует использовать, если Argon2id недоступен?",
+          "payload": {
+            "back": "scrypt."
+          }
+        }
+      ]
+    },
+    {
+      "id": "infosec.pw.pepper",
+      "title": "Pepper: секрет вне базы данных",
+      "tags": [
+        "passwords",
+        "pepper"
+      ],
+      "fact": "Pepper — общий для хранимых паролей секрет, который хранят отдельно от базы паролей; соль же уникальна для каждого пароля.",
+      "explanation_short": "Pepper общий для хранимых паролей и лежит отдельно от базы. Сменить pepper можно, лишь заставив всех пользователей, чьи пароли он защищал, сбросить пароли.",
+      "explanation_long": "**Определение.** Pepper общий для хранимых паролей, а не уникальный для каждого пароля, как соль.\n\n**Как хранить.** Отдельно от базы с паролями.\n\n**Цена.** Чтобы сменить pepper, придётся заставить всех пользователей, чьи пароли он защищал, сбросить пароли.",
+      "refs": [
+        {
+          "source_id": "owasp-password-storage",
+          "quote": "A pepper is shared between stored passwords, rather than being unique to an individual password like a password salt.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "owasp-password-storage",
+          "quote": "The pepper should be stored separately from the password database.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "owasp-password-storage",
+          "quote": "Therefore changing a pepper will require forcing all users whose passwords were protected by the previous pepper to reset their passwords.",
+          "quote_unverifiable": false
+        }
+      ],
+      "review": {
+        "status": "draft",
+        "notes": "Проверить, что в вопросах нет утверждений сверх цитат."
+      },
+      "questions": [
+        {
+          "id": "infosec.pw.pepper.q1",
+          "type": "mcq",
+          "prompt": "Чем pepper отличается от соли?",
+          "payload": {
+            "options": [
+              {
+                "id": "a",
+                "text": "Pepper общий для хранимых паролей и хранится отдельно от базы; соль уникальна для каждого пароля"
+              },
+              {
+                "id": "b",
+                "text": "Pepper уникален для каждого пользователя и хранится рядом с хешем"
+              },
+              {
+                "id": "c",
+                "text": "Pepper заменяет медленный алгоритм хеширования"
+              },
+              {
+                "id": "d",
+                "text": "Pepper публикуют, чтобы клиент мог проверить хеш"
+              }
+            ],
+            "correct": [
+              "a"
+            ],
+            "multiple": false
+          }
+        },
+        {
+          "id": "infosec.pw.pepper.q2",
+          "type": "open",
+          "prompt": "Чем pepper отличается от соли, где его хранить и что потребуется, чтобы его сменить?",
+          "payload": {
+            "reference_answer": "Pepper общий для хранимых паролей, а не уникальный для каждого, как соль. Его хранят отдельно от базы паролей. Чтобы сменить pepper, всем пользователям, чьи пароли он защищал, придётся сбросить пароли.",
+            "rubric": [
+              {
+                "id": "p1",
+                "text": "Pepper общий для хранимых паролей, а не уникальный для каждого пароля, как соль",
+                "weight": 3,
+                "required": true
+              },
+              {
+                "id": "p2",
+                "text": "Хранится отдельно от базы с паролями",
+                "weight": 2,
+                "required": true
+              },
+              {
+                "id": "p3",
+                "text": "Для смены pepper пользователям нужно сбросить пароли",
+                "weight": 2,
+                "required": false
+              }
+            ]
+          }
+        },
+        {
+          "id": "infosec.pw.pepper.q3",
+          "type": "flip",
+          "prompt": "Что потребуется от пользователей, если сменить pepper?",
+          "payload": {
+            "back": "Всем пользователям, чьи пароли защищал прежний pepper, придётся сбросить пароли."
+          }
+        }
+      ]
+    },
+    {
+      "id": "infosec.pw.work-factor",
+      "title": "Коэффициент стоимости (work factor)",
+      "tags": [
+        "passwords",
+        "work-factor"
+      ],
+      "fact": "Work factor — число итераций хеширования для каждого пароля (обычно 2^work); вычисление хеша должно занимать менее секунды, а коэффициент чаще всего повышают при следующем входе пользователя.",
+      "explanation_short": "Вычисление хеша должно занимать менее секунды. Коэффициент повышают так: когда пользователь в очередной раз входит, его пароль хешируют заново с новым коэффициентом.",
+      "explanation_long": "**Что это.** Work factor — число итераций алгоритма хеширования для каждого пароля (обычно на деле 2^work итераций).\n\n**Правило.** Общее правило OWASP: вычисление хеша занимает менее секунды.\n\n**Повышение со временем.** Чаще всего ждут, когда пользователь в очередной раз войдёт, и пересчитывают его хеш с новым коэффициентом.",
+      "refs": [
+        {
+          "source_id": "owasp-password-storage",
+          "quote": "The work factor is the number of iterations of the hashing algorithm that are performed for each password (usually, it's actually 2^work iterations).",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "owasp-password-storage",
+          "quote": "As a general rule, calculating a hash should take less than one second.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "owasp-password-storage",
+          "quote": "The most common approach to upgrading the work factor is to wait until the user next authenticates, then re-hash their password with the new work factor.",
+          "quote_unverifiable": false
+        }
+      ],
+      "review": {
+        "status": "draft",
+        "notes": "Проверить cloze: accepted «1», «одной», «одна»."
+      },
+      "questions": [
+        {
+          "id": "infosec.pw.work-factor.q1",
+          "type": "mcq",
+          "prompt": "Когда чаще всего пересчитывают хеш пароля с новым, более высоким work factor?",
+          "payload": {
+            "options": [
+              {
+                "id": "a",
+                "text": "Когда пользователь в очередной раз входит и подтверждает пароль"
+              },
+              {
+                "id": "b",
+                "text": "В фоне, прямо по хешам в базе, без участия пользователей"
+              },
+              {
+                "id": "c",
+                "text": "Только при смене пароля по инициативе пользователя"
+              },
+              {
+                "id": "d",
+                "text": "При каждом запросе к API"
+              }
+            ],
+            "correct": [
+              "a"
+            ],
+            "multiple": false
+          }
+        },
+        {
+          "id": "infosec.pw.work-factor.q2",
+          "type": "cloze",
+          "prompt": "Как общее правило, вычисление хеша пароля должно занимать менее {{1}} секунды.",
+          "payload": {
+            "blanks": [
+              {
+                "id": "1",
+                "accepted": [
+                  "1",
+                  "одной"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "infosec.pw.work-factor.q3",
+          "type": "open",
+          "prompt": "Что такое work factor и как его повысить для уже сохранённых паролей?",
+          "payload": {
+            "reference_answer": "Work factor — число итераций хеширования для каждого пароля (обычно 2^work). Чаще всего его повышают так: ждут следующего входа пользователя и пересчитывают хеш с новым коэффициентом.",
+            "rubric": [
+              {
+                "id": "p1",
+                "text": "Work factor — число итераций хеширования для каждого пароля",
+                "weight": 3,
+                "required": true
+              },
+              {
+                "id": "p2",
+                "text": "Хеш пересчитывают с новым коэффициентом, когда пользователь в очередной раз входит",
+                "weight": 3,
+                "required": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "infosec.pw.bcrypt-limit",
+      "title": "bcrypt: ограничение в 72 байта",
+      "tags": [
+        "passwords",
+        "bcrypt"
+      ],
+      "fact": "У большинства реализаций bcrypt максимальная длина входа — 72 байта, поэтому максимальную длину пароля ограничивают 72 байтами (или меньше, если лимит реализации ниже), а не обрезают молча.",
+      "explanation_short": "У большинства реализаций bcrypt максимум входа — 72 байта, поэтому длину пароля ограничивают явно; молча обрезать пароли не нужно.",
+      "explanation_long": "**Ограничение.** В большинстве реализаций bcrypt принимает не больше 72 байт входа. OWASP советует установить максимальную длину пароля в 72 байта (или меньше, если лимит библиотеки ниже).\n\n**Не усекайте молча.** Рекомендации по аутентификации требуют не обрезать пароли молча.\n\n**Стоимость.** Коэффициент стоимости bcrypt берут как можно больше, насколько позволяет производительность сервера, но не меньше 10.",
+      "refs": [
+        {
+          "source_id": "owasp-password-storage",
+          "quote": "bcrypt has a maximum length input length of 72 bytes for most implementations, so you should enforce a maximum password length of 72 bytes (or less if the bcrypt implementation in use has smaller limits).",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "owasp-password-storage",
+          "quote": "The work factor should be as large as verification server performance will allow, with a minimum of 10.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "owasp-authentication",
+          "quote": "Do not silently truncate passwords.",
+          "quote_unverifiable": false
+        }
+      ],
+      "review": {
+        "status": "draft",
+        "notes": "Проверить, что второй источник (Authentication Cheat Sheet) уместен для вопроса q2; плюс опция b ложна по цитате."
+      },
+      "questions": [
+        {
+          "id": "infosec.pw.bcrypt-limit.q1",
+          "type": "cloze",
+          "prompt": "Для большинства реализаций bcrypt максимальная длина входа составляет {{1}} байта.",
+          "payload": {
+            "blanks": [
+              {
+                "id": "1",
+                "accepted": [
+                  "72",
+                  "семьдесят два"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "infosec.pw.bcrypt-limit.q2",
+          "type": "mcq",
+          "prompt": "Как правильно поступить с ограничением bcrypt на длину пароля?",
+          "payload": {
+            "options": [
+              {
+                "id": "a",
+                "text": "Явно ограничить максимальную длину пароля 72 байтами"
+              },
+              {
+                "id": "b",
+                "text": "Не ограничивать длину: у bcrypt нет предела длины входа"
+              },
+              {
+                "id": "c",
+                "text": "Молча обрезать пароль до 72 байт"
+              },
+              {
+                "id": "d",
+                "text": "Увеличить work factor до 72"
+              }
+            ],
+            "correct": [
+              "a"
+            ],
+            "multiple": false
+          }
+        },
+        {
+          "id": "infosec.pw.bcrypt-limit.q3",
+          "type": "flip",
+          "prompt": "Какой минимум work factor рекомендует OWASP для bcrypt?",
+          "payload": {
+            "back": "10: коэффициент берут как можно больше, насколько позволяет сервер, но не меньше 10."
+          }
+        }
+      ]
+    },
+    {
+      "id": "infosec.auth.mfa",
+      "title": "Многофакторная аутентификация",
+      "tags": [
+        "authentication",
+        "mfa"
+      ],
+      "fact": "Многофакторная аутентификация (MFA) требует подтверждения как минимум из двух разных факторов: что-то знаю, что-то имею, что-то собой представляю (я); несколько экземпляров одного фактора (пароль и PIN) MFA не дают.",
+      "explanation_short": "Пароль и PIN — оба «знаю», это не MFA. Пароль плюс токен OTP — два разных фактора.",
+      "explanation_long": "**Три фактора.** Знание (пароли и PIN), владение (токены OTP, U2F, сертификаты, смарт-карты; SMS и звонки с ограничениями) и свойство (отпечатки пальцев, распознавание лица, радужка, поведенческая биометрия).\n\n**Что считается MFA.** Не меньше двух разных факторов. Требовать пароль и PIN — это два раза «знание»: MFA это не считается и даёт лишь минимальное усиление защиты.",
+      "refs": [
+        {
+          "source_id": "owasp-mfa",
+          "quote": "Multifactor Authentication (MFA) requires evidence from at least two distinct authentication factors: something you know, something you have, and something you are.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "owasp-mfa",
+          "quote": "It should be noted that requiring multiple instances of the same authentication factor (such as needing both a password and a PIN) does not constitute MFA and offers minimal additional security.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "owasp-mfa",
+          "quote": "Something You Know Passwords and PINs Something You Have OTP Tokens, U2F Tokens, Certificates, Smart Cards, SMS and Phone Calls (restricted) Something You Are Fingerprints, Facial Recognition, Iris Scans, Behavioral Biometrics",
+          "quote_unverifiable": false
+        }
+      ],
+      "review": {
+        "status": "draft",
+        "notes": "Проверить, что в mcq a — единственная комбинация из двух разных факторов."
+      },
+      "questions": [
+        {
+          "id": "infosec.auth.mfa.q1",
+          "type": "mcq",
+          "prompt": "Какая комбинация даёт настоящую многофакторную аутентификацию?",
+          "payload": {
+            "options": [
+              {
+                "id": "a",
+                "text": "Пароль и одноразовый код из приложения-аутентификатора на телефоне"
+              },
+              {
+                "id": "b",
+                "text": "Пароль и PIN-код"
+              },
+              {
+                "id": "c",
+                "text": "Два разных пароля"
+              }
+            ],
+            "correct": [
+              "a"
+            ],
+            "multiple": false
+          }
+        },
+        {
+          "id": "infosec.auth.mfa.q2",
+          "type": "flip",
+          "prompt": "Назовите три категории факторов аутентификации.",
+          "payload": {
+            "back": "Что-то знаю (пароли и PIN), что-то имею (токены OTP, U2F, смарт-карты) и что-то собой представляю (отпечатки пальцев, лицо, радужка)."
+          }
+        },
+        {
+          "id": "infosec.auth.mfa.q3",
+          "type": "open",
+          "prompt": "Почему пароль и PIN вместе не считаются многофакторной аутентификацией?",
+          "payload": {
+            "reference_answer": "Оба относятся к одному фактору «знание» (пароли и PIN). MFA требует не менее двух разных факторов, а несколько экземпляров одного фактора дают лишь минимальное усиление защиты.",
+            "rubric": [
+              {
+                "id": "p1",
+                "text": "Пароль и PIN относятся к одному фактору (знание)",
+                "weight": 3,
+                "required": true
+              },
+              {
+                "id": "p2",
+                "text": "MFA требует как минимум двух разных факторов",
+                "weight": 2,
+                "required": false
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "infosec.auth.totp",
+      "title": "TOTP: одноразовые коды по времени",
+      "tags": [
+        "authentication",
+        "mfa",
+        "totp"
+      ],
+      "fact": "TOTP (RFC 6238) — вариант одноразового пароля, где изменяющийся фактор — время, а не счётчик событий, как в HOTP; рекомендуемый шаг по умолчанию — 30 секунд.",
+      "explanation_short": "Короткоживущие значения одноразового пароля желательны для безопасности. В TOTP изменяющийся фактор — время, шаг по умолчанию — 30 секунд.",
+      "explanation_long": "**Идея.** Алгоритм HOTP событийный: изменяющийся фактор в нём — счётчик событий. TOTP строит изменяющийся фактор на значении времени.\n\n**Почему коротко.** Вариант с временем даёт короткоживущие значения одноразового пароля, а они желательны для безопасности.\n\n**Шаг.** RFC рекомендует шаг по умолчанию 30 секунд.",
+      "refs": [
+        {
+          "source_id": "rfc6238",
+          "quote": "A time-based variant of the OTP algorithm provides short-lived OTP values, which are desirable for enhanced security.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "rfc6238",
+          "quote": "The HOTP algorithm specifies an event-based OTP algorithm, where the moving factor is an event counter. The present work bases the moving factor on a time value.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "rfc6238",
+          "quote": "We RECOMMEND a default time-step size of 30 seconds.",
+          "quote_unverifiable": false
+        }
+      ],
+      "review": {
+        "status": "draft",
+        "notes": "Проверить, что вопросы не выходят за цитаты."
+      },
+      "questions": [
+        {
+          "id": "infosec.auth.totp.q1",
+          "type": "mcq",
+          "prompt": "Чем TOTP отличается от HOTP?",
+          "payload": {
+            "options": [
+              {
+                "id": "a",
+                "text": "В TOTP изменяющийся фактор — время, в HOTP — счётчик событий"
+              },
+              {
+                "id": "b",
+                "text": "В TOTP код не зависит от общего секрета"
+              },
+              {
+                "id": "c",
+                "text": "В HOTP код действует только 30 секунд"
+              },
+              {
+                "id": "d",
+                "text": "TOTP передаёт код по SMS, HOTP — по e-mail"
+              }
+            ],
+            "correct": [
+              "a"
+            ],
+            "multiple": false
+          }
+        },
+        {
+          "id": "infosec.auth.totp.q2",
+          "type": "cloze",
+          "prompt": "Рекомендуемый по умолчанию шаг времени в TOTP — {{1}} секунд.",
+          "payload": {
+            "blanks": [
+              {
+                "id": "1",
+                "accepted": [
+                  "30",
+                  "тридцать"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "infosec.auth.totp.q3",
+          "type": "flip",
+          "prompt": "Что в TOTP служит изменяющимся фактором вместо счётчика событий из HOTP?",
+          "payload": {
+            "back": "Значение времени."
+          }
+        }
+      ]
+    },
+    {
+      "id": "infosec.auth.generic-errors",
+      "title": "Одинаковые сообщения об ошибках входа",
+      "tags": [
+        "authentication",
+        "user-enumeration"
+      ],
+      "fact": "Вход, сброс и восстановление пароля должны отвечать одним общим сообщением независимо от того, неверен ли логин или пароль, есть ли такая учётная запись и заблокирована ли она — иначе атакующий узнает, какие учётные записи существуют.",
+      "explanation_short": "Разные сообщения («пользователя нет», «неверный пароль») создают расхождение, по которому можно перебирать имена и узнавать существующие аккаунты. Общее сообщение лишает атакующего этого признака.",
+      "explanation_long": "**Правило.** Для входа, сброса и восстановления пароля приложение отвечает общим сообщением об ошибке, независимо от того, неверны ли идентификатор или пароль, существует ли учётная запись и заблокирована ли она.\n\n**Зачем.** Цель — не создавать «расхождение» (discrepancy factor), по которому атакующий мог бы перебирать пользователей (user enumeration).\n\n**Пример.** Вместо «Пользователь не найден» и «Неверный пароль» показывать «Неверный логин или пароль».",
+      "refs": [
+        {
+          "source_id": "owasp-authentication",
+          "quote": "Using any of the authentication mechanisms (login, password reset, or password recovery), an application must respond with a generic error message regardless of whether: The user ID or password was incorrect. The account does not exist. The account is locked or disabled.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "owasp-authentication",
+          "quote": "The objective is to prevent the creation of a discrepancy factor, allowing an attacker to mount a user enumeration action against the application.",
+          "quote_unverifiable": false
+        }
+      ],
+      "review": {
+        "status": "draft",
+        "notes": "Вариант c: счётчик попыток тоже раскрывает существование аккаунта; вариант d раскрывает статус аккаунта. Проверить, что a — единственный верный по цитате."
+      },
+      "questions": [
+        {
+          "id": "infosec.auth.generic-errors.q1",
+          "type": "mcq",
+          "prompt": "Какое сообщение безопасно показывать при неудачном входе?",
+          "payload": {
+            "options": [
+              {
+                "id": "a",
+                "text": "Неверный логин или пароль"
+              },
+              {
+                "id": "b",
+                "text": "Пользователь с таким логином не найден"
+              },
+              {
+                "id": "c",
+                "text": "Пароль неверен, осталось 2 попытки до блокировки учётной записи"
+              },
+              {
+                "id": "d",
+                "text": "Учётная запись заблокирована"
+              }
+            ],
+            "correct": [
+              "a"
+            ],
+            "multiple": false
+          }
+        },
+        {
+          "id": "infosec.auth.generic-errors.q2",
+          "type": "flip",
+          "prompt": "Какую атаку предотвращает единое сообщение об ошибке на входе?",
+          "payload": {
+            "back": "Перебор существующих пользователей (user enumeration): по разным сообщениям атакующий отличал бы существующие аккаунты от несуществующих."
+          }
+        },
+        {
+          "id": "infosec.auth.generic-errors.q3",
+          "type": "open",
+          "prompt": "Почему вход, сброс и восстановление пароля должны отвечать одинаковым сообщением в любой ситуации?",
+          "payload": {
+            "reference_answer": "Если сообщения различаются (нет аккаунта, неверный пароль, аккаунт заблокирован), атакующий по разнице узнаёт, какие учётные записи существуют, и может перебирать пользователей. Общее сообщение убирает это расхождение.",
+            "rubric": [
+              {
+                "id": "p1",
+                "text": "Разные сообщения раскрывают, существует ли учётная запись",
+                "weight": 3,
+                "required": true
+              },
+              {
+                "id": "p2",
+                "text": "Атакующий может использовать это для перебора пользователей (user enumeration)",
+                "weight": 2,
+                "required": false
+              },
+              {
+                "id": "p3",
+                "text": "Общее сообщение применяется ко входу, сбросу и восстановлению пароля",
+                "weight": 1,
+                "required": false
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "infosec.crypto.sym-vs-asym",
+      "title": "Симметричная и асимметричная криптография",
+      "tags": [
+        "cryptography",
+        "keys"
+      ],
+      "fact": "В симметричной криптографии один и тот же ключ служит и для шифрования, и для расшифровки; в асимметричной у каждого участника пара ключей — открытый и закрытый, и безопасность держится на секретности закрытого ключа.",
+      "explanation_short": "В асимметричной схеме открытый ключ можно свободно раздавать, а закрытый нужно хранить в тайне.",
+      "explanation_long": "**Симметричные алгоритмы** используют одни и те же ключи для шифрования открытого текста и расшифровки шифртекста.\n\n**Асимметричные алгоритмы** (криптография с открытым ключом) используют пары связанных ключей: открытый и соответствующий ему закрытый. Безопасность зависит от сохранности закрытого ключа, а открытый можно свободно распространять.",
+      "refs": [
+        {
+          "source_id": "wiki-symmetric-key",
+          "quote": "are algorithms for cryptography that use the same cryptographic keys for both the encryption of plaintext and the decryption of ciphertext.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "wiki-public-key",
+          "quote": "Each key pair consists of a public key and a corresponding private key.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "wiki-public-key",
+          "quote": "Security of public-key cryptography depends on keeping the private key secret; the public key can be openly distributed without compromising security.",
+          "quote_unverifiable": false
+        }
+      ],
+      "review": {
+        "status": "draft",
+        "notes": "Проверить, что нет противоречия между cloze (симметричной) и остальными вопросами."
+      },
+      "questions": [
+        {
+          "id": "infosec.crypto.sym-vs-asym.q1",
+          "type": "mcq",
+          "prompt": "Что верно для асимметричной криптографии?",
+          "payload": {
+            "options": [
+              {
+                "id": "a",
+                "text": "Открытый ключ можно свободно распространять, а закрытый нужно хранить в тайне"
+              },
+              {
+                "id": "b",
+                "text": "Для шифрования и расшифровки используется один и тот же ключ"
+              },
+              {
+                "id": "c",
+                "text": "Закрытый ключ публикуют, открытый хранят в тайне"
+              },
+              {
+                "id": "d",
+                "text": "Пара ключей не нужна: достаточно общего пароля"
+              }
+            ],
+            "correct": [
+              "a"
+            ],
+            "multiple": false
+          }
+        },
+        {
+          "id": "infosec.crypto.sym-vs-asym.q2",
+          "type": "cloze",
+          "prompt": "В {{1}} криптографии для шифрования и расшифровки используется один и тот же ключ.",
+          "payload": {
+            "blanks": [
+              {
+                "id": "1",
+                "accepted": [
+                  "симметричной"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "infosec.crypto.sym-vs-asym.q3",
+          "type": "flip",
+          "prompt": "Какой из ключей пары в асимметричной схеме можно свободно распространять, а какой нужно хранить в секрете?",
+          "payload": {
+            "back": "Открытый ключ можно свободно распространять, закрытый нужно хранить в секрете: безопасность зависит от его сохранности."
+          }
+        },
+        {
+          "id": "infosec.crypto.sym-vs-asym.q4",
+          "type": "open",
+          "prompt": "Сравните симметричное и асимметричное шифрование по ключам.",
+          "payload": {
+            "reference_answer": "В симметричном шифровании один и тот же ключ для шифрования и расшифровки. В асимметричном — пара ключей: открытый можно распространять, закрытый должен оставаться секретным.",
+            "rubric": [
+              {
+                "id": "p1",
+                "text": "Симметричное: один и тот же ключ для шифрования и расшифровки",
+                "weight": 3,
+                "required": true
+              },
+              {
+                "id": "p2",
+                "text": "Асимметричное: пара ключей, открытый и закрытый",
+                "weight": 2,
+                "required": true
+              },
+              {
+                "id": "p3",
+                "text": "Открытый ключ можно раздавать свободно, закрытый хранят в секрете",
+                "weight": 2,
+                "required": false
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "infosec.crypto.hybrid",
+      "title": "Гибридные криптосистемы",
+      "tags": [
+        "cryptography",
+        "hybrid"
+      ],
+      "fact": "Гибридные схемы сочетают удобство асимметричного шифрования (не нужен заранее общий секрет) и скорость симметричного: данные шифруют симметричным алгоритмом, а асимметричный служит только для передачи короткого ключа.",
+      "explanation_short": "Асимметричное шифрование не требует общего секрета, но неэффективно для длинных сообщений. Гибрид берёт лучшее от обоих.",
+      "explanation_long": "**Проблема.** Асимметричное шифрование не требует заранее общего секрета, но опирается на сложные вычисления и заметно менее эффективно симметричного. Шифровать длинные сообщения только им дорого.\n\n**Решение.** Гибридная система комбинирует оба подхода: основная работа выполняется более эффективной симметричной схемой, а неэффективная асимметричная схема используется лишь для шифрования или расшифровки короткого значения ключа.",
+      "refs": [
+        {
+          "source_id": "wiki-hybrid-cryptosystem",
+          "quote": "Public-key cryptosystems are convenient in that they do not require the sender and receiver to share a common secret in order to communicate securely.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "wiki-hybrid-cryptosystem",
+          "quote": "However, they often rely on complicated mathematical computations and are thus generally much more inefficient than comparable symmetric-key cryptosystems.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "wiki-hybrid-cryptosystem",
+          "quote": "Note that for very long messages the bulk of the work in encryption/decryption is done by the more efficient symmetric-key scheme, while the inefficient public-key scheme is used only to encrypt/decrypt a short key value.",
+          "quote_unverifiable": false
+        }
+      ],
+      "review": {
+        "status": "draft",
+        "notes": "Проверить, что в q1 нет второго верного ответа (вариант b ложен по цитате)."
+      },
+      "questions": [
+        {
+          "id": "infosec.crypto.hybrid.q1",
+          "type": "mcq",
+          "prompt": "Зачем на практике сочетают симметричное и асимметричное шифрование?",
+          "payload": {
+            "options": [
+              {
+                "id": "a",
+                "text": "Асимметричное удобно без общего секрета, но неэффективно для больших данных; основную работу делает симметричное"
+              },
+              {
+                "id": "b",
+                "text": "Симметричное шифрование безопаснее асимметричного, поэтому асимметричное почти не нужно"
+              },
+              {
+                "id": "c",
+                "text": "Асимметричное шифрование быстрее, поэтому им шифруют сами данные"
+              },
+              {
+                "id": "d",
+                "text": "Так требует стандарт, технических причин нет"
+              }
+            ],
+            "correct": [
+              "a"
+            ],
+            "multiple": false
+          }
+        },
+        {
+          "id": "infosec.crypto.hybrid.q2",
+          "type": "flip",
+          "prompt": "Для чего в гибридной схеме используется асимметричный алгоритм?",
+          "payload": {
+            "back": "Для шифрования или расшифровки короткого значения ключа; сами данные шифрует симметричный алгоритм."
+          }
+        },
+        {
+          "id": "infosec.crypto.hybrid.q3",
+          "type": "open",
+          "prompt": "Объясните, почему длинные сообщения не шифруют напрямую асимметричным алгоритмом, и как устроена гибридная схема.",
+          "payload": {
+            "reference_answer": "Асимметричное шифрование опирается на сложные вычисления и значительно менее эффективно симметричного, поэтому большие данные дорого шифровать им напрямую. В гибридной схеме данные шифрует симметричный алгоритм, а асимметричный применяется лишь для короткого ключа.",
+            "rubric": [
+              {
+                "id": "p1",
+                "text": "Асимметричное шифрование значительно менее эффективно симметричного",
+                "weight": 3,
+                "required": true
+              },
+              {
+                "id": "p2",
+                "text": "Данные шифруются симметричным алгоритмом",
+                "weight": 2,
+                "required": true
+              },
+              {
+                "id": "p3",
+                "text": "Асимметричный алгоритм защищает только короткий ключ",
+                "weight": 2,
+                "required": false
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "infosec.crypto.digital-signature",
+      "title": "Цифровая подпись",
+      "tags": [
+        "cryptography",
+        "signatures"
+      ],
+      "fact": "Цифровая подпись вычисляется из сообщения и закрытого ключа отправителя, а проверяется его открытым ключом; валидная подпись подтверждает, что сообщение пришло от отправителя, известного получателю.",
+      "explanation_short": "Подписывают закрытым ключом, проверяют открытым: проверить подпись может любой, кто знает открытый ключ. Проверить подпись может любой, у кого есть открытый ключ отправителя.",
+      "explanation_long": "**Как это работает.** Алиса подписывает сообщение: вычисляет подпись из сообщения и своего закрытого ключа и прикладывает её к сообщению. Боб получает сообщение и подпись и проверяет подлинность, используя открытый ключ Алисы.\n\n**Что даёт.** Валидная подпись даёт получателю уверенность, что сообщение пришло от отправителя, известного получателю.",
+      "refs": [
+        {
+          "source_id": "wiki-digital-signature",
+          "quote": "A digital signature is a mathematical scheme for verifying the authenticity of digital messages or documents.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "wiki-digital-signature",
+          "quote": "A valid digital signature on a message gives any recipient confidence that the message came from a sender known to the recipient.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "wiki-digital-signature",
+          "quote": "Alice signs a message—\"Hello Bob!\"—by appending a signature which is computed from the message and her private key. Bob receives both the message and signature. He uses Alice's public key to verify the authenticity of the signed message.",
+          "quote_unverifiable": false
+        }
+      ],
+      "review": {
+        "status": "draft",
+        "notes": "Ответ cloze «секретного» допустим по смыслу, но «секретный ключ» часто путают с симметричным; решить при вычитке."
+      },
+      "questions": [
+        {
+          "id": "infosec.crypto.digital-signature.q1",
+          "type": "mcq",
+          "prompt": "Каким ключом отправитель подписывает сообщение и каким получатель проверяет подпись?",
+          "payload": {
+            "options": [
+              {
+                "id": "a",
+                "text": "Подписывает своим закрытым ключом, проверяют его открытым ключом"
+              },
+              {
+                "id": "b",
+                "text": "Подписывает открытым ключом получателя, проверяют закрытым ключом получателя"
+              },
+              {
+                "id": "c",
+                "text": "Подписывает и проверяют одним общим секретным ключом"
+              },
+              {
+                "id": "d",
+                "text": "Подписывает открытым ключом отправителя, проверяют закрытым ключом отправителя"
+              }
+            ],
+            "correct": [
+              "a"
+            ],
+            "multiple": false
+          }
+        },
+        {
+          "id": "infosec.crypto.digital-signature.q2",
+          "type": "cloze",
+          "prompt": "Цифровая подпись вычисляется из сообщения и {{1}} ключа отправителя.",
+          "payload": {
+            "blanks": [
+              {
+                "id": "1",
+                "accepted": [
+                  "закрытого",
+                  "приватного"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "infosec.crypto.digital-signature.q3",
+          "type": "open",
+          "prompt": "Опишите, как Алиса подписывает сообщение для Боба и как Боб проверяет подпись. Что подтверждает подпись?",
+          "payload": {
+            "reference_answer": "Алиса вычисляет подпись из сообщения и своего закрытого ключа и отправляет её вместе с сообщением. Боб проверяет подпись открытым ключом Алисы. Валидная подпись подтверждает подлинность: сообщение пришло от известного отправителя.",
+            "rubric": [
+              {
+                "id": "p1",
+                "text": "Подпись вычисляется из сообщения и закрытого ключа отправителя",
+                "weight": 3,
+                "required": true
+              },
+              {
+                "id": "p2",
+                "text": "Проверка выполняется открытым ключом отправителя",
+                "weight": 2,
+                "required": true
+              },
+              {
+                "id": "p3",
+                "text": "Валидная подпись подтверждает подлинность отправителя сообщения",
+                "weight": 1,
+                "required": false
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "infosec.crypto.diffie-hellman",
+      "title": "Обмен ключами Диффи — Хеллмана",
+      "tags": [
+        "cryptography",
+        "key-exchange"
+      ],
+      "fact": "Диффи — Хеллман — математический метод, позволяющий двум сторонам, не знающим друг друга, выработать общий симметричный ключ по открытому каналу без заранее переданного секрета.",
+      "explanation_short": "DH позволяет сторонам договориться об общем секретном ключе по небезопасному каналу, а затем шифровать симметричным шифром.",
+      "explanation_long": "**Решение.** Метод Диффи — Хеллмана (DH) позволяет двум сторонам, ничего не знающим друг о друге, совместно создать общий секретный ключ по небезопасному каналу.\n\n**Дальше.** Полученный ключ используют для шифрования последующей связи симметричным шифром.",
+      "refs": [
+        {
+          "source_id": "wiki-diffie-hellman",
+          "quote": "is a mathematical method of securely generating a symmetric cryptographic key over a public channel.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "wiki-diffie-hellman",
+          "quote": "the Diffie–Hellman key exchange method allows two parties that have no prior knowledge of each other to jointly establish a shared secret key over an insecure channel.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "wiki-diffie-hellman",
+          "quote": "This key can then be used to encrypt subsequent communications using a symmetric-key cipher.",
+          "quote_unverifiable": false
+        }
+      ],
+      "review": {
+        "status": "draft",
+        "notes": "Проверить cloze: accepted для пропуска 2 («открытому» — в русском есть неоднозначность «открытый канал»)."
+      },
+      "questions": [
+        {
+          "id": "infosec.crypto.diffie-hellman.q1",
+          "type": "mcq",
+          "prompt": "Что решает обмен ключами Диффи — Хеллмана?",
+          "payload": {
+            "options": [
+              {
+                "id": "a",
+                "text": "Позволяет двум сторонам выработать общий секретный ключ по небезопасному каналу без заранее переданного секрета"
+              },
+              {
+                "id": "b",
+                "text": "Подписывает сообщения закрытым ключом"
+              },
+              {
+                "id": "c",
+                "text": "Хеширует пароли с солью"
+              },
+              {
+                "id": "d",
+                "text": "Шифрует большие файлы напрямую открытым ключом"
+              }
+            ],
+            "correct": [
+              "a"
+            ],
+            "multiple": false
+          }
+        },
+        {
+          "id": "infosec.crypto.diffie-hellman.q2",
+          "type": "flip",
+          "prompt": "Что получают стороны в результате обмена Диффи — Хеллмана и как используют результат?",
+          "payload": {
+            "back": "Общий секретный (симметричный) ключ; им затем шифруют дальнейшую связь симметричным шифром."
+          }
+        },
+        {
+          "id": "infosec.crypto.diffie-hellman.q3",
+          "type": "cloze",
+          "prompt": "Метод Диффи — Хеллмана позволяет двум сторонам выработать общий {{1}} ключ по {{2}} каналу связи.",
+          "payload": {
+            "blanks": [
+              {
+                "id": "1",
+                "accepted": [
+                  "секретный",
+                  "симметричный"
+                ]
+              },
+              {
+                "id": "2",
+                "accepted": [
+                  "небезопасному",
+                  "открытому",
+                  "публичному",
+                  "insecure",
+                  "public"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "infosec.crypto.kerckhoffs",
+      "title": "Принцип Кирхгофа",
+      "tags": [
+        "cryptography",
+        "design"
+      ],
+      "fact": "Криптосистема должна оставаться безопасной, даже если всё о ней, кроме ключа, публично известно.",
+      "explanation_short": "Стойкость должна определяться секретностью ключа, а не скрытностью устройства системы.",
+      "explanation_long": "**Формулировка.** Принцип Кирхгофа: криптосистема должна быть безопасной, даже если всё о системе, кроме ключа, является общеизвестным.\n\n**Противоположность.** Криптографы поддерживают этот принцип, в отличие от «безопасности через неясность» (security through obscurity).",
+      "refs": [
+        {
+          "source_id": "wiki-kerckhoffs",
+          "quote": "The principle holds that a cryptosystem should be secure, even if everything about the system, except the key, is public knowledge.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "wiki-kerckhoffs",
+          "quote": "This concept is widely embraced by cryptographers, in contrast to security through obscurity, which is not.",
+          "quote_unverifiable": false
+        }
+      ],
+      "review": {
+        "status": "draft",
+        "notes": "Проверить rubric p2: перифраз той же формулировки."
+      },
+      "questions": [
+        {
+          "id": "infosec.crypto.kerckhoffs.q1",
+          "type": "mcq",
+          "prompt": "Что утверждает принцип Кирхгофа?",
+          "payload": {
+            "options": [
+              {
+                "id": "a",
+                "text": "Система должна быть безопасной, даже если всё о ней, кроме ключа, общеизвестно"
+              },
+              {
+                "id": "b",
+                "text": "Алгоритм шифрования нужно держать в секрете, чтобы атакующий не мог его изучить"
+              },
+              {
+                "id": "c",
+                "text": "Чем сложнее и закрытее алгоритм, тем он надёжнее"
+              },
+              {
+                "id": "d",
+                "text": "Длина ключа не имеет значения, если алгоритм секретный"
+              }
+            ],
+            "correct": [
+              "a"
+            ],
+            "multiple": false
+          }
+        },
+        {
+          "id": "infosec.crypto.kerckhoffs.q2",
+          "type": "flip",
+          "prompt": "Как криптографы относятся к принципу Кирхгофа и к «безопасности через неясность»?",
+          "payload": {
+            "back": "Принцип широко поддерживается криптографами, в отличие от безопасности через неясность (security through obscurity)."
+          }
+        },
+        {
+          "id": "infosec.crypto.kerckhoffs.q3",
+          "type": "open",
+          "prompt": "Сформулируйте принцип Кирхгофа.",
+          "payload": {
+            "reference_answer": "Криптосистема должна быть безопасной, даже если всё о ней, кроме ключа, является общеизвестным.",
+            "rubric": [
+              {
+                "id": "p1",
+                "text": "Система безопасна, даже если всё, кроме ключа, публично",
+                "weight": 3,
+                "required": true
+              },
+              {
+                "id": "p2",
+                "text": "Секретным может оставаться только ключ: всё остальное о системе считается публичным",
+                "weight": 2,
+                "required": false
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "infosec.crypto.authenticated-encryption",
+      "title": "Аутентифицированное шифрование и режим ECB",
+      "tags": [
+        "cryptography",
+        "aes",
+        "modes"
+      ],
+      "fact": "Для шифрования данных используют AES (ключ не короче 128 бит, лучше 256) в аутентифицированном режиме, прежде всего GCM или CCM; режим ECB почти никогда не подходит.",
+      "explanation_short": "Аутентифицированные режимы дают не только конфиденциальность, но и целостность и подлинность данных. GCM и CCM — первый выбор; ECB использовать нельзя вне очень специфических случаев.",
+      "explanation_long": "**Алгоритм.** Для симметричного шифрования предпочтителен AES с ключом не менее 128 бит (в идеале 256) и безопасным режимом.\n\n**Режимы.** Где возможно, нужно использовать аутентифицированные режимы: они гарантируют целостность и подлинность данных, а также конфиденциальность. Чаще всего это GCM и CCM, их берут в первую очередь.\n\n**ECB.** Не применять вне очень специфических обстоятельств.",
+      "refs": [
+        {
+          "source_id": "owasp-cryptographic-storage",
+          "quote": "For symmetric encryption AES with a key that's at least 128 bits (ideally 256 bits) and a secure mode should be used as the preferred algorithm.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "owasp-cryptographic-storage",
+          "quote": "Where available, authenticated modes should always be used. These provide guarantees of the integrity and authenticity of the data, as well as confidentiality. The most commonly used authenticated modes are GCM and CCM, which should be used as a first preference.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "owasp-cryptographic-storage",
+          "quote": "ECB should not be used outside of very specific circumstances.",
+          "quote_unverifiable": false
+        }
+      ],
+      "review": {
+        "status": "draft",
+        "notes": "find_error: в строке 1 ключ загружается (ошибки нет), проверить, что строки 3 и 4 тоже без замечаний; cloze: один пропуск, CCM."
+      },
+      "questions": [
+        {
+          "id": "infosec.crypto.authenticated-encryption.q1",
+          "type": "mcq",
+          "prompt": "Какой вариант OWASP считает предпочтительным для шифрования данных?",
+          "payload": {
+            "options": [
+              {
+                "id": "a",
+                "text": "AES в режиме GCM"
+              },
+              {
+                "id": "b",
+                "text": "AES в режиме ECB"
+              },
+              {
+                "id": "c",
+                "text": "Собственный шифр на основе XOR"
+              },
+              {
+                "id": "d",
+                "text": "RSA без дополнения (padding)"
+              }
+            ],
+            "correct": [
+              "a"
+            ],
+            "multiple": false
+          }
+        },
+        {
+          "id": "infosec.crypto.authenticated-encryption.q2",
+          "type": "find_error",
+          "prompt": "Разработчик шифрует данные AES. Какая строка содержит ошибку выбора режима?",
+          "payload": {
+            "mode": "code",
+            "language": "java",
+            "lines": [
+              "SecretKey key = loadAesKey();",
+              "Cipher c = Cipher.getInstance(\"AES/ECB/PKCS5Padding\");",
+              "c.init(Cipher.ENCRYPT_MODE, key);",
+              "byte[] out = c.doFinal(data);"
+            ],
+            "error_lines": [
+              2
+            ],
+            "line_explanations": {
+              "2": "Режим ECB не следует использовать вне очень специфических случаев. Нужен аутентифицированный режим, например AES/GCM/NoPadding."
+            }
+          }
+        },
+        {
+          "id": "infosec.crypto.authenticated-encryption.q3",
+          "type": "cloze",
+          "prompt": "Наиболее часто используемые аутентифицированные режимы — GCM и {{1}}.",
+          "payload": {
+            "blanks": [
+              {
+                "id": "1",
+                "accepted": [
+                  "CCM"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "infosec.crypto.authenticated-encryption.q4",
+          "type": "flip",
+          "prompt": "Что дают аутентифицированные режимы шифрования, кроме конфиденциальности?",
+          "payload": {
+            "back": "Гарантии целостности и подлинности (аутентичности) данных."
+          }
+        }
+      ]
+    },
+    {
+      "id": "infosec.crypto.key-storage",
+      "title": "Хранение и защита ключей",
+      "tags": [
+        "cryptography",
+        "keys",
+        "secrets"
+      ],
+      "fact": "Ключи шифрования нельзя зашивать в исходный код и коммитить в систему контроля версий; хранят в системном или облачном хранилище ключей (KMS, HSM) и заранее готовят процесс ротации.",
+      "explanation_short": "Ключи нельзя зашивать в исходный код и коммитить в систему контроля версий. Используют механизмы безопасного хранения: HSM, хранилища ключей и секретов.",
+      "explanation_long": "**Хранение.** По возможности используют механизмы безопасного хранения операционной системы, фреймворка или облачного провайдера: физический или виртуальный HSM, хранилища ключей вроде Amazon KMS или Azure Key Vault.\n\n**Чего не делать.** Не зашивать ключи в исходный код и не коммитить в системы контроля версий.\n\n**Ротация.** Код и процессы ротации должны быть готовы заранее, чтобы быстро сменить ключ при компрометации.",
+      "refs": [
+        {
+          "source_id": "owasp-cryptographic-storage",
+          "quote": "Do not hard-code keys into the application source code. Do not check keys into version control systems.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "owasp-cryptographic-storage",
+          "quote": "Where available, the secure storage mechanisms provided by the operating system, framework or cloud service provider should be used. These include: A physical Hardware Security Module (HSM). A virtual HSM. Key vaults such as Amazon KMS or Azure Key Vault.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "owasp-cryptographic-storage",
+          "quote": "It is important that the code and processes required to rotate a key are in place before they are required, so that keys can be quickly rotated in the event of a compromise.",
+          "quote_unverifiable": false
+        }
+      ],
+      "review": {
+        "status": "draft",
+        "notes": "Проверить однозначность mcq и find_error."
+      },
+      "questions": [
+        {
+          "id": "infosec.crypto.key-storage.q1",
+          "type": "mcq",
+          "prompt": "Где правильнее всего хранить ключ шифрования приложения?",
+          "payload": {
+            "options": [
+              {
+                "id": "a",
+                "text": "В хранилище ключей или секретов (KMS, HSM)"
+              },
+              {
+                "id": "b",
+                "text": "В константе в исходном коде"
+              },
+              {
+                "id": "c",
+                "text": "В файле конфигурации, закоммиченном в репозиторий"
+              }
+            ],
+            "correct": [
+              "a"
+            ],
+            "multiple": false
+          }
+        },
+        {
+          "id": "infosec.crypto.key-storage.q2",
+          "type": "find_error",
+          "prompt": "Какая строка нарушает правила хранения ключей?",
+          "payload": {
+            "mode": "code",
+            "language": "python",
+            "lines": [
+              "from crypto_lib import aes_gcm_encrypt, load_key_from_kms",
+              "AES_KEY = bytes.fromhex(\"00112233445566778899aabbccddeeff\")",
+              "def protect(data):",
+              "    return aes_gcm_encrypt(AES_KEY, data)"
+            ],
+            "error_lines": [
+              2
+            ],
+            "line_explanations": {
+              "2": "Ключ зашит в исходный код (и попадёт в систему контроля версий). Его нужно загружать из хранилища ключей, например load_key_from_kms."
+            }
+          }
+        },
+        {
+          "id": "infosec.crypto.key-storage.q3",
+          "type": "open",
+          "prompt": "Что нельзя делать с ключами шифрования и как их следует хранить?",
+          "payload": {
+            "reference_answer": "Ключи нельзя зашивать в исходный код и коммитить в систему контроля версий. Их по возможности хранят в механизмах безопасного хранения ОС, фреймворка или облачного провайдера (например, KMS или HSM), а процесс ротации готовят заранее.",
+            "rubric": [
+              {
+                "id": "p1",
+                "text": "Ключи нельзя зашивать в исходный код и коммитить в систему контроля версий",
+                "weight": 3,
+                "required": true
+              },
+              {
+                "id": "p2",
+                "text": "Ключи хранят в механизмах безопасного хранения (HSM, хранилище ключей вроде KMS)",
+                "weight": 2,
+                "required": true
+              },
+              {
+                "id": "p3",
+                "text": "Процесс ротации ключей нужно подготовить заранее",
+                "weight": 1,
+                "required": false
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "infosec.crypto.csprng",
+      "title": "Криптостойкий генератор случайных чисел",
+      "tags": [
+        "cryptography",
+        "randomness"
+      ],
+      "fact": "Для ключей, IV, идентификаторов сессий и токенов нужен криптостойкий генератор (CSPRNG); обычные ГПСЧ быстрее, но предсказуемы и для безопасности не годятся.",
+      "explanation_short": "Обычный ГПСЧ для безопасности не годится: его вывод часто можно угадать или предсказать. Для чувствительных функций нужен CSPRNG.",
+      "explanation_long": "**Где нужна случайность.** Ключи шифрования, векторы инициализации, идентификаторы сессий, CSRF-токены, токены сброса пароля.\n\n**Два типа генераторов.** Обычные ГПСЧ (PRNG) дают низкое качество случайности. Для чего-либо критичного для безопасности они недопустимы, потому что вывод часто можно угадать или предсказать.\n\n**CSPRNG** спроектированы для высокого качества случайности (больше энтропии) и безопасны для чувствительных функций.",
+      "refs": [
+        {
+          "source_id": "owasp-cryptographic-storage",
+          "quote": "Random numbers (or strings) are needed for various security critical functionality, such as generating encryption keys, IVs, session IDs, CSRF tokens or password reset tokens.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "owasp-cryptographic-storage",
+          "quote": "However, they must not be used for anything security critical, as it is often possible for attackers to guess or predict the output.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "owasp-cryptographic-storage",
+          "quote": "Cryptographically Secure Pseudo-Random Number Generators (CSPRNG) are designed to produce a much higher quality of randomness (more strictly, a greater amount of entropy), making them safe to use for security-sensitive functionality.",
+          "quote_unverifiable": false
+        }
+      ],
+      "review": {
+        "status": "draft",
+        "notes": "Проверить, что mcq опирается на цитаты 1 и 2."
+      },
+      "questions": [
+        {
+          "id": "infosec.crypto.csprng.q1",
+          "type": "mcq",
+          "prompt": "Какой источник случайности нужен для генерации токена сброса пароля?",
+          "payload": {
+            "options": [
+              {
+                "id": "a",
+                "text": "Криптографически стойкий генератор (CSPRNG)"
+              },
+              {
+                "id": "b",
+                "text": "Обычный генератор псевдослучайных чисел (PRNG)"
+              }
+            ],
+            "correct": [
+              "a"
+            ],
+            "multiple": false
+          }
+        },
+        {
+          "id": "infosec.crypto.csprng.q2",
+          "type": "flip",
+          "prompt": "Почему обычный ГПСЧ нельзя использовать для генерации ключей и токенов?",
+          "payload": {
+            "back": "Его вывод часто можно угадать или предсказать, а для безопасности нужна непредсказуемость."
+          }
+        },
+        {
+          "id": "infosec.crypto.csprng.q3",
+          "type": "cloze",
+          "prompt": "Для задач безопасности нужны {{1}} генераторы случайных чисел (CSPRNG).",
+          "payload": {
+            "blanks": [
+              {
+                "id": "1",
+                "accepted": [
+                  "криптографически стойкие",
+                  "криптостойкие",
+                  "криптографически безопасные"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "infosec.crypto.rsa-oaep",
+      "title": "RSA: размер ключа и дополнение",
+      "tags": [
+        "cryptography",
+        "rsa"
+      ],
+      "fact": "Если без RSA не обойтись, ключ должен быть не короче 2048 бит; для шифрования используют RSAES-OAEP из поддерживаемой библиотеки, а RSA без схемы дополнения использовать нельзя.",
+      "explanation_short": "RSA без дополнения небезопасен, а «добавить случайные байты вручную» OAEP не заменяет. Размер ключа — не менее 2048 бит.",
+      "explanation_long": "**Размер.** Если приходится использовать RSA, ключ должен быть не короче 2048 бит.\n\n**Дополнение.** Для шифрования RSA используйте реализацию RSAES-OAEP из поддерживаемой библиотеки. OAEP применяет рандомизированное кодирование и функции генерации маски; просто дописать случайные байты к сообщению — не замена. RSA без схемы дополнения использовать нельзя.",
+      "refs": [
+        {
+          "source_id": "owasp-cryptographic-storage",
+          "quote": "If RSA must be used, ensure that the key is at least 2048 bits.",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "owasp-cryptographic-storage",
+          "quote": "For RSA encryption, use a maintained library's RSAES-OAEP (Optimal Asymmetric Encryption Padding) implementation",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "owasp-cryptographic-storage",
+          "quote": "OAEP uses randomized encoding and mask generation functions; simply prepending random bytes to the message is not a substitute. Do not use RSA without an encryption padding scheme.",
+          "quote_unverifiable": false
+        }
+      ],
+      "review": {
+        "status": "draft",
+        "notes": "Проверить, что «не короче 2048 бит» актуально на момент вычитки (рекомендации меняются)."
+      },
+      "questions": [
+        {
+          "id": "infosec.crypto.rsa-oaep.q1",
+          "type": "cloze",
+          "prompt": "Если приходится использовать RSA, ключ должен быть не короче {{1}} бит.",
+          "payload": {
+            "blanks": [
+              {
+                "id": "1",
+                "accepted": [
+                  "2048",
+                  "2 048"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "infosec.crypto.rsa-oaep.q2",
+          "type": "mcq",
+          "prompt": "Какое дополнение (padding) нужно использовать при шифровании RSA?",
+          "payload": {
+            "options": [
+              {
+                "id": "a",
+                "text": "RSAES-OAEP"
+              },
+              {
+                "id": "b",
+                "text": "Дополнение не нужно"
+              },
+              {
+                "id": "c",
+                "text": "Несколько случайных байт, дописанных вручную к сообщению"
+              }
+            ],
+            "correct": [
+              "a"
+            ],
+            "multiple": false
+          }
+        },
+        {
+          "id": "infosec.crypto.rsa-oaep.q3",
+          "type": "flip",
+          "prompt": "Можно ли заменить OAEP дописыванием случайных байт к сообщению?",
+          "payload": {
+            "back": "Нет: OAEP использует рандомизированное кодирование и функции генерации маски, простое добавление случайных байт его не заменяет."
+          }
+        }
+      ]
+    },
+    {
+      "id": "infosec.crypto.hash-properties",
+      "title": "Свойства криптографического хеша",
+      "tags": [
+        "cryptography",
+        "hashing"
+      ],
+      "fact": "От криптографического хеша требуют, в частности, стойкости к коллизиям (нельзя найти два разных сообщения с одним хешем) и лавинного эффекта (малое изменение входа резко меняет хеш).",
+      "explanation_short": "Коллизию — два разных сообщения с одним хешем — найти практически невозможно. При малом изменении входа хеш меняется радикально (лавинный эффект).",
+      "explanation_long": "**Стойкость к коллизиям.** Практически невозможно найти пару разных сообщений с одинаковым значением хеша (коллизию).\n\n**Лавинный эффект.** Небольшое изменение входа (например, одного слова) радикально меняет выход (дайджест).",
+      "refs": [
+        {
+          "source_id": "wiki-cryptographic-hash",
+          "quote": "finding any pair of different messages that yield the same hash value (a collision) is also infeasible",
+          "quote_unverifiable": false
+        },
+        {
+          "source_id": "wiki-cryptographic-hash",
+          "quote": "A small change in the input (in the word \"over\") drastically changes the output (digest). This is called the avalanche effect.",
+          "quote_unverifiable": false
+        }
+      ],
+      "review": {
+        "status": "draft",
+        "notes": "Цитата про лавинный эффект и коллизию — два разных места страницы;"
+      },
+      "questions": [
+        {
+          "id": "infosec.crypto.hash-properties.q1",
+          "type": "mcq",
+          "prompt": "Какое свойство хеш-функции нарушено, если удалось найти два разных сообщения с одинаковым хешем?",
+          "payload": {
+            "options": [
+              {
+                "id": "a",
+                "text": "Стойкость к коллизиям"
+              },
+              {
+                "id": "b",
+                "text": "Лавинный эффект"
+              },
+              {
+                "id": "c",
+                "text": "Детерминированность"
+              },
+              {
+                "id": "d",
+                "text": "Скорость вычисления"
+              }
+            ],
+            "correct": [
+              "a"
+            ],
+            "multiple": false
+          }
+        },
+        {
+          "id": "infosec.crypto.hash-properties.q2",
+          "type": "cloze",
+          "prompt": "Резкое изменение хеша при малом изменении входа называется {{1}} эффектом.",
+          "payload": {
+            "blanks": [
+              {
+                "id": "1",
+                "accepted": [
+                  "лавинным"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "infosec.crypto.hash-properties.q3",
+          "type": "flip",
+          "prompt": "Что такое коллизия хеш-функции?",
+          "payload": {
+            "back": "Пара разных сообщений, дающих одинаковое значение хеша; для криптографического хеша найти её должно быть практически невозможно."
+          }
+        }
+      ]
+    }
+  ]
+}
