@@ -4,10 +4,8 @@
   "items": [
     {
       "item_id": "infosec.pw.hash-not-encrypt",
-      "verdict": "needs_fix",
-      "unsupported_claims": [
-        "Шифровать пароли стоит лишь в редких случаях, когда нужен исходный пароль."
-      ],
+      "verdict": "ok",
+      "unsupported_claims": [],
       "questions": [
         {
           "question_id": "infosec.pw.hash-not-encrypt.q1",
@@ -31,17 +29,16 @@
           "quote_supports_answer": "yes",
           "second_correct_option": "n/a",
           "unambiguous": "yes",
-          "issues": []
+          "issues": [
+            "Вторая часть prompt («почему для паролей входа выбирают хеширование») не отражена в reference_answer и rubric явно: нет вывода «поэтому хеширование — самый подходящий способ проверки паролей» из цитаты 1"
+          ]
         }
       ]
     },
     {
       "item_id": "infosec.pw.salt",
-      "verdict": "needs_fix",
-      "unsupported_claims": [
-        "по хешам нельзя понять, что у двух пользователей одинаковые пароли",
-        "Одна общая соль на всех пользователей: часть защиты теряется."
-      ],
+      "verdict": "ok",
+      "unsupported_claims": [],
       "questions": [
         {
           "question_id": "infosec.pw.salt.q1",
@@ -49,9 +46,7 @@
           "quote_supports_answer": "yes",
           "second_correct_option": "no",
           "unambiguous": "yes",
-          "issues": [
-            "Вопрос «Какую атаку затрудняет...» не согласован с опциями, начинающимися с «От ...» (формулировка «от чего защищает»)."
-          ]
+          "issues": []
         },
         {
           "question_id": "infosec.pw.salt.q2",
@@ -67,9 +62,7 @@
           "quote_supports_answer": "yes",
           "second_correct_option": "no",
           "unambiguous": "yes",
-          "issues": [
-            "Пояснение к строке 2 опирается на «уникальна для каждого пароля», но то, что общая соль именно «ослабляет защиту», цитатами явно не сформулировано; в fact уточнение «не взломав хеши» потеряно."
-          ]
+          "issues": []
         },
         {
           "question_id": "infosec.pw.salt.q4",
@@ -84,10 +77,7 @@
     {
       "item_id": "infosec.pw.slow-hash",
       "verdict": "needs_fix",
-      "unsupported_claims": [
-        "намеренно медленные алгоритмы (Argon2id, bcrypt, PBKDF2)",
-        "OWASP называет Argon2id, bcrypt и PBKDF2."
-      ],
+      "unsupported_claims": [],
       "questions": [
         {
           "question_id": "infosec.pw.slow-hash.q1",
@@ -104,7 +94,7 @@
           "second_correct_option": "n/a",
           "unambiguous": "yes",
           "issues": [
-            "Цитата связывает дешевизну перебора с несоблюдением лучших практик, а не прямо с быстротой MD5/SHA-1: связка «быстрый хеш -> дешёвый перебор» — вывод, которого в цитате нет."
+            "back по-прежнему не связывает медленность алгоритма с ростом стоимости перебора для атакующего: обе фразы верны по цитатам, но ответ на «почему» остаётся выводом читателя"
           ]
         },
         {
@@ -114,8 +104,8 @@
           "second_correct_option": "n/a",
           "unambiguous": "yes",
           "issues": [
-            "Обязательный пункт p1 («Быстрые хеши делают перебор дешёвым») — вывод, а не прямое утверждение цитат.",
-            "Пункт p2 и reference_answer называют Argon2id, bcrypt, PBKDF2, которых нет в цитатах этого знания."
+            "Пункты rubric p1 и p2 по-прежнему дублируют друг друга (оба про намеренно медленные алгоритмы): одна мысль засчитывается дважды",
+            "prompt спрашивает «почему», но ни reference_answer, ни rubric не содержат причины (дешёвый перебор на GPU и арендованных серверах из цитаты 2)"
           ]
         }
       ]
@@ -131,7 +121,9 @@
           "quote_supports_answer": "yes",
           "second_correct_option": "no",
           "unambiguous": "yes",
-          "issues": []
+          "issues": [
+            "В prompt уточнение «для нового приложения», которого в цитатах нет (мелочь)"
+          ]
         },
         {
           "question_id": "infosec.pw.argon2id.q2",
@@ -139,9 +131,7 @@
           "quote_supports_answer": "yes",
           "second_correct_option": "no",
           "unambiguous": "yes",
-          "issues": [
-            "Пропуск {{1}}: учащийся по смежным вопросам может ввести «Argon2id»; стоит решить, засчитывать ли его (строго победитель — Argon2)."
-          ]
+          "issues": []
         },
         {
           "question_id": "infosec.pw.argon2id.q3",
@@ -203,9 +193,7 @@
           "quote_supports_answer": "yes",
           "second_correct_option": "no",
           "unambiguous": "yes",
-          "issues": [
-            "Заметки review упоминают accepted «одна», а в accepted её нет (грамматически после «менее» она и не нужна) — заметки расходятся с payload."
-          ]
+          "issues": []
         },
         {
           "question_id": "infosec.pw.work-factor.q3",
@@ -219,10 +207,8 @@
     },
     {
       "item_id": "infosec.pw.bcrypt-limit",
-      "verdict": "needs_fix",
-      "unsupported_claims": [
-        "Коэффициент стоимости bcrypt берут как можно больше, насколько позволяет производительность сервера, но не меньше 10."
-      ],
+      "verdict": "ok",
+      "unsupported_claims": [],
       "questions": [
         {
           "question_id": "infosec.pw.bcrypt-limit.q1",
@@ -243,12 +229,10 @@
         {
           "question_id": "infosec.pw.bcrypt-limit.q3",
           "type": "flip",
-          "quote_supports_answer": "partial",
+          "quote_supports_answer": "yes",
           "second_correct_option": "n/a",
           "unambiguous": "yes",
-          "issues": [
-            "Цитата «with a minimum of 10» не упоминает bcrypt; привязка минимума 10 именно к bcrypt — вывод из контекста страницы, которого в цитате нет."
-          ]
+          "issues": []
         }
       ]
     },
@@ -316,10 +300,8 @@
     },
     {
       "item_id": "infosec.auth.generic-errors",
-      "verdict": "needs_fix",
-      "unsupported_claims": [
-        "Вместо «Пользователь не найден» и «Неверный пароль» показывать «Неверный логин или пароль»."
-      ],
+      "verdict": "ok",
+      "unsupported_claims": [],
       "questions": [
         {
           "question_id": "infosec.auth.generic-errors.q1",
@@ -349,10 +331,8 @@
     },
     {
       "item_id": "infosec.crypto.sym-vs-asym",
-      "verdict": "needs_fix",
-      "unsupported_claims": [
-        "в асимметричной у каждого участника пара ключей"
-      ],
+      "verdict": "ok",
+      "unsupported_claims": [],
       "questions": [
         {
           "question_id": "infosec.crypto.sym-vs-asym.q1",
@@ -421,11 +401,8 @@
     },
     {
       "item_id": "infosec.crypto.digital-signature",
-      "verdict": "needs_fix",
-      "unsupported_claims": [
-        "проверить подпись может любой, кто знает открытый ключ",
-        "Проверить подпись может любой, у кого есть открытый ключ отправителя."
-      ],
+      "verdict": "ok",
+      "unsupported_claims": [],
       "questions": [
         {
           "question_id": "infosec.crypto.digital-signature.q1",
@@ -439,11 +416,9 @@
           "question_id": "infosec.crypto.digital-signature.q2",
           "type": "cloze",
           "quote_supports_answer": "yes",
-          "second_correct_option": "yes",
+          "second_correct_option": "no",
           "unambiguous": "yes",
-          "issues": [
-            "Пропуск {{1}}: в accepted нет распространённых синонимов «секретного» и «личного» (личный ключ), которые знающий человек может ввести."
-          ]
+          "issues": []
         },
         {
           "question_id": "infosec.crypto.digital-signature.q3",
@@ -457,7 +432,7 @@
     },
     {
       "item_id": "infosec.crypto.diffie-hellman",
-      "verdict": "needs_fix",
+      "verdict": "ok",
       "unsupported_claims": [],
       "questions": [
         {
@@ -480,12 +455,9 @@
           "question_id": "infosec.crypto.diffie-hellman.q3",
           "type": "cloze",
           "quote_supports_answer": "yes",
-          "second_correct_option": "yes",
+          "second_correct_option": "no",
           "unambiguous": "yes",
-          "issues": [
-            "Пропуск {{2}}: нет очевидного русского варианта «незащищённому»/«незащищенному».",
-            "Пропуск {{2}}: в accepted русской колоды есть английские слова «insecure», «public», которые не согласуются с падежом в предложении."
-          ]
+          "issues": []
         }
       ]
     },
@@ -517,7 +489,7 @@
           "second_correct_option": "n/a",
           "unambiguous": "yes",
           "issues": [
-            "Пункт rubric p2 перефразирует p1: один и тот же тезис засчитывается дважды."
+            "rubric p2 (противопоставление «безопасности через неясность») по-прежнему не следует из prompt «Сформулируйте принцип Кирхгофа» и отсутствует в reference_answer"
           ]
         }
       ]
@@ -594,11 +566,8 @@
     },
     {
       "item_id": "infosec.crypto.csprng",
-      "verdict": "needs_fix",
-      "unsupported_claims": [
-        "обычные ГПСЧ быстрее",
-        "Обычные ГПСЧ (PRNG) дают низкое качество случайности."
-      ],
+      "verdict": "ok",
+      "unsupported_claims": [],
       "questions": [
         {
           "question_id": "infosec.crypto.csprng.q1",
@@ -611,22 +580,18 @@
         {
           "question_id": "infosec.crypto.csprng.q2",
           "type": "flip",
-          "quote_supports_answer": "partial",
+          "quote_supports_answer": "yes",
           "second_correct_option": "n/a",
           "unambiguous": "yes",
-          "issues": [
-            "Вторая цитата начинается с «they must not be used» без подлежащего: из цитаты не видно, что речь об обычных ГПСЧ."
-          ]
+          "issues": []
         },
         {
           "question_id": "infosec.crypto.csprng.q3",
           "type": "cloze",
           "quote_supports_answer": "yes",
-          "second_correct_option": "yes",
+          "second_correct_option": "no",
           "unambiguous": "yes",
-          "issues": [
-            "Пропуск {{1}}: нет распространённого перевода «криптографически защищённые»/«криптографически защищенные»."
-          ]
+          "issues": []
         }
       ]
     },
@@ -695,7 +660,7 @@
   ],
   "summary": {
     "items_total": 20,
-    "items_ok": 11,
-    "items_needs_fix": 9
+    "items_ok": 19,
+    "items_needs_fix": 1
   }
 }
