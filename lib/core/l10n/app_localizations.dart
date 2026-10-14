@@ -874,7 +874,7 @@ abstract class AppLocalizations {
   /// **'Неверно'**
   String get verdictIncorrect;
 
-  /// Заголовок панели оценки
+  /// Заголовок панели самооценки (flip и open без оценки модели)
   ///
   /// In ru, this message translates to:
   /// **'Как хорошо вы это помнили?'**
@@ -904,25 +904,19 @@ abstract class AppLocalizations {
   /// **'Легко'**
   String get ratingEasy;
 
-  /// Пометка предложенной оценки (текст и семантика, не только цвет)
+  /// Самооценка: не вспомнил (Rating.again)
   ///
   /// In ru, this message translates to:
-  /// **'предложено'**
-  String get ratingSuggested;
+  /// **'Не помню'**
+  String get ratingForgot;
 
-  /// Подсказка над кнопкой «Дальше»
+  /// Самооценка: вспомнил (Rating.good)
   ///
   /// In ru, this message translates to:
-  /// **'Предложенная оценка: {rating}'**
-  String ratingSuggestedHint(String rating);
+  /// **'Помню'**
+  String get ratingRemembered;
 
-  /// Подсказка, когда оценку не предлагаем (flip, самооценка)
-  ///
-  /// In ru, this message translates to:
-  /// **'Выберите оценку сами'**
-  String get ratingChooseHint;
-
-  /// Кнопка «Дальше» принимает предложенную оценку
+  /// Кнопка «Дальше» после автопроверки: записывает выведенную оценку
   ///
   /// In ru, this message translates to:
   /// **'Дальше'**

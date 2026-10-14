@@ -524,15 +524,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get ratingEasy => 'Легко';
 
   @override
-  String get ratingSuggested => 'предложено';
+  String get ratingForgot => 'Не помню';
 
   @override
-  String ratingSuggestedHint(String rating) {
-    return 'Предложенная оценка: $rating';
-  }
-
-  @override
-  String get ratingChooseHint => 'Выберите оценку сами';
+  String get ratingRemembered => 'Помню';
 
   @override
   String get ratingNext => 'Дальше';

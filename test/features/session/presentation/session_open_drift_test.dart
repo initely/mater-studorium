@@ -114,10 +114,11 @@ void main() {
     expect(req.answerText, _answer);
     expect(req.inputMode.wire, 'text');
 
-    // Вердикт, подсвеченная оценка Good («предложено»), эталон из колоды.
+    // Вердикт и эталон из колоды; панели оценки нет, оценка Good выведена сама.
     expect(_key('verdict-banner'), findsOneWidget);
     expect(find.text('Верно'), findsOneWidget);
-    expect(find.text('Предложенная оценка: Хорошо'), findsOneWidget);
+    expect(_key('rating-good'), findsNothing);
+    expect(_key('rating-again'), findsNothing);
     expect(
       find.textContaining('Злоумышленник передаёт скрипт'),
       findsOneWidget,
@@ -173,18 +174,21 @@ void main() {
     await tester.tap(_key('open-self-assess'));
     await tester.pumpAndSettle();
 
-    // Подсказки нет, оценивает пользователь.
+    // Вердикта нет, оценивает пользователь двумя кнопками.
     expect(_key('verdict-banner'), findsNothing);
-    expect(find.text('Выберите оценку сами'), findsOneWidget);
-    await tester.ensureVisible(_key('rating-hard'));
-    await tester.tap(_key('rating-hard'));
+    expect(find.text('Как хорошо вы это помнили?'), findsOneWidget);
+    expect(_key('rating-next'), findsNothing);
+    expect(_key('rating-hard'), findsNothing);
+    expect(_key('rating-easy'), findsNothing);
+    await tester.ensureVisible(_key('rating-good'));
+    await tester.tap(_key('rating-good'));
     await tester.pumpAndSettle();
 
     final log = (await db.select(db.reviewLogs).get()).singleWhere(
       (l) => l.questionId == _openQuestion,
     );
     expect(log.gradeSource, 'self');
-    expect(log.rating, Rating.hard.code);
+    expect(log.rating, Rating.good.code);
     expect(log.llmScore, isNull);
     expect(log.answerText, _answer);
     expect(find.text('Вопрос 2 из 2'), findsOneWidget);
@@ -221,33 +225,108 @@ void main() {
     await tester.unmountApp();
   });
 
-  testWidgets(
-    'open: принял подсказку модели, но выбрал другую оценку → override',
-    (tester) async {
+  for (final c in [
+    (GradeVerdict.partial, Rating.hard, 'Почти верно', 0.5),
+    (GradeVerdict.incorrect, Rating.again, 'Неверно', 0.1),
+  ]) {
+    testWidgets(
+      'open: вердикт ${c.$1.name} → без панели, «Дальше» пишет ${c.$2.name}, llm',
+      (tester) async {
+        final db = await _seed(tester);
+        await db.settingsDao.write('llm_consent', 'granted');
+        final grading = FakeGradingRepository([
+          fakeGrade(verdict: c.$1, score: c.$4),
+        ]);
+        await _pumpSession(tester, db, grading);
+
+        await tester.enterText(_key('open-input'), _answer);
+        await tester.pump();
+        await tester.tap(_key('open-check'));
+        await tester.pumpAndSettle();
+        expect(find.text(c.$3), findsWidgets);
+        expect(_key('rating-again'), findsNothing);
+        expect(_key('rating-good'), findsNothing);
+
+        await tester.ensureVisible(_key('rating-next'));
+        await tester.tap(_key('rating-next'));
+        await tester.pumpAndSettle();
+
+        final log = (await db.select(db.reviewLogs).get()).singleWhere(
+          (l) => l.questionId == _openQuestion,
+        );
+        expect(log.gradeSource, 'llm');
+        expect(log.rating, c.$2.code);
+        expect(log.llmScore, c.$4);
+        await tester.unmountApp();
+      },
+    );
+  }
+
+  group('open: самооценка двумя кнопками (grade_source = self)', () {
+    Future<AppDatabase> toSelfAssess(
+      WidgetTester tester,
+      FakeGradingRepository grading,
+    ) async {
       final db = await _seed(tester);
       await db.settingsDao.write('llm_consent', 'granted');
-      final grading = FakeGradingRepository([
-        fakeGrade(verdict: GradeVerdict.partial, score: 0.5),
-      ]);
       await _pumpSession(tester, db, grading);
-
       await tester.enterText(_key('open-input'), _answer);
       await tester.pump();
       await tester.tap(_key('open-check'));
       await tester.pumpAndSettle();
-      expect(find.text('Почти верно'), findsOneWidget);
+      return db;
+    }
 
-      await tester.ensureVisible(_key('rating-easy'));
-      await tester.tap(_key('rating-easy'));
-      await tester.pumpAndSettle();
-
+    Future<void> expectSelfLog(AppDatabase db, Rating rating) async {
       final log = (await db.select(db.reviewLogs).get()).singleWhere(
         (l) => l.questionId == _openQuestion,
       );
-      expect(log.gradeSource, 'override');
-      expect(log.rating, Rating.easy.code);
-      expect(log.llmScore, 0.5);
+      expect(log.gradeSource, 'self');
+      expect(log.rating, rating.code);
+      expect(log.llmScore, isNull);
+    }
+
+    testWidgets('модель не уверена (unsure) → «Не помню»', (tester) async {
+      final db = await toSelfAssess(
+        tester,
+        FakeGradingRepository([fakeGrade(verdict: GradeVerdict.unsure)]),
+      );
+      expect(_key('rating-next'), findsNothing);
+      await tester.ensureVisible(_key('rating-again'));
+      await tester.tap(_key('rating-again'));
+      await tester.pumpAndSettle();
+      await expectSelfLog(db, Rating.again);
       await tester.unmountApp();
-    },
-  );
+    });
+
+    testWidgets('ошибка сервера → «Помню»', (tester) async {
+      final db = await toSelfAssess(
+        tester,
+        FakeGradingRepository([const UnexpectedError('500')]),
+      );
+      expect(_key('rating-next'), findsNothing);
+      await tester.ensureVisible(_key('rating-good'));
+      await tester.tap(_key('rating-good'));
+      await tester.pumpAndSettle();
+      await expectSelfLog(db, Rating.good);
+      await tester.unmountApp();
+    });
+
+    testWidgets('«Не помню» без ответа → две кнопки, self', (tester) async {
+      final db = await _seed(tester);
+      await _pumpSession(tester, db, FakeGradingRepository([]));
+      await tester.ensureVisible(_key('open-skip'));
+      await tester.tap(_key('open-skip'));
+      await tester.pumpAndSettle();
+
+      expect(_key('rating-next'), findsNothing);
+      expect(_key('rating-hard'), findsNothing);
+      expect(_key('rating-easy'), findsNothing);
+      await tester.ensureVisible(_key('rating-again'));
+      await tester.tap(_key('rating-again'));
+      await tester.pumpAndSettle();
+      await expectSelfLog(db, Rating.again);
+      await tester.unmountApp();
+    });
+  });
 }

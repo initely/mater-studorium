@@ -158,21 +158,22 @@ void main() {
       await tester.tap(_key('flip-show'));
       await tester.pumpAndSettle();
       expect(find.text('Оборот'), findsOneWidget);
-      expect(find.text('Выберите оценку сами'), findsOneWidget);
+      expect(find.text('Как хорошо вы это помнили?'), findsOneWidget);
       expect(_key('verdict-banner'), findsNothing);
-      // «Дальше» без подсказки недоступна.
-      expect(
-        tester.widget<FilledButton>(_key('rating-next')).onPressed,
-        isNull,
-      );
-      await tester.tap(_key('rating-easy'));
+      // Самооценка: ровно две кнопки, «Дальше» нет.
+      expect(find.text('Не помню'), findsOneWidget);
+      expect(find.text('Помню'), findsOneWidget);
+      expect(_key('rating-next'), findsNothing);
+      expect(_key('rating-hard'), findsNothing);
+      expect(_key('rating-easy'), findsNothing);
+      await tester.tap(_key('rating-good'));
       await tester.pumpAndSettle();
 
       expect(repo.logs, hasLength(1));
       final flipLog = repo.logs.single;
       expect(flipLog.questionId, 'q1');
       expect(flipLog.questionType, QuestionType.flip);
-      expect(flipLog.rating, Rating.easy);
+      expect(flipLog.rating, Rating.good);
       expect(flipLog.gradeSource, GradeSource.self);
       expect(flipLog.durationMs, 4000);
       expect(repo.states['i1']!.lastQuestionId, 'q1');
@@ -182,7 +183,10 @@ void main() {
       await tester.tap(_key('mcq-option-a'));
       await tester.pumpAndSettle();
       expect(find.text('Верно'), findsWidgets);
-      expect(find.text('Предложенная оценка: Хорошо'), findsOneWidget);
+      // У автопроверки панели оценки нет: только вердикт и «Дальше».
+      expect(find.text('Как хорошо вы это помнили?'), findsNothing);
+      expect(_key('rating-again'), findsNothing);
+      expect(_key('rating-good'), findsNothing);
       await tester.tap(_key('rating-next'));
       await tester.pumpAndSettle();
 
@@ -225,89 +229,80 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(find.text('Предложенная оценка: Снова'), findsOneWidget);
+      expect(_key('rating-again'), findsNothing);
       await tester.tap(_key('rating-next'));
       await tester.pumpAndSettle();
       expect(repo.logs.single.rating, Rating.again);
       expect(repo.logs.single.gradeSource, GradeSource.auto);
     });
+  });
 
-    testWidgets('предложенная оценка выделена не только цветом', (
+  group('самооценка flip (grade_source = self)', () {
+    Future<_Repo> flipOnly(WidgetTester tester) async {
+      final repo = _Repo(contents: [_item('i1', _flip('q1'))]);
+      await _pump(tester, repo, _MutableClock());
+      await tester.tap(_key('flip-show'));
+      await tester.pumpAndSettle();
+      return repo;
+    }
+
+    testWidgets('«Не помню» пишет Again и self, сразу идёт дальше', (
       tester,
     ) async {
-      final repo = _Repo(contents: [_item('i1', _mcq('q1'))]);
-      await _pump(tester, repo, _MutableClock());
-      await tester.tap(_key('mcq-option-a'));
+      final repo = await flipOnly(tester);
+      await tester.tap(_key('rating-again'));
       await tester.pumpAndSettle();
 
-      // Предложена Good: галочка и подпись внутри кнопки.
+      expect(repo.logs.single.rating, Rating.again);
+      expect(repo.logs.single.gradeSource, GradeSource.self);
+      expect(_key('session-summary-title'), findsOneWidget);
+    });
+
+    testWidgets('«Помню» пишет Good и self', (tester) async {
+      final repo = await flipOnly(tester);
+      await tester.tap(_key('rating-good'));
+      await tester.pumpAndSettle();
+
+      expect(repo.logs.single.rating, Rating.good);
+      expect(repo.logs.single.gradeSource, GradeSource.self);
+    });
+
+    testWidgets('кнопок «Трудно» и «Легко» нет, override не создаётся', (
+      tester,
+    ) async {
+      final repo = await flipOnly(tester);
+      expect(_key('rating-hard'), findsNothing);
+      expect(_key('rating-easy'), findsNothing);
+      await tester.tap(_key('rating-good'));
+      await tester.pumpAndSettle();
       expect(
-        find.descendant(
-          of: _key('rating-good'),
-          matching: find.byIcon(Icons.check),
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(
-          of: _key('rating-good'),
-          matching: find.text('предложено'),
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(
-          of: _key('rating-hard'),
-          matching: find.text('предложено'),
-        ),
-        findsNothing,
+        repo.logs.where((l) => l.gradeSource == GradeSource.override),
+        isEmpty,
       );
     });
   });
 
-  group('переопределение оценки (grade_source)', () {
-    testWidgets('другая оценка, чем предложена, пишется как override', (
-      tester,
-    ) async {
-      final repo = _Repo(contents: [_item('i1', _mcq('q1'))]);
-      await _pump(tester, repo, _MutableClock());
-      await tester.tap(_key('mcq-option-a')); // верно, предложена Good
-      await tester.pumpAndSettle();
-      await tester.tap(_key('rating-hard'));
-      await tester.pumpAndSettle();
-
-      expect(repo.logs.single.rating, Rating.hard);
-      expect(repo.logs.single.gradeSource, GradeSource.override);
-    });
-
-    testWidgets('тап по самой предложенной оценке — auto, не override', (
-      tester,
-    ) async {
+  group('автооценка без панели', () {
+    testWidgets('верный ответ: Good и auto одним «Дальше»', (tester) async {
       final repo = _Repo(contents: [_item('i1', _mcq('q1'))]);
       await _pump(tester, repo, _MutableClock());
       await tester.tap(_key('mcq-option-a'));
       await tester.pumpAndSettle();
-      await tester.tap(_key('rating-good'));
+      await tester.tap(_key('rating-next'));
       await tester.pumpAndSettle();
 
       expect(repo.logs.single.rating, Rating.good);
       expect(repo.logs.single.gradeSource, GradeSource.auto);
     });
 
-    testWidgets(
-      'при неверном ответе можно поставить Хорошо вопреки подсказке',
-      (tester) async {
-        final repo = _Repo(contents: [_item('i1', _mcq('q1'))]);
-        await _pump(tester, repo, _MutableClock());
-        await tester.tap(_key('mcq-option-b'));
-        await tester.pumpAndSettle();
-        await tester.tap(_key('rating-good'));
-        await tester.pumpAndSettle();
-
-        expect(repo.logs.single.rating, Rating.good);
-        expect(repo.logs.single.gradeSource, GradeSource.override);
-      },
-    );
+    testWidgets('до «Дальше» ничего не записано', (tester) async {
+      final repo = _Repo(contents: [_item('i1', _mcq('q1'))]);
+      await _pump(tester, repo, _MutableClock());
+      await tester.tap(_key('mcq-option-a'));
+      await tester.pumpAndSettle();
+      expect(repo.logs, isEmpty);
+      expect(_key('rating-next'), findsOneWidget);
+    });
   });
 
   group('таймер', () {
@@ -636,7 +631,7 @@ void main() {
 
         expect(find.text('Вопрос 2 из 3'), findsOneWidget);
         expect(_key('verdict-banner'), findsOneWidget);
-        expect(find.text('Предложенная оценка: Снова'), findsOneWidget);
+        expect(_key('rating-next'), findsOneWidget);
         expect(repo.queueBuilds, 1);
         expect(repo.logs, hasLength(1));
 
@@ -652,7 +647,27 @@ void main() {
   });
 
   group('доступность панели оценки', () {
-    testWidgets('кнопки не меньше 48 dp и подписаны; предложенная названа', (
+    testWidgets('две кнопки самооценки: не меньше 48 dp и подписаны', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      final repo = _Repo(contents: [_item('i1', _flip('q1'))]);
+      await _pump(tester, repo, _MutableClock());
+      await tester.tap(_key('flip-show'));
+      await tester.pumpAndSettle();
+
+      await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+      await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+      for (final key in ['rating-again', 'rating-good']) {
+        expect(tester.getSize(_key(key)).height, greaterThanOrEqualTo(48));
+        expect(tester.getSize(_key(key)).width, greaterThanOrEqualTo(48));
+      }
+      expect(tester.getSemantics(_key('rating-again')).label, 'Не помню');
+      expect(tester.getSemantics(_key('rating-good')).label, 'Помню');
+      handle.dispose();
+    });
+
+    testWidgets('«Дальше» после автопроверки не меньше 48 dp и подписана', (
       tester,
     ) async {
       final handle = tester.ensureSemantics();
@@ -663,17 +678,10 @@ void main() {
 
       await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
       await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
-      for (final rating in Rating.values) {
-        expect(
-          tester.getSize(_key('rating-${rating.name}')).height,
-          greaterThanOrEqualTo(48),
-        );
-      }
       expect(
-        tester.getSemantics(_key('rating-good')).label,
-        'Хорошо, предложено',
+        tester.getSize(_key('rating-next')).height,
+        greaterThanOrEqualTo(48),
       );
-      expect(tester.getSemantics(_key('rating-hard')).label, 'Трудно');
       handle.dispose();
     });
   });
