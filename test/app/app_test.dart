@@ -124,7 +124,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('flip-show')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('rating-hard')));
+    await tester.tap(find.byKey(const Key('rating-good')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('session-summary-title')), findsOneWidget);
 

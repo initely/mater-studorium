@@ -89,7 +89,7 @@ void main() {
     expect(find.text('Вопрос 2 из 2'), findsOneWidget);
     await tester.tap(find.byKey(const Key('flip-show')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('rating-hard')));
+    await tester.tap(find.byKey(const Key('rating-good')));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('session-summary-title')), findsOneWidget);
@@ -110,7 +110,7 @@ void main() {
     );
     expect(
       logs.firstWhere((l) => l.questionId == 'infosec.http.hsts.q1').rating,
-      Rating.hard.code,
+      Rating.good.code,
     );
     final states = await db.select(db.userItemStates).get();
     expect(states.map((s) => s.itemId).toSet(), {

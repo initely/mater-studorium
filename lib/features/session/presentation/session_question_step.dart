@@ -21,10 +21,13 @@ import '../domain/grade_source.dart';
 import '../domain/session_item.dart';
 import 'rating_bar.dart';
 import 'session_controller.dart';
+import 'session_next_button.dart';
 import 'verdict_banner.dart';
 
 /// Один вопрос сессии: виджет формата из реестра, после ответа — вердикт и
-/// панель оценки, запись через `SessionController.submit` (ТЗ §8.2, п. 2–4).
+/// либо «Дальше» (оценка выведена автоматически), либо две кнопки самооценки
+/// (`flip`, `open` без оценки модели); запись через `SessionController.submit`
+/// (ТЗ §4.1, §8.2, п. 2–4).
 ///
 /// Знает только про `QuestionResult` и `AnswerOutcome`, не про форматы:
 /// новый формат добавляется в реестр, а этот файл не меняется. Экран
@@ -96,8 +99,6 @@ class _SessionQuestionStepState extends ConsumerState<SessionQuestionStep> {
       }
     });
   }
-
-  Future<void> _rate(Rating rating) => _record(rating);
 
   /// «Не согласен с оценкой ИИ» (ТЗ M11): пользователь выбрал свою оценку в
   /// шторке; запись как у обычной оценки, но с `grade_source = override` и
@@ -186,6 +187,7 @@ class _SessionQuestionStepState extends ConsumerState<SessionQuestionStep> {
     final question = widget.item.question;
     final module = ref.watch(questionRegistryProvider).moduleFor(question.type);
     final result = _result;
+    final suggestion = result == null ? null : suggestRating(result.outcome);
 
     if (module == null) {
       // Очередь берёт только поддерживаемые форматы, это запасной выход.
@@ -249,11 +251,12 @@ class _SessionQuestionStepState extends ConsumerState<SessionQuestionStep> {
                 const SizedBox(height: 16),
                 KeyedSubtree(
                   key: _panelKey,
-                  child: RatingBar(
-                    suggestion: suggestRating(result.outcome),
-                    enabled: !_saving,
-                    onRate: _rate,
-                  ),
+                  child: suggestion!.rating == null
+                      ? RatingBar(enabled: !_saving, onRate: _record)
+                      : SessionNextButton(
+                          enabled: !_saving,
+                          onNext: () => _record(suggestion.rating!),
+                        ),
                 ),
                 if (_saveFailed) ...[
                   const SizedBox(height: 12),

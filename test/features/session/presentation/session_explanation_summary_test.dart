@@ -189,10 +189,10 @@ void main() {
       expect(find.text('Коротко знание'), findsOneWidget);
 
       // Открытый разбор не мешает оценке.
-      await tester.ensureVisible(_key('rating-hard'));
-      await tester.tap(_key('rating-hard'));
+      await tester.ensureVisible(_key('rating-next'));
+      await tester.tap(_key('rating-next'));
       await tester.pumpAndSettle();
-      expect(repo.logs.single.rating, Rating.hard);
+      expect(repo.logs.single.rating, Rating.again);
       expect(find.text('Вопрос 2 из 2'), findsOneWidget);
       expect(find.text('Коротко знание'), findsNothing);
     });
@@ -282,7 +282,7 @@ void main() {
       clock.advance(const Duration(seconds: 30));
       await tester.tap(_key('flip-show'));
       await tester.pumpAndSettle();
-      await tester.tap(_key('rating-easy'));
+      await tester.tap(_key('rating-good'));
       await tester.pumpAndSettle();
 
       clock.advance(const Duration(seconds: 20));
@@ -332,17 +332,17 @@ void main() {
     ) async {
       final repo = FakeSessionRepository(
         contents: [_content('i1', _flip('q1')), _content('i9', _mcq('q9'))],
-        states: {'i9': fakeState('i9', _t0.add(const Duration(days: 4)))},
+        states: {'i9': fakeState('i9', _t0.add(const Duration(days: 2)))},
       );
       await _pump(tester, repo, _MutableClock());
       await tester.tap(_key('flip-show'));
       await tester.pumpAndSettle();
-      await tester.tap(_key('rating-easy'));
+      await tester.tap(_key('rating-good'));
       await tester.pumpAndSettle();
 
       expect(find.text('Скоро повторить'), findsOneWidget);
       expect(_key('session-summary-next'), findsOneWidget);
-      expect(find.text('Следующее повторение — через 4 дн.'), findsOneWidget);
+      expect(find.text('Следующее повторение — через 2 дн.'), findsOneWidget);
     });
 
     testWidgets('«Ещё 5 минут» начинает новую сессию с чистыми итогами', (
@@ -390,7 +390,7 @@ void main() {
       await _pump(tester, repo, _MutableClock());
       await tester.tap(_key('flip-show'));
       await tester.pumpAndSettle();
-      await tester.tap(_key('rating-easy'));
+      await tester.tap(_key('rating-good'));
       await tester.pumpAndSettle();
 
       await tester.tap(_key('session-more'));
