@@ -29,13 +29,15 @@
           "quote_supports_answer": "yes",
           "second_correct_option": "n/a",
           "unambiguous": "yes",
-          "issues": []
+          "issues": [
+            "Вторая часть prompt («почему для паролей входа выбирают хеширование») не отражена в reference_answer и rubric явно: нет вывода «поэтому хеширование — самый подходящий способ проверки паролей» из цитаты 1"
+          ]
         }
       ]
     },
     {
       "item_id": "infosec.pw.salt",
-      "verdict": "needs_fix",
+      "verdict": "ok",
       "unsupported_claims": [],
       "questions": [
         {
@@ -50,12 +52,9 @@
           "question_id": "infosec.pw.salt.q2",
           "type": "cloze",
           "quote_supports_answer": "yes",
-          "second_correct_option": "yes",
+          "second_correct_option": "no",
           "unambiguous": "yes",
-          "issues": [
-            "Пропуск {{1}}: в accepted только «уникальная»; очевидные синонимы («индивидуальная», «неповторяющаяся», «своя») будут засчитаны как ошибка",
-            "Пропуск {{2}}: синоним «любому» не принимается"
-          ]
+          "issues": []
         },
         {
           "question_id": "infosec.pw.salt.q3",
@@ -77,7 +76,7 @@
     },
     {
       "item_id": "infosec.pw.slow-hash",
-      "verdict": "ok",
+      "verdict": "needs_fix",
       "unsupported_claims": [],
       "questions": [
         {
@@ -91,22 +90,22 @@
         {
           "question_id": "infosec.pw.slow-hash.q2",
           "type": "flip",
-          "quote_supports_answer": "yes",
+          "quote_supports_answer": "partial",
           "second_correct_option": "n/a",
           "unambiguous": "yes",
           "issues": [
-            "back не связывает явно медленность с ростом стоимости перебора: ответ на «почему» остаётся выводом читателя"
+            "back по-прежнему не связывает медленность алгоритма с ростом стоимости перебора для атакующего: обе фразы верны по цитатам, но ответ на «почему» остаётся выводом читателя"
           ]
         },
         {
           "question_id": "infosec.pw.slow-hash.q3",
           "type": "open",
-          "quote_supports_answer": "yes",
+          "quote_supports_answer": "partial",
           "second_correct_option": "n/a",
           "unambiguous": "yes",
           "issues": [
-            "Пункты rubric p1 и p2 дублируют друг друга (оба про намеренно медленные алгоритмы), одна мысль засчитывается дважды",
-            "Вопрос спрашивает «почему», но ни reference_answer, ни rubric не содержат причины (дешёвый перебор на GPU и арендованных серверах из цитаты 2)"
+            "Пункты rubric p1 и p2 по-прежнему дублируют друг друга (оба про намеренно медленные алгоритмы): одна мысль засчитывается дважды",
+            "prompt спрашивает «почему», но ни reference_answer, ни rubric не содержат причины (дешёвый перебор на GPU и арендованных серверах из цитаты 2)"
           ]
         }
       ]
@@ -123,7 +122,7 @@
           "second_correct_option": "no",
           "unambiguous": "yes",
           "issues": [
-            "В prompt есть уточнение «для нового приложения», которого в цитатах нет (мелочь)"
+            "В prompt уточнение «для нового приложения», которого в цитатах нет (мелочь)"
           ]
         },
         {
@@ -146,10 +145,8 @@
     },
     {
       "item_id": "infosec.pw.pepper",
-      "verdict": "needs_fix",
-      "unsupported_claims": [
-        "Pepper — общий для хранимых паролей секрет"
-      ],
+      "verdict": "ok",
+      "unsupported_claims": [],
       "questions": [
         {
           "question_id": "infosec.pw.pepper.q1",
@@ -241,18 +238,16 @@
     },
     {
       "item_id": "infosec.auth.mfa",
-      "verdict": "needs_fix",
+      "verdict": "ok",
       "unsupported_claims": [],
       "questions": [
         {
           "question_id": "infosec.auth.mfa.q1",
           "type": "mcq",
-          "quote_supports_answer": "partial",
+          "quote_supports_answer": "yes",
           "second_correct_option": "no",
           "unambiguous": "yes",
-          "issues": [
-            "Опция a: цитата относит к «имею» OTP-токены, но не приложение-аутентификатор на телефоне; то, что это фактор владения, — вывод, которого в цитате нет"
-          ]
+          "issues": []
         },
         {
           "question_id": "infosec.auth.mfa.q2",
@@ -406,10 +401,8 @@
     },
     {
       "item_id": "infosec.crypto.digital-signature",
-      "verdict": "needs_fix",
-      "unsupported_claims": [
-        "проверить подпись может любой, кто знает открытый ключ"
-      ],
+      "verdict": "ok",
+      "unsupported_claims": [],
       "questions": [
         {
           "question_id": "infosec.crypto.digital-signature.q1",
@@ -496,7 +489,7 @@
           "second_correct_option": "n/a",
           "unambiguous": "yes",
           "issues": [
-            "rubric p2 (противопоставление «безопасности через неясность») не следует из prompt «Сформулируйте принцип» и отсутствует в reference_answer"
+            "rubric p2 (противопоставление «безопасности через неясность») по-прежнему не следует из prompt «Сформулируйте принцип Кирхгофа» и отсутствует в reference_answer"
           ]
         }
       ]
@@ -635,10 +628,8 @@
     },
     {
       "item_id": "infosec.crypto.hash-properties",
-      "verdict": "needs_fix",
-      "unsupported_claims": [
-        "От криптографического хеша требуют, в частности, стойкости к коллизиям (нельзя найти два разных сообщения с одним хешем) и лавинного эффекта"
-      ],
+      "verdict": "ok",
+      "unsupported_claims": [],
       "questions": [
         {
           "question_id": "infosec.crypto.hash-properties.q1",
@@ -669,7 +660,7 @@
   ],
   "summary": {
     "items_total": 20,
-    "items_ok": 15,
-    "items_needs_fix": 5
+    "items_ok": 19,
+    "items_needs_fix": 1
   }
 }
