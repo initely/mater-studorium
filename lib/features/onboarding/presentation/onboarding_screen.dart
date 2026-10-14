@@ -84,6 +84,20 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       _Step.deck => (l10n.onboardingDeckTitle, l10n.onboardingDeckBody),
     };
 
+    final header = [
+      Semantics(
+        header: true,
+        child: Text(
+          title,
+          key: const Key('onboarding-title'),
+          style: theme.textTheme.headlineSmall,
+        ),
+      ),
+      const SizedBox(height: 12),
+      Text(body, key: const Key('onboarding-body')),
+      const SizedBox(height: 16),
+    ];
+
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
@@ -112,28 +126,31 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   LinearProgressIndicator(value: (_step + 1) / steps.length),
-                  const SizedBox(height: 24),
-                  Semantics(
-                    header: true,
-                    child: Text(
-                      title,
-                      key: const Key('onboarding-title'),
-                      style: theme.textTheme.headlineSmall,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(body, key: const Key('onboarding-body')),
                   const SizedBox(height: 16),
+                  // Всё содержимое шага прокручивается вместе: на маленьком
+                  // экране, в альбомной ориентации и при шрифте 200% ничего не
+                  // обрезается, а кнопки ниже не двигаются.
                   Expanded(
                     child: switch (current) {
-                      _Step.deck => const _DeckChoice(),
-                      _Step.reminder => const SingleChildScrollView(
-                        child: ReminderTiles(),
+                      _Step.deck => _DeckChoice(header: header),
+                      _Step.reminder => SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [...header, const ReminderTiles()],
+                        ),
                       ),
-                      _ => const SizedBox.shrink(),
+                      _ => SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: header,
+                        ),
+                      ),
                     },
                   ),
                   const SizedBox(height: 8),
+                  // Кнопки закреплены внизу и на всех шагах стоят на одних
+                  // местах: основная выше, «Назад» под ней. На первом шаге
+                  // место «Назад» остаётся пустым, поэтому «Далее» не прыгает.
                   if (last)
                     FilledButton(
                       key: const Key('onboarding-finish'),
@@ -158,15 +175,21 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       onPressed: () => setState(() => _step++),
                       child: Text(l10n.onboardingNext),
                     ),
-                  if (_step > 0)
-                    TextButton(
-                      key: const Key('onboarding-back'),
-                      style: TextButton.styleFrom(
-                        minimumSize: const Size(48, 48),
-                      ),
-                      onPressed: () => setState(() => _step--),
-                      child: Text(l10n.onboardingBack),
-                    ),
+                  const SizedBox(height: 4),
+                  SizedBox(
+                    key: const Key('onboarding-back-slot'),
+                    height: 48,
+                    child: _step > 0
+                        ? TextButton(
+                            key: const Key('onboarding-back'),
+                            style: TextButton.styleFrom(
+                              minimumSize: const Size(48, 48),
+                            ),
+                            onPressed: () => setState(() => _step--),
+                            child: Text(l10n.onboardingBack),
+                          )
+                        : null,
+                  ),
                 ],
               ),
             ),
@@ -179,7 +202,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
 /// Каталог колод с кнопками «Скачать» (тот же [DeckTile], что в «Колодах»).
 class _DeckChoice extends ConsumerWidget {
-  const _DeckChoice();
+  const _DeckChoice({required this.header});
+
+  /// Заголовок и текст шага: прокручиваются вместе со списком колод.
+  final List<Widget> header;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -188,11 +214,11 @@ class _DeckChoice extends ConsumerWidget {
     final notifier = ref.read(catalogProvider.notifier);
     final entries = state.entries;
 
-    if (entries.isEmpty && state.loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
     return ListView(
       children: [
+        ...header,
+        if (entries.isEmpty && state.loading)
+          const Center(child: CircularProgressIndicator()),
         if (state.listError case final error?)
           Column(
             key: const Key('onboarding-list-error'),
@@ -210,7 +236,7 @@ class _DeckChoice extends ConsumerWidget {
               ),
             ],
           ),
-        if (entries.isEmpty && state.listError == null)
+        if (entries.isEmpty && !state.loading && state.listError == null)
           Text(l10n.decksEmpty, key: const Key('onboarding-empty')),
         for (final entry in entries)
           DeckTile(
